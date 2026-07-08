@@ -13,8 +13,9 @@ WORKDIR /app
 
 # ---- Build : install deps + compile shared/api + génère Prisma ----
 FROM base AS build
-# Manifestes d'abord (cache des couches)
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+# Manifestes d'abord (cache des couches). tsconfig.base.json est requis :
+# packages/shared/tsconfig.json en hérite (extends ../../tsconfig.base.json).
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile
