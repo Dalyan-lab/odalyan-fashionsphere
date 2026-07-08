@@ -1,3 +1,4 @@
+// Odalyan FashionSphere API — point d'entrée NestJS (déploiement Railway via Dockerfile).
 import 'reflect-metadata';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
