@@ -1,0 +1,344 @@
+// Odalyan FashionSphere AI™ — Schéma de base de données (MVP Phase 1)
+// Couvre : utilisateurs/auth, abonnements, boutiques (avec branding),
+// produits/variantes, panier, commandes, paiements.
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" pour le dev local ; "debian-openssl-3.0.x" pour l'image Docker (node:20-bookworm-slim)
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  SELLER
+  CUSTOMER
+  MARKETING_AGENCY
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PRO
+  BUSINESS
+  ENTERPRISE
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum ProductCategory {
+  HOMME
+  FEMME
+  ENFANT
+  LUXE
+  SPORT
+  ACCESSOIRES
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+  MOBILE_MONEY
+  FLUTTERWAVE
+  CINETPAY
+  PAYSTACK
+}
+
+enum GeneratedAssetType {
+  MANNEQUIN
+  STUDIO_PHOTO
+  AD_VISUAL
+  AD_COPY
+  AVATAR
+}
+
+enum GeneratedAssetStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String?
+  firstName    String
+  lastName     String
+  role         UserRole  @default(CUSTOMER)
+  avatarUrl    String?
+  // OAuth (préparé pour Phase ultérieure)
+  googleId     String?   @unique
+  facebookId   String?   @unique
+  appleId      String?   @unique
+  // Réinitialisation de mot de passe
+  resetTokenHash String?
+  resetTokenExpiry DateTime?
+
+  shop          Shop?
+  orders        Order[]
+  cart          Cart?
+  refreshTokens RefreshToken[]
+  generatedAssets GeneratedAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Shop {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  slogan      String?
+  description String?
+
+  // Branding / Boutique Premium personnalisable
+  logoUrl        String?
+  bannerUrl      String?
+  primaryColor   String?
+  secondaryColor String?
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String @unique
+
+  subscription Subscription?
+  products     Product[]
+  orders       Order[]
+  generatedAssets GeneratedAsset[]
+  socialConnections SocialConnection[]
+  scheduledPosts    ScheduledPost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model Subscription {
+  id        String           @id @default(cuid())
+  plan      SubscriptionPlan @default(STARTER)
+  active    Boolean          @default(true)
+  startedAt DateTime         @default(now())
+  expiresAt DateTime?
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String @unique
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  category    ProductCategory
+  price       Decimal         @db.Decimal(10, 2)
+  currency    String          @default("EUR")
+  status      ProductStatus   @default(DRAFT)
+  images      String[]        @default([])
+  videos      String[]        @default([])
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  variants   ProductVariant[]
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+  generatedAssets GeneratedAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([category])
+  @@index([status])
+}
+
+model ProductVariant {
+  id            String   @id @default(cuid())
+  size          String
+  color         String
+  sku           String?
+  stock         Int      @default(0)
+  priceOverride Decimal? @db.Decimal(10, 2)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, size, color])
+  @@index([productId])
+}
+
+model Cart {
+  id     String     @id @default(cuid())
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String     @unique
+  items  CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  id       String @id @default(cuid())
+  quantity Int    @default(1)
+
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId String
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantId String?
+
+  @@unique([cartId, productId, variantId])
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  currency    String      @default("EUR")
+
+  customer   User   @relation(fields: [customerId], references: [id])
+  customerId String
+
+  shop   Shop   @relation(fields: [shopId], references: [id])
+  shopId String
+
+  items   OrderItem[]
+  payment Payment?
+
+  shippingAddress Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([shopId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  variantId String?
+
+  // Instantané du produit au moment de la commande
+  productName String
+}
+
+model Payment {
+  id            String          @id @default(cuid())
+  provider      PaymentProvider @default(STRIPE)
+  providerRef   String? // ex: Stripe PaymentIntent id
+  amount        Decimal         @db.Decimal(10, 2)
+  currency      String          @default("EUR")
+  paid          Boolean         @default(false)
+  rawPayload    Json?
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GeneratedAsset {
+  id       String               @id @default(cuid())
+  type     GeneratedAssetType
+  status   GeneratedAssetStatus @default(READY)
+  provider String // "openai" | "anthropic" | "mock"
+  prompt   String?
+  url      String? // image générée (URL ou data URI)
+  meta     Json? // texte publicitaire, options, etc.
+
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId String
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
+  @@index([type])
+}
+
+model SocialConnection {
+  id          String    @id @default(cuid())
+  network     String // Facebook, Instagram, TikTok, YouTube, Pinterest, X
+  connected   Boolean   @default(false)
+  accountName String?
+  accessToken String? // jeton OAuth (placeholder en mode simulé)
+  connectedAt DateTime?
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  @@unique([shopId, network])
+}
+
+model ScheduledPost {
+  id          String    @id @default(cuid())
+  caption     String
+  imageUrl    String?
+  networks    String[]  @default([])
+  scheduledAt DateTime
+  status      String    @default("SCHEDULED") // SCHEDULED | PUBLISHED | FAILED | CANCELLED
+  publishedAt DateTime?
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
+  @@index([status])
+}

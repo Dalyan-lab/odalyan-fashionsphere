@@ -1,0 +1,160 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ProductCategory } from '@odalyan/shared';
+import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
+import type { Product } from '@/lib/types';
+import { Topbar } from '@/components/dashboard/topbar';
+import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
+
+export default function ProductsPage() {
+  const t = useT();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [noShop, setNoShop] = useState(false);
+
+  const load = async () => {
+    try {
+      setProducts(await apiFetch<Product[]>('/products/mine'));
+      setNoShop(false);
+    } catch {
+      setNoShop(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <>
+      <Topbar />
+      <div className="p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-bold">{t('prod.title')}</h1>
+            <p className="text-muted">{t('prod.subtitle')}</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="text-muted">{t('common.loading')}</p>
+        ) : noShop ? (
+          <div className="card p-10 text-center text-muted">
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">
+              {t('dh.createShop')}
+            </Link>
+          </div>
+        ) : (
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <h2 className="mb-3 text-lg font-bold">{t('prod.myProducts')} ({products.length})</h2>
+              <div className="space-y-3">
+                {products.length === 0 && <p className="text-muted">{t('dh.noProducts')}</p>}
+                {products.map((p) => (
+                  <ProductRow key={p.id} product={p} onChanged={load} />
+                ))}
+              </div>
+            </div>
+            <div>
+              <h2 className="mb-3 text-lg font-bold">{t('prod.addProduct')}</h2>
+              <ProductForm onAdded={load} />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ProductRow({ product, onChanged }: { product: Product; onChanged: () => void }) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const del = async () => {
+    if (!confirm(t('prod.confirmDelete'))) return;
+    setBusy(true);
+    await apiFetch(`/products/${product.id}`, { method: 'DELETE' }).catch(() => undefined);
+    onChanged();
+  };
+  return (
+    <div className="card flex items-center justify-between p-4">
+      <div className="flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={product.images[0] ?? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=200'}
+          alt=""
+          className="h-14 w-14 rounded-lg object-cover"
+        />
+        <div>
+          <p className="font-medium">{product.name}</p>
+          <p className="text-xs text-faint">
+            {product.category} · {Number(product.price).toFixed(2)} {product.currency} · {product.status}
+          </p>
+        </div>
+      </div>
+      <button onClick={del} disabled={busy} className="text-sm text-red-400 hover:text-red-300">
+        {t('common.delete')}
+      </button>
+    </div>
+  );
+}
+
+function ProductForm({ onAdded }: { onAdded: () => void }) {
+  const t = useT();
+  const [form, setForm] = useState({ name: '', price: '', category: ProductCategory.FEMME as ProductCategory, image: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: form.name,
+          price: Number(form.price),
+          category: form.category,
+          status: 'ACTIVE',
+          images: form.image ? [form.image] : [],
+        }),
+      });
+      setForm({ name: '', price: '', category: ProductCategory.FEMME, image: '' });
+      onAdded();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="card space-y-3 p-5">
+      {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
+      <div>
+        <label className="label">{t('prod.name')}</label>
+        <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+      </div>
+      <div>
+        <label className="label">{t('dh.price')}</label>
+        <input className="input" type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+      </div>
+      <div>
+        <label className="label">{t('prod.category')}</label>
+        <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })}>
+          {Object.values(ProductCategory).map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </div>
+      <ImageUploadInput label={t('prod.image')} value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
+      <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : t('common.add')}</button>
+    </form>
+  );
+}

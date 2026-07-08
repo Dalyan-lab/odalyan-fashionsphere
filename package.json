@@ -1,0 +1,26 @@
+{
+  "name": "odalyan-fashionsphere",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Odalyan FashionSphere AI™ — SaaS Fashion Commerce IA, Avatar, 3D & Publicité automatisée",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:generate": "pnpm --filter @odalyan/api db:generate",
+    "db:migrate": "pnpm --filter @odalyan/api db:migrate",
+    "db:seed": "pnpm --filter @odalyan/api db:seed",
+    "db:studio": "pnpm --filter @odalyan/api db:studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}
