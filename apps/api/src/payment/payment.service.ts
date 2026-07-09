@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 import { PaymentProvider } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import {
   PaystackProvider,
   PaystackUnreachableError,
@@ -16,6 +17,7 @@ export class PaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackProvider,
+    private readonly mail: MailService,
   ) {
     const key = process.env.STRIPE_SECRET_KEY;
     this.stripe = key ? new Stripe(key) : null;
@@ -125,7 +127,47 @@ export class PaymentService {
       },
     });
     await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
+    void this.notifyOrderPaid(orderId);
     return payment;
+  }
+
+  /**
+   * Emails transactionnels après paiement réussi : confirmation au client +
+   * notification au vendeur. Ne bloque jamais le flux de paiement (erreurs logguées).
+   */
+  private async notifyOrderPaid(orderId: string): Promise<void> {
+    if (!this.mail.enabled) return;
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          customer: { select: { email: true, firstName: true, lastName: true } },
+          shop: { include: { owner: { select: { email: true } } } },
+          items: { select: { productName: true, quantity: true } },
+        },
+      });
+      if (!order) return;
+
+      const items = order.items.map((i) => ({ name: i.productName, quantity: i.quantity }));
+      const total = `${Number(order.totalAmount).toFixed(2)} ${order.currency}`;
+      const customerName = `${order.customer.firstName} ${order.customer.lastName}`;
+
+      await Promise.allSettled([
+        this.mail.sendOrderConfirmation(order.customer.email, {
+          orderNumber: order.orderNumber,
+          total,
+          items,
+        }),
+        this.mail.sendNewOrderNotification(order.shop.owner.email, {
+          orderNumber: order.orderNumber,
+          total,
+          customerName,
+          items,
+        }),
+      ]);
+    } catch (err) {
+      this.logger.error(`Emails de commande non envoyés (${orderId}) : ${String(err)}`);
+    }
   }
 
   /** Traite un webhook Stripe (signature vérifiée). */
@@ -144,6 +186,7 @@ export class PaymentService {
           data: { paid: true, rawPayload: intent as unknown as Prisma.InputJsonValue },
         });
         await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
+        void this.notifyOrderPaid(orderId);
       }
     }
 
@@ -156,11 +199,14 @@ export class PaymentService {
     const v = await this.paystack.verify(reference);
     const payment = await this.prisma.payment.findFirst({ where: { providerRef: reference } });
     if (payment && v.successful) {
+      // Idempotence : n'envoie les emails qu'à la première confirmation
+      const firstConfirmation = !payment.paid;
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { paid: true, rawPayload: { reference, verified: true } as Prisma.InputJsonValue },
       });
       await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
+      if (firstConfirmation) void this.notifyOrderPaid(payment.orderId);
       return { status: 'PAID', orderId: payment.orderId };
     }
     return { status: 'FAILED' };

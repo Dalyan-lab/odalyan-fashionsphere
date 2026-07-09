@@ -66,4 +66,15 @@ export class AuthController {
   becomeSeller(@CurrentUser('id') userId: string) {
     return this.authService.becomeSeller(userId);
   }
+
+  /** Changement de mot de passe depuis la page Paramètres. */
+  @Post('change-password')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser('id') userId: string,
+    @Body() body: { currentPassword?: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(userId, body.currentPassword ?? '', body.newPassword);
+  }
 }

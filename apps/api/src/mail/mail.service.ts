@@ -30,6 +30,68 @@ export class MailService {
     return process.env.SMTP_FROM ?? 'Odalyan FashionSphere <no-reply@odalyan.ai>';
   }
 
+  /** Enveloppe HTML commune aux emails de la plateforme. */
+  private wrap(title: string, body: string): string {
+    return `
+      <div style="font-family:system-ui,sans-serif;max-width:520px;margin:auto;padding:24px;color:#1a1226">
+        <h2 style="margin:0 0 8px">${title}</h2>
+        ${body}
+        <p style="color:#888;font-size:12px;margin-top:28px">Odalyan FashionSphere AI™ — la mode du futur commence ici.</p>
+      </div>`;
+  }
+
+  private async send(to: string, subject: string, html: string): Promise<boolean> {
+    if (!this.transporter) return false;
+    try {
+      await this.transporter.sendMail({ from: this.from, to, subject, html });
+      return true;
+    } catch (err) {
+      this.logger.error(`Échec d'envoi d'email: ${String(err)}`);
+      return false;
+    }
+  }
+
+  /** Confirmation de commande envoyée au client après paiement réussi. */
+  async sendOrderConfirmation(
+    to: string,
+    order: { orderNumber: string; total: string; items: { name: string; quantity: number }[] },
+  ): Promise<boolean> {
+    const rows = order.items
+      .map((i) => `<li style="margin:4px 0">${i.quantity} × ${i.name}</li>`)
+      .join('');
+    const html = this.wrap(
+      'Merci pour votre commande ! ✅',
+      `<p style="color:#555">Votre paiement a bien été reçu. Récapitulatif de la commande <strong>${order.orderNumber}</strong> :</p>
+       <ul style="color:#333;padding-left:20px">${rows}</ul>
+       <p style="font-size:18px;font-weight:700;margin:16px 0">Total : ${order.total}</p>
+       <p style="color:#555">Le vendeur prépare votre commande. Vous serez informé de son expédition.</p>`,
+    );
+    return this.send(to, `Commande ${order.orderNumber} confirmée — Odalyan`, html);
+  }
+
+  /** Notification envoyée au vendeur quand une commande est payée. */
+  async sendNewOrderNotification(
+    to: string,
+    order: {
+      orderNumber: string;
+      total: string;
+      customerName: string;
+      items: { name: string; quantity: number }[];
+    },
+  ): Promise<boolean> {
+    const rows = order.items
+      .map((i) => `<li style="margin:4px 0">${i.quantity} × ${i.name}</li>`)
+      .join('');
+    const html = this.wrap(
+      'Nouvelle commande payée ! 🎉',
+      `<p style="color:#555"><strong>${order.customerName}</strong> vient de payer la commande <strong>${order.orderNumber}</strong> :</p>
+       <ul style="color:#333;padding-left:20px">${rows}</ul>
+       <p style="font-size:18px;font-weight:700;margin:16px 0">Total : ${order.total}</p>
+       <p style="color:#555">Rendez-vous dans votre tableau de bord (Commandes) pour la préparer et l'expédier.</p>`,
+    );
+    return this.send(to, `Nouvelle commande ${order.orderNumber} — Odalyan`, html);
+  }
+
   async sendPasswordReset(to: string, resetUrl: string): Promise<boolean> {
     if (!this.transporter) return false;
     const html = `

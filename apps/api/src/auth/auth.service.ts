@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -127,6 +128,31 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     return { message: 'Mot de passe réinitialisé. Vous pouvez vous connecter.' };
+  }
+
+  /**
+   * Change le mot de passe de l'utilisateur connecté (page Paramètres).
+   * Comptes OAuth (sans mot de passe) : définit directement le nouveau.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Le nouveau mot de passe doit contenir au moins 8 caractères.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable');
+
+    if (user.passwordHash) {
+      const valid = await bcrypt.compare(currentPassword ?? '', user.passwordHash);
+      if (!valid) throw new UnauthorizedException('Mot de passe actuel incorrect.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    return { message: 'Mot de passe mis à jour.' };
   }
 
   /** Passe un compte Client en Vendeur (pour ouvrir une boutique). */
