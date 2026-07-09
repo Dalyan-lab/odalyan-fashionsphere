@@ -38,6 +38,7 @@ export function Sidebar({ shopName }: { shopName?: string }) {
   const router = useRouter();
   const { open, close } = useSidebar();
   const clearAuth = useAuth((s) => s.clear);
+  const user = useAuth((s) => s.user);
   const t = useT();
 
   const logout = () => {
@@ -71,6 +72,20 @@ export function Sidebar({ shopName }: { shopName?: string }) {
         </Link>
 
         <nav className="flex-1 space-y-1 overflow-y-auto scrollbar-thin">
+          {user?.role === 'ADMIN' && (
+            <Link
+              href="/admin"
+              onClick={close}
+              className={`group mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                pathname === '/admin'
+                  ? 'bg-brand-violet-magenta text-white shadow-lg'
+                  : 'border border-brand-violet/40 text-brand-violet hover:bg-surface-hover'
+              }`}
+            >
+              <span aria-hidden>🛡️</span>
+              <span className="flex-1">Administration</span>
+            </Link>
+          )}
           {NAV.map((item) => {
             const active = pathname === item.href;
             return (
