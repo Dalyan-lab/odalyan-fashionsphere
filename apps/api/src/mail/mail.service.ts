@@ -8,13 +8,19 @@ export class MailService {
 
   constructor() {
     if (process.env.SMTP_HOST) {
+      const port = Number(process.env.SMTP_PORT ?? 587);
       this.transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT ?? 587),
-        secure: process.env.SMTP_SECURE === 'true',
+        port,
+        // Port 465 = TLS implicite ; 587/25 = STARTTLS (secure:false)
+        secure: process.env.SMTP_SECURE === 'true' || port === 465,
         auth: process.env.SMTP_USER
           ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
           : undefined,
+        // Échoue vite au lieu de geler les requêtes si le serveur SMTP est injoignable
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
       });
     } else {
       this.transporter = null;
