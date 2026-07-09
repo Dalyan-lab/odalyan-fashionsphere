@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ProductCategory, type AuthUser } from '@odalyan/shared';
+import { type AuthUser } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
-import { useT } from '@/lib/i18n';
+import { convertAndFormat, useLocale, useT } from '@/lib/i18n';
 import type { Product, Shop } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { AiStudioModal, type StudioMode } from '@/components/dashboard/ai-studio-modal';
-import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
+import { ProductForm } from '@/components/dashboard/product-form';
+
+interface HomeStats {
+  customersCount: number;
+  conversionRate: number;
+}
 
 /* Images de démonstration (rendu visuel des modules IA à venir) */
 const IMG = {
@@ -26,7 +31,9 @@ const IMG = {
 export default function DashboardPage() {
   const { user } = useAuth();
   const t = useT();
+  const currency = useLocale((s) => s.currency);
   const [shop, setShop] = useState<Shop | null>(null);
+  const [stats, setStats] = useState<HomeStats | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [studio, setStudio] = useState<StudioMode | null>(null);
@@ -35,7 +42,10 @@ export default function DashboardPage() {
     try {
       const s = await apiFetch<Shop | null>('/shops/me');
       setShop(s ?? null);
-      if (s) setProducts(await apiFetch<Product[]>('/products/mine'));
+      if (s) {
+        setProducts(await apiFetch<Product[]>('/products/mine'));
+        apiFetch<HomeStats>('/shops/me/stats').then(setStats).catch(() => undefined);
+      }
     } catch {
       setShop(null);
     } finally {
@@ -107,10 +117,10 @@ export default function DashboardPage() {
 
           {/* STATS */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon="stats" label={t('dh.totalSales')} value={`${revenue.toLocaleString('fr-FR')} €`} trend="+8.5%" />
-            <StatCard icon="orders" label={t('dh.orders')} value={String(shop._count?.orders ?? 0)} trend="+14.2%" />
-            <StatCard icon="clients" label={t('dh.visitors')} value="12 640" trend="+21.7%" demo />
-            <StatCard icon="marketing" label={t('dh.conversion')} value="2.45%" trend="+6.2%" demo />
+            <StatCard icon="stats" label={t('dh.totalSales')} value={convertAndFormat(revenue, 'EUR', currency)} />
+            <StatCard icon="orders" label={t('dh.orders')} value={String(shop._count?.orders ?? 0)} />
+            <StatCard icon="clients" label={t('dash.nav.clients')} value={String(stats?.customersCount ?? 0)} />
+            <StatCard icon="marketing" label={t('dh.conversion')} value={`${(stats?.conversionRate ?? 0).toFixed(1)}%`} />
           </section>
 
           {/* OUTILS IA */}
@@ -254,33 +264,14 @@ const SOCIALS = [
   { name: 'X', short: 'X', color: '#111' },
 ];
 
-function StatCard({
-  icon,
-  label,
-  value,
-  trend,
-  demo,
-}: {
-  icon: keyof typeof Icon;
-  label: string;
-  value: string;
-  trend: string;
-  demo?: boolean;
-}) {
-  const t = useT();
+function StatCard({ icon, label, value }: { icon: keyof typeof Icon; label: string; value: string }) {
   return (
     <div className="card p-4">
-      <div className="flex items-center justify-between">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-brand-violet">
-          {Icon[icon]({ width: 18, height: 18 })}
-        </span>
-        <span className="text-xs font-semibold text-emerald-500">▲ {trend}</span>
-      </div>
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-brand-violet">
+        {Icon[icon]({ width: 18, height: 18 })}
+      </span>
       <p className="mt-3 font-display text-2xl font-bold">{value}</p>
-      <p className="text-xs text-muted">
-        {label}
-        {demo && <span className="ml-1 text-faint">({t('common.demo')})</span>}
-      </p>
+      <p className="text-xs text-muted">{label}</p>
     </div>
   );
 }
@@ -375,54 +366,8 @@ function AddProductInline({ onAdded }: { onAdded: () => void }) {
     );
   return (
     <div className="mt-4">
-      <ProductForm onAdded={onAdded} />
+      <ProductForm onAdded={onAdded} className="mx-auto max-w-sm" />
     </div>
-  );
-}
-
-function ProductForm({ onAdded }: { onAdded: () => void }) {
-  const t = useT();
-  const [form, setForm] = useState({ name: '', price: '', category: ProductCategory.FEMME as ProductCategory, image: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await apiFetch('/products', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: form.name,
-          price: Number(form.price),
-          category: form.category,
-          status: 'ACTIVE',
-          images: form.image ? [form.image] : [],
-        }),
-      });
-      setForm({ name: '', price: '', category: ProductCategory.FEMME, image: '' });
-      onAdded();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.error'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="mx-auto max-w-sm space-y-3 text-left">
-      {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
-      <input className="input" placeholder={t('dh.productName')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-      <input className="input" type="number" step="0.01" placeholder={t('dh.price')} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
-      <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })}>
-        {Object.values(ProductCategory).map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
-      <ImageUploadInput label={t('dh.imageOptional')} value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
-      <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : t('common.add')}</button>
-    </form>
   );
 }
 

@@ -24,10 +24,10 @@ export default function CartPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'pay' | 'done'>('idle');
   const [error, setError] = useState('');
   const [clientSecret, setClientSecret] = useState('');
-  const [provider, setProvider] = useState<'paystack' | 'cinetpay' | 'flutterwave' | 'stripe' | 'mock'>('mock');
+  const [provider, setProvider] = useState<'paystack' | 'stripe' | 'mock'>('mock');
 
   useEffect(() => {
-    apiFetch<{ provider: 'paystack' | 'cinetpay' | 'flutterwave' | 'stripe' | 'mock' }>('/payments/config', { auth: false })
+    apiFetch<{ provider: 'paystack' | 'stripe' | 'mock' }>('/payments/config', { auth: false })
       .then((c) => setProvider(c.provider))
       .catch(() => undefined);
   }, []);
@@ -36,13 +36,9 @@ export default function CartPage() {
   const payNote =
     provider === 'paystack'
       ? 'Paiement sécurisé : carte & Mobile Money (Wave, Orange, MTN, Moov) via Paystack.'
-      : provider === 'cinetpay'
-        ? 'Paiement sécurisé : carte & Mobile Money (Wave, Orange, MTN, Moov) via CinetPay.'
-        : provider === 'flutterwave'
-          ? 'Paiement sécurisé : carte & Mobile Money via Flutterwave.'
-          : provider === 'stripe' && stripeConfigured
-            ? 'Paiement sécurisé par carte (Stripe).'
-            : 'Aucun fournisseur configuré — paiement simulé.';
+      : provider === 'stripe' && stripeConfigured
+        ? 'Paiement sécurisé par carte (Stripe).'
+        : 'Aucun fournisseur configuré — paiement simulé.';
 
   const checkout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +59,7 @@ export default function CartPage() {
       const link = res.payment?.rawPayload?.link;
       const secret = res.payment?.rawPayload?.clientSecret;
       if (link) {
-        // Paystack/CinetPay/Flutterwave : redirection vers la page de paiement hébergée (carte + Mobile Money)
+        // Paystack : redirection vers la page de paiement hébergée (carte + Mobile Money)
         window.location.href = link;
         return;
       }

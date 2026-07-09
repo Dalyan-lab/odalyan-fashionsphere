@@ -55,7 +55,7 @@ export class PaystackProvider {
 
   /** Convertit l'EUR vers la devise locale (défaut XOF, 1 EUR ≈ 655,957 XOF). */
   private convert(amountEur: number): number {
-    const rate = Number(process.env.PAYSTACK_EUR_RATE ?? process.env.FLW_EUR_RATE ?? 655.957);
+    const rate = Number(process.env.PAYSTACK_EUR_RATE ?? 655.957);
     return Math.max(1, Math.round(amountEur * rate));
   }
 

@@ -13,33 +13,17 @@ function CallbackInner() {
 
   useEffect(() => {
     const status = params.get('status');
-    const provider = params.get('provider');
+    // Paystack renvoie la référence dans `reference` (ou `trxref`).
+    const reference = params.get('reference') ?? params.get('trxref');
 
-    // Chaque fournisseur renvoie sa référence différemment :
-    // Paystack → reference/trxref ; CinetPay → notre txid ; Flutterwave → transaction_id.
-    let endpoint = '/payments/flutterwave/verify';
-    let payload: Record<string, string> | null = null;
-    if (provider === 'paystack') {
-      const reference = params.get('reference') ?? params.get('trxref');
-      endpoint = '/payments/paystack/verify';
-      payload = reference ? { reference } : null;
-    } else if (provider === 'cinetpay') {
-      const txid = params.get('txid');
-      endpoint = '/payments/cinetpay/verify';
-      payload = txid ? { transactionId: txid } : null;
-    } else {
-      const transactionId = params.get('transaction_id');
-      payload = transactionId ? { transactionId } : null;
-    }
-
-    if (status === 'cancelled' || !payload) {
+    if (status === 'cancelled' || !reference) {
       setState('failed');
       return;
     }
-    apiFetch<{ status: string }>(endpoint, {
+    apiFetch<{ status: string }>('/payments/paystack/verify', {
       method: 'POST',
       auth: false,
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ reference }),
     })
       .then((res) => {
         if (res.status === 'PAID') {

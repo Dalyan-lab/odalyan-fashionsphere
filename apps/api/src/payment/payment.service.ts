@@ -3,11 +3,6 @@ import { Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 import { PaymentProvider } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { FlutterwaveProvider } from './providers/flutterwave.provider';
-import {
-  CinetpayProvider,
-  CinetpayUnreachableError,
-} from './providers/cinetpay.provider';
 import {
   PaystackProvider,
   PaystackUnreachableError,
@@ -20,18 +15,11 @@ export class PaymentService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly flutterwave: FlutterwaveProvider,
-    private readonly cinetpay: CinetpayProvider,
     private readonly paystack: PaystackProvider,
   ) {
     const key = process.env.STRIPE_SECRET_KEY;
     this.stripe = key ? new Stripe(key) : null;
-    if (
-      !this.stripe &&
-      !this.paystack.enabled &&
-      !this.flutterwave.enabled &&
-      !this.cinetpay.enabled
-    ) {
+    if (!this.stripe && !this.paystack.enabled) {
       this.logger.warn('Aucun fournisseur de paiement configuré — mode simulé (mock) activé.');
     }
   }
@@ -39,21 +27,13 @@ export class PaymentService {
   /** Quel fournisseur est actif (pour le frontend). */
   config() {
     return {
-      provider: this.paystack.enabled
-        ? 'paystack'
-        : this.cinetpay.enabled
-          ? 'cinetpay'
-          : this.flutterwave.enabled
-            ? 'flutterwave'
-            : this.stripe
-              ? 'stripe'
-              : 'mock',
+      provider: this.paystack.enabled ? 'paystack' : this.stripe ? 'stripe' : 'mock',
     };
   }
 
   /**
    * Crée l'enregistrement de paiement.
-   * Priorité : CinetPay > Flutterwave > Stripe > simulé.
+   * Priorité : Paystack > Stripe > simulé.
    */
   async createPaymentForOrder(orderId: string, amount: Prisma.Decimal, currency: string) {
     // ----- Paystack (carte + Mobile Money Wave/Orange/MTN/Moov, XOF) -----
@@ -89,6 +69,8 @@ export class PaymentService {
           },
         });
       } catch (err) {
+        // En dev, si Paystack est injoignable (réseau filtré), on bascule en mode
+        // simulé pour permettre de tester le flux complet. En prod, on remonte l'erreur.
         const unreachable = err instanceof PaystackUnreachableError;
         if (unreachable && process.env.NODE_ENV !== 'production') {
           this.logger.warn(
@@ -103,90 +85,6 @@ export class PaymentService {
             : 'Le paiement a été refusé par Paystack. Vérifiez les informations de la commande.',
         );
       }
-    }
-
-    // ----- CinetPay (Wave/Orange/MTN/Moov + carte, Afrique de l'Ouest) -----
-    if (this.cinetpay.enabled) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: { customer: true },
-      });
-      const addr = (order!.shippingAddress ?? {}) as Record<string, unknown>;
-      try {
-        const cp = await this.cinetpay.createLink({
-          orderId,
-          orderNumber: order!.orderNumber,
-          amountEur: Number(amount),
-          email: order!.customer.email,
-          name: `${order!.customer.firstName} ${order!.customer.lastName}`,
-          phone: typeof addr.phone === 'string' ? addr.phone : undefined,
-          city: typeof addr.city === 'string' ? addr.city : undefined,
-          address: typeof addr.line1 === 'string' ? addr.line1 : undefined,
-        });
-        return await this.prisma.payment.create({
-          data: {
-            orderId,
-            provider: PaymentProvider.CINETPAY,
-            providerRef: cp.txRef,
-            amount,
-            currency,
-            paid: false,
-            rawPayload: {
-              link: cp.link,
-              txRef: cp.txRef,
-              chargedAmount: cp.amount,
-              chargedCurrency: cp.currency,
-            } as Prisma.InputJsonValue,
-          },
-        });
-      } catch (err) {
-        // En dev, si CinetPay est injoignable (réseau filtré), on bascule en mode
-        // simulé pour permettre de tester le flux complet. En prod, on remonte l'erreur.
-        const unreachable = err instanceof CinetpayUnreachableError;
-        if (unreachable && process.env.NODE_ENV !== 'production') {
-          this.logger.warn(
-            'CinetPay injoignable en dev — repli sur paiement simulé pour cette commande.',
-          );
-          return this.createMockPayment(orderId, amount, currency);
-        }
-        this.logger.error(`Échec du paiement CinetPay : ${(err as Error).message}`);
-        throw new ServiceUnavailableException(
-          unreachable
-            ? 'Service de paiement momentanément injoignable. Réessayez dans un instant.'
-            : 'Le paiement a été refusé par CinetPay. Vérifiez les informations de la commande.',
-        );
-      }
-    }
-
-    // ----- Flutterwave (carte + Mobile Money Afrique) -----
-    if (this.flutterwave.enabled) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: { customer: true },
-      });
-      const fw = await this.flutterwave.createLink({
-        orderId,
-        orderNumber: order!.orderNumber,
-        amountEur: Number(amount),
-        email: order!.customer.email,
-        name: `${order!.customer.firstName} ${order!.customer.lastName}`,
-      });
-      return this.prisma.payment.create({
-        data: {
-          orderId,
-          provider: PaymentProvider.FLUTTERWAVE,
-          providerRef: fw.txRef,
-          amount,
-          currency,
-          paid: false,
-          rawPayload: {
-            link: fw.link,
-            txRef: fw.txRef,
-            chargedAmount: fw.amount,
-            chargedCurrency: fw.currency,
-          } as Prisma.InputJsonValue,
-        },
-      });
     }
 
     if (this.stripe) {
@@ -252,25 +150,6 @@ export class PaymentService {
     return { received: true };
   }
 
-  /** Vérifie une transaction Flutterwave et marque la commande payée si réussie. */
-  async verifyFlutterwave(transactionId: string) {
-    if (!this.flutterwave.enabled) return { status: 'MOCK' };
-    const v = await this.flutterwave.verify(transactionId);
-    const payment = v.txRef
-      ? await this.prisma.payment.findFirst({ where: { providerRef: v.txRef } })
-      : null;
-
-    if (payment && v.successful) {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { paid: true, rawPayload: { transactionId, verified: true } as Prisma.InputJsonValue },
-      });
-      await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
-      return { status: 'PAID', orderId: payment.orderId };
-    }
-    return { status: 'FAILED' };
-  }
-
   /** Vérifie une transaction Paystack (reference = notre txRef) et marque payé si success. */
   async verifyPaystack(reference: string) {
     if (!this.paystack.enabled) return { status: 'MOCK' };
@@ -280,22 +159,6 @@ export class PaymentService {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { paid: true, rawPayload: { reference, verified: true } as Prisma.InputJsonValue },
-      });
-      await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
-      return { status: 'PAID', orderId: payment.orderId };
-    }
-    return { status: 'FAILED' };
-  }
-
-  /** Vérifie une transaction CinetPay (txRef = notre transaction_id) et marque payé si ACCEPTED. */
-  async verifyCinetpay(txRef: string) {
-    if (!this.cinetpay.enabled) return { status: 'MOCK' };
-    const v = await this.cinetpay.verify(txRef);
-    const payment = await this.prisma.payment.findFirst({ where: { providerRef: txRef } });
-    if (payment && v.successful) {
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { paid: true, rawPayload: { txRef, verified: true } as Prisma.InputJsonValue },
       });
       await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
       return { status: 'PAID', orderId: payment.orderId };
