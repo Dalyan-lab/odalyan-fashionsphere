@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Icon, type IconName } from './icons';
-import { useSidebar } from '@/lib/store';
+import { useSidebar, useAuth } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 interface NavItem {
@@ -35,8 +35,16 @@ const NAV: NavItem[] = [
 
 export function Sidebar({ shopName }: { shopName?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { open, close } = useSidebar();
+  const clearAuth = useAuth((s) => s.clear);
   const t = useT();
+
+  const logout = () => {
+    clearAuth();
+    close();
+    router.push('/');
+  };
 
   return (
     <>
@@ -107,14 +115,22 @@ export function Sidebar({ shopName }: { shopName?: string }) {
       </div>
 
       {/* Profil */}
-      <div className="mt-4 flex items-center gap-3 rounded-xl px-2 py-2">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
-          {(shopName ?? 'O').charAt(0).toUpperCase()}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{shopName ?? t('dash.profile.myStore')}</p>
-          <p className="text-xs text-faint">{t('dash.profile.store')}</p>
+      <div className="mt-4 rounded-xl px-2 py-2">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
+            {(shopName ?? 'O').charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{shopName ?? t('dash.profile.myStore')}</p>
+            <p className="text-xs text-faint">{t('dash.profile.store')}</p>
+          </div>
         </div>
+        <button
+          onClick={logout}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-muted transition hover:bg-surface-hover hover:text-content"
+        >
+          <span aria-hidden>⏻</span> {t('nav.logout')}
+        </button>
       </div>
       </aside>
     </>
