@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdTone, SocialNetwork, type CampaignResult } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
@@ -12,6 +13,7 @@ import { BrandIcon, type BrandName } from '@/components/brand-icons';
 const ALL_NETWORKS = Object.values(SocialNetwork);
 
 export default function CampaignsPage() {
+  const t = useT();
   const [products, setProducts] = useState<Product[]>([]);
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
@@ -50,7 +52,7 @@ export default function CampaignsPage() {
 
   const generate = async () => {
     if (!productName.trim()) {
-      setError('Indiquez le produit');
+      setError(t('camp.nameRequired'));
       return;
     }
     setLoading(true);
@@ -63,7 +65,7 @@ export default function CampaignsPage() {
       setCampaign(res);
       loadHistory();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la génération');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -76,8 +78,8 @@ export default function CampaignsPage() {
         <div className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-violet-magenta text-white">📣</span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Campagnes IA</h1>
-            <p className="text-muted">D’un produit à une campagne complète (visuel + textes + réseaux) en un clic.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.campaigns')}</h1>
+            <p className="text-muted">{t('camp.subtitle')}</p>
           </div>
           <span className="ml-3 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs font-bold text-brand-violet">
             Phase 4
@@ -86,16 +88,16 @@ export default function CampaignsPage() {
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[340px_1fr]">
             {/* Brief */}
             <div className="card h-fit space-y-4 p-5">
-              <h2 className="font-bold">Nouvelle campagne</h2>
+              <h2 className="font-bold">{t('camp.new')}</h2>
               <div>
-                <label className="label">Produit</label>
+                <label className="label">{t('common.product')}</label>
                 <input
                   className="input"
                   list="prods"
@@ -104,7 +106,7 @@ export default function CampaignsPage() {
                     setProductName(e.target.value);
                     setProductId(products.find((p) => p.name === e.target.value)?.id ?? '');
                   }}
-                  placeholder="Ex: Robe Wax Élégance"
+                  placeholder={t('aim.productNamePh')}
                 />
                 <datalist id="prods">
                   {products.map((p) => (
@@ -113,15 +115,15 @@ export default function CampaignsPage() {
                 </datalist>
               </div>
               <div>
-                <label className="label">Ton</label>
+                <label className="label">{t('aim.tone')}</label>
                 <select className="input" value={tone} onChange={(e) => setTone(e.target.value as AdTone)}>
-                  {Object.values(AdTone).map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {Object.values(AdTone).map((tn) => (
+                    <option key={tn} value={tn}>{tn}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Réseaux ciblés</label>
+                <label className="label">{t('camp.targets')}</label>
                 <div className="flex flex-wrap gap-2">
                   {ALL_NETWORKS.map((n) => (
                     <button
@@ -138,7 +140,7 @@ export default function CampaignsPage() {
               {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
               <button onClick={generate} disabled={loading || networks.length === 0} className="btn-primary w-full">
-                {loading ? 'Génération de la campagne…' : <>{Icon.sparkles({ width: 16, height: 16 })} Générer la campagne</>}
+                {loading ? t('camp.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('camp.generate')}</>}
               </button>
             </div>
 
@@ -150,14 +152,14 @@ export default function CampaignsPage() {
                 <div className="card grid min-h-[300px] place-items-center p-10 text-center text-muted">
                   <div>
                     <p className="text-5xl">📣</p>
-                    <p className="mt-3">Choisissez un produit et générez une campagne complète.</p>
+                    <p className="mt-3">{t('camp.emptyHint')}</p>
                   </div>
                 </div>
               )}
 
               {history.length > 0 && (
                 <div>
-                  <h2 className="mb-3 text-lg font-bold">Campagnes précédentes ({history.length})</h2>
+                  <h2 className="mb-3 text-lg font-bold">{t('camp.history')} ({history.length})</h2>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {history.map((c) => (
                       <button key={c.id} onClick={() => setCampaign(c)} className="card overflow-hidden text-left transition hover:border-brand-violet">
@@ -167,7 +169,7 @@ export default function CampaignsPage() {
                         )}
                         <div className="p-2.5">
                           <p className="line-clamp-1 text-sm font-medium">{c.productName}</p>
-                          <p className="text-[10px] text-faint">{c.posts.length} réseaux · {new Date(c.createdAt).toLocaleDateString('fr-FR')}</p>
+                          <p className="text-[10px] text-faint">{c.posts.length} {t('camp.networksWord')} · {new Date(c.createdAt).toLocaleDateString('fr-FR')}</p>
                         </div>
                       </button>
                     ))}
@@ -183,6 +185,7 @@ export default function CampaignsPage() {
 }
 
 function CampaignKit({ campaign }: { campaign: CampaignResult }) {
+  const t = useT();
   const [scheduledAt, setScheduledAt] = useState('');
   const [pubNets, setPubNets] = useState<string[]>(campaign.posts.map((p) => p.network));
   const [scheduled, setScheduled] = useState<string | null>(null);
@@ -208,9 +211,9 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
           campaignAssetId: campaign.id,
         }),
       });
-      setScheduled(`${pubNets.join(', ')}${scheduledAt ? ' · ' + new Date(scheduledAt).toLocaleString('fr-FR') : ' · maintenant'}`);
+      setScheduled(`${pubNets.join(', ')}${scheduledAt ? ' · ' + new Date(scheduledAt).toLocaleString('fr-FR') : ` · ${t('camp.now')}`}`);
     } catch (err) {
-      setPubError(err instanceof Error ? err.message : 'Erreur');
+      setPubError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setPublishing(false);
     }
@@ -228,12 +231,12 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
             <div className="flex items-center justify-between">
               <h2 className="font-display text-xl font-bold">{campaign.productName}</h2>
               <span className="text-[10px] text-faint">
-                {campaign.providers.image === 'mock' ? '⚙️ visuel simulé' : `✨ ${campaign.providers.image}`}
+                {campaign.providers.image === 'mock' ? t('camp.visualSim') : `✨ ${campaign.providers.image}`}
               </span>
             </div>
-            <CopyRow label="Description" text={campaign.copy.description} onCopy={copy} />
+            <CopyRow label={t('aim.description')} text={campaign.copy.description} onCopy={copy} />
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-faint">Slogans</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-faint">{t('aim.slogans')}</p>
               <ul className="space-y-1 text-sm">
                 {campaign.copy.slogans.map((s, i) => (
                   <li key={i} className="flex gap-2"><span className="text-brand-coral">›</span> {s}</li>
@@ -261,7 +264,7 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
                 })()}
                 {p.network}
               </span>
-              <button onClick={() => copy(p.caption)} className="text-xs text-brand-violet hover:underline">Copier</button>
+              <button onClick={() => copy(p.caption)} className="text-xs text-brand-violet hover:underline">{t('aim.copy')}</button>
             </div>
             <p className="whitespace-pre-line text-xs text-muted">{p.caption}</p>
           </div>
@@ -270,8 +273,8 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
 
       {/* Publication / programmation */}
       <div className="card p-5">
-        <h2 className="font-bold">Publier sur les réseaux</h2>
-        <p className="mt-1 text-xs text-muted">Programmez la publication automatique de cette campagne.</p>
+        <h2 className="font-bold">{t('camp.publish')}</h2>
+        <p className="mt-1 text-xs text-muted">{t('camp.publishDesc')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {campaign.posts.map((p) => (
             <button
@@ -286,19 +289,19 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <input type="datetime-local" className="input w-auto" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
           <button onClick={program} disabled={pubNets.length === 0 || publishing} className="btn-primary">
-            {publishing ? '…' : 'Programmer'}
+            {publishing ? '…' : t('camp.schedule')}
           </button>
         </div>
         {pubError && (
           <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">
-            {pubError} — <Link href="/dashboard/publications" className="underline">connecter mes réseaux</Link>
+            {pubError} — <Link href="/dashboard/publications" className="underline">{t('camp.connectNets')}</Link>
           </p>
         )}
         {scheduled && (
           <p className="mt-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
-            ✓ Publication enregistrée : {scheduled}
+            {t('camp.scheduledOk')} {scheduled}
             <span className="block text-[10px] text-faint">
-              Suivi dans <Link href="/dashboard/publications" className="underline">Publications</Link>. Mode simulé tant que les comptes ne sont pas réellement liés (OAuth).
+              {t('camp.followIn')} <Link href="/dashboard/publications" className="underline">{t('dash.nav.publications')}</Link>. {t('camp.simTail')}
             </span>
           </p>
         )}
@@ -307,12 +310,13 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
   );
 }
 
-function CopyRow({ label, text, onCopy }: { label: string; text: string; onCopy: (t: string) => void }) {
+function CopyRow({ label, text, onCopy }: { label: string; text: string; onCopy: (v: string) => void }) {
+  const t = useT();
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-faint">{label}</span>
-        <button onClick={() => onCopy(text)} className="text-xs text-brand-violet hover:underline">Copier</button>
+        <button onClick={() => onCopy(text)} className="text-xs text-brand-violet hover:underline">{t('aim.copy')}</button>
       </div>
       <p className="text-sm">{text}</p>
     </div>

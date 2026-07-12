@@ -4,18 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AdTone, type VideoAsset, type VideoProviderInfo } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 
-const LANGS = [
-  { code: 'fr', label: 'Français' },
-  { code: 'en', label: 'Anglais' },
-  { code: 'ar', label: 'Arabe' },
-  { code: 'es', label: 'Espagnol' },
-];
+const LANGS = ['fr', 'en', 'ar', 'es'];
 
 export default function VideoStudioPage() {
+  const t = useT();
   const [providers, setProviders] = useState<VideoProviderInfo[]>([]);
   const [providerId, setProviderId] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -105,7 +102,7 @@ export default function VideoStudioPage() {
       });
       setAsset(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la génération');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -121,8 +118,8 @@ export default function VideoStudioPage() {
         <div className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-violet-magenta text-white">🎥</span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Vidéo IA</h1>
-            <p className="text-muted">Animez un mannequin ou un avatar présentateur — plusieurs fournisseurs.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.video')}</h1>
+            <p className="text-muted">{t('vid.subtitle')}</p>
           </div>
           <span className="ml-3 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs font-bold text-brand-violet">
             Phase 4
@@ -131,8 +128,8 @@ export default function VideoStudioPage() {
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">
@@ -140,7 +137,7 @@ export default function VideoStudioPage() {
             <div className="space-y-5">
               {/* Choix du fournisseur */}
               <div className="card p-5">
-                <h2 className="mb-3 font-bold">Fournisseur vidéo</h2>
+                <h2 className="mb-3 font-bold">{t('vid.provider')}</h2>
                 <div className="space-y-2">
                   {providers.map((p) => (
                     <button
@@ -151,7 +148,7 @@ export default function VideoStudioPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">{p.label}</span>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${p.enabled ? 'bg-emerald-500/15 text-emerald-500' : 'bg-surface text-faint'}`}>
-                          {p.enabled ? 'clé OK' : 'simulé'}
+                          {p.enabled ? t('vid.keyOk') : t('vid.simBadge')}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted">{p.description}</p>
@@ -162,11 +159,11 @@ export default function VideoStudioPage() {
 
               {/* Brief */}
               <div className="card space-y-4 p-5">
-                <h2 className="font-bold">Brief</h2>
+                <h2 className="font-bold">{t('vid.brief')}</h2>
                 <div>
-                  <label className="label">Produit</label>
+                  <label className="label">{t('common.product')}</label>
                   {products.length === 0 ? (
-                    <p className="text-sm text-muted">Aucun produit. <Link href="/dashboard/products" className="text-brand-violet hover:underline">Ajoutez-en un</Link>.</p>
+                    <p className="text-sm text-muted">{t('common.noProducts')} <Link href="/dashboard/products" className="text-brand-violet hover:underline">{t('common.addOne')}</Link>.</p>
                   ) : (
                     <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
                       {products.map((p) => (
@@ -178,12 +175,12 @@ export default function VideoStudioPage() {
 
                 {needs('prompt') && (
                   <div>
-                    <label className="label">Mouvement / scène</label>
+                    <label className="label">{t('vid.motion')}</label>
                     <textarea
                       className="input min-h-[70px]"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Ex: le mannequin marche sur un podium, lumière studio, mouvement fluide"
+                      placeholder={t('vid.motionPh')}
                     />
                   </div>
                 )}
@@ -192,25 +189,25 @@ export default function VideoStudioPage() {
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="label">Ton</label>
+                        <label className="label">{t('aim.tone')}</label>
                         <select className="input" value={tone} onChange={(e) => setTone(e.target.value as AdTone)}>
-                          {Object.values(AdTone).map((t) => (
-                            <option key={t} value={t}>{t}</option>
+                          {Object.values(AdTone).map((tn) => (
+                            <option key={tn} value={tn}>{tn}</option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="label">Langue</label>
+                        <label className="label">{t('vid.language')}</label>
                         <select className="input" value={language} onChange={(e) => setLanguage(e.target.value)}>
-                          {LANGS.map((l) => (
-                            <option key={l.code} value={l.code}>{l.label}</option>
+                          {LANGS.map((code) => (
+                            <option key={code} value={code}>{t(`lang.${code}`)}</option>
                           ))}
                         </select>
                       </div>
                     </div>
                     <div>
-                      <label className="label">Script (optionnel — sinon généré)</label>
-                      <textarea className="input min-h-[70px]" value={script} onChange={(e) => setScript(e.target.value)} placeholder="Laissez vide pour que l’IA écrive le texte parlé." />
+                      <label className="label">{t('vid.script')}</label>
+                      <textarea className="input min-h-[70px]" value={script} onChange={(e) => setScript(e.target.value)} placeholder={t('vid.scriptPh')} />
                     </div>
                   </>
                 )}
@@ -238,12 +235,10 @@ export default function VideoStudioPage() {
                 {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
                 <button onClick={generate} disabled={loading || !provider} className="btn-primary w-full">
-                  {loading ? 'Génération…' : <>{Icon.sparkles({ width: 16, height: 16 })} Générer la vidéo</>}
+                  {loading ? t('common.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('vid.generate')}</>}
                 </button>
                 {provider && !provider.enabled && (
-                  <p className="text-[10px] text-faint">
-                    Sans clé {provider.label.split(' ')[0]}, la génération est simulée. Ajoutez la clé API dans le serveur pour une vraie vidéo.
-                  </p>
+                  <p className="text-[10px] text-faint">{t('vid.noKey')}</p>
                 )}
               </div>
             </div>
@@ -254,7 +249,7 @@ export default function VideoStudioPage() {
                 <div className="card grid h-full min-h-[340px] place-items-center p-10 text-center text-muted">
                   <div>
                     <p className="text-5xl">🎥</p>
-                    <p className="mt-3">Choisissez un fournisseur, décrivez la scène et générez.</p>
+                    <p className="mt-3">{t('vid.emptyHint')}</p>
                   </div>
                 </div>
               ) : (
@@ -268,19 +263,17 @@ export default function VideoStudioPage() {
                         <div className="grid h-full place-items-center text-center text-white/80">
                           <div>
                             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-brand-magenta" />
-                            <p className="mt-3 text-sm">Génération en cours… ({asset.provider})</p>
+                            <p className="mt-3 text-sm">{t('common.generating')} ({asset.provider})</p>
                           </div>
                         </div>
                       ) : asset.status === 'FAILED' ? (
-                        <div className="grid h-full place-items-center text-red-300">Échec de la génération.</div>
+                        <div className="grid h-full place-items-center text-red-300">{t('vid.failed')}</div>
                       ) : (
                         <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_30%,rgba(124,58,237,0.4),transparent_60%)] p-6 text-center text-white">
                           <div>
                             <p className="text-4xl">🎬</p>
-                            <p className="mt-2 font-semibold">Mode simulé</p>
-                            <p className="mx-auto mt-1 max-w-sm text-sm text-white/70">
-                              Ajoutez la clé du fournisseur pour générer la vraie vidéo.
-                            </p>
+                            <p className="mt-2 font-semibold">{t('vid.simMode')}</p>
+                            <p className="mx-auto mt-1 max-w-sm text-sm text-white/70">{t('vid.simModeDesc')}</p>
                             {meta?.imageUrl && (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={meta.imageUrl} alt="" className="mx-auto mt-4 h-40 rounded-lg object-cover" />
@@ -290,16 +283,16 @@ export default function VideoStudioPage() {
                       )}
                     </div>
                     <div className="p-3 text-xs text-faint">
-                      {asset.provider === 'mock' ? '⚙️ simulé' : `✨ ${asset.provider}`} · {asset.status}
+                      {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
                     </div>
                   </div>
 
                   {meta?.script && (
                     <div className="card p-4">
                       <div className="mb-1.5 flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-faint">Script parlé</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-faint">{t('vid.spokenScript')}</span>
                         <button onClick={() => navigator.clipboard?.writeText(meta.script ?? '')} className="text-xs text-brand-violet hover:underline">
-                          Copier
+                          {t('aim.copy')}
                         </button>
                       </div>
                       <p className="text-sm">{meta.script}</p>
