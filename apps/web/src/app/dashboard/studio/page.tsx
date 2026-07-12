@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { AdCopyResult } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
@@ -20,6 +21,7 @@ interface GeneratedAsset {
 }
 
 export default function StudioPage() {
+  const t = useT();
   const [tab, setTab] = useState<'mannequin' | 'adcopy'>('mannequin');
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
@@ -56,15 +58,15 @@ export default function StudioPage() {
             {Icon.sparkles({})}
           </span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Studio IA</h1>
-            <p className="text-muted">Générez vos visuels mannequin et vos textes publicitaires.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.studio')}</h1>
+            <p className="text-muted">{t('stu.subtitle')}</p>
           </div>
         </div>
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[400px_1fr]">
@@ -75,13 +77,13 @@ export default function StudioPage() {
                   onClick={() => setTab('mannequin')}
                   className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${tab === 'mannequin' ? 'bg-brand-violet-magenta text-white' : 'text-muted'}`}
                 >
-                  🎭 Mannequin IA
+                  🎭 {t('dh.tool.mannequin')}
                 </button>
                 <button
                   onClick={() => setTab('adcopy')}
                   className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${tab === 'adcopy' ? 'bg-brand-violet-magenta text-white' : 'text-muted'}`}
                 >
-                  📣 Publicité IA
+                  📣 {t('dh.tool.adcopy')}
                 </button>
               </div>
               {tab === 'mannequin' ? (
@@ -93,25 +95,25 @@ export default function StudioPage() {
 
             {/* Galerie */}
             <div>
-              <h2 className="mb-3 text-lg font-bold">Galerie des contenus générés ({assets.length})</h2>
+              <h2 className="mb-3 text-lg font-bold">{t('stu.gallery')} ({assets.length})</h2>
               {loading ? (
-                <p className="text-muted">Chargement…</p>
+                <p className="text-muted">{t('common.loading')}</p>
               ) : assets.length === 0 ? (
                 <div className="card p-10 text-center text-muted">
-                  Aucun contenu généré pour l’instant. Lancez une génération à gauche.
+                  {t('stu.empty')}
                 </div>
               ) : (
                 <div className="space-y-6">
                   {images.length > 0 && (
                     <div>
-                      <p className="label">Images</p>
+                      <p className="label">{t('stu.images')}</p>
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                         {images.map((a) => (
                           <div key={a.id} className="card overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
                             <p className="px-2 py-1 text-[10px] text-faint">
-                              {a.provider === 'mock' ? '⚙️ simulé' : `✨ ${a.provider}`} ·{' '}
+                              {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`} ·{' '}
                               {new Date(a.createdAt).toLocaleDateString('fr-FR')}
                             </p>
                           </div>
@@ -122,7 +124,7 @@ export default function StudioPage() {
 
                   {copies.length > 0 && (
                     <div>
-                      <p className="label">Textes publicitaires</p>
+                      <p className="label">{t('stu.adTexts')}</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {copies.map((a) => {
                           const m = a.meta as AdCopyResult | null;
@@ -138,7 +140,7 @@ export default function StudioPage() {
                                 </div>
                               )}
                               <p className="mt-2 text-[10px] text-faint">
-                                {a.provider === 'mock' ? '⚙️ simulé' : `✨ ${a.provider}`}
+                                {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`}
                               </p>
                             </div>
                           );

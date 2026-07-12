@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { ScheduledPostDto, SocialConnectionInfo } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
 
@@ -25,14 +26,8 @@ const STATUS_STYLE: Record<string, string> = {
   FAILED: 'bg-red-500/15 text-red-400',
   CANCELLED: 'bg-surface-2 text-faint',
 };
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: 'Programmée',
-  PUBLISHED: 'Publiée',
-  FAILED: 'Échec',
-  CANCELLED: 'Annulée',
-};
-
 export default function PublicationsPage() {
+  const t = useT();
   const [connections, setConnections] = useState<SocialConnectionInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPostDto[]>([]);
   const [noShop, setNoShop] = useState(false);
@@ -69,8 +64,8 @@ export default function PublicationsPage() {
         <div className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-violet-magenta text-white">📡</span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Publications</h1>
-            <p className="text-muted">Connectez vos réseaux et programmez vos publications.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.publications')}</h1>
+            <p className="text-muted">{t('pub.subtitle')}</p>
           </div>
           <span className="ml-3 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs font-bold text-brand-violet">
             Phase 5
@@ -79,14 +74,14 @@ export default function PublicationsPage() {
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 space-y-8">
             {/* Connexions */}
             <section>
-              <h2 className="mb-3 text-lg font-bold">Comptes connectés</h2>
+              <h2 className="mb-3 text-lg font-bold">{t('pub.connected')}</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {connections.map((c) => (
                   <div key={c.network} className="card flex items-center gap-3 p-4">
@@ -94,7 +89,7 @@ export default function PublicationsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{c.network}</p>
                       <p className="truncate text-xs text-faint">
-                        {c.connected ? c.accountName : 'Non connecté'}
+                        {c.connected ? c.accountName : t('pub.notConnected')}
                       </p>
                     </div>
                     <button
@@ -104,23 +99,21 @@ export default function PublicationsPage() {
                         c.connected ? 'border border-border text-muted hover:bg-surface-hover' : 'bg-brand-violet-magenta text-white'
                       }`}
                     >
-                      {busy === c.network ? '…' : c.connected ? 'Déconnecter' : 'Connecter'}
+                      {busy === c.network ? '…' : c.connected ? t('pub.disconnect') : t('pub.connect')}
                     </button>
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[10px] text-faint">
-                ⚙️ Connexion simulée. La liaison réelle (OAuth) s’active en fournissant les identifiants d’app de chaque plateforme.
-              </p>
+              <p className="mt-2 text-[10px] text-faint">{t('pub.simNote')}</p>
             </section>
 
             {/* Publications programmées */}
             <section>
-              <h2 className="mb-3 text-lg font-bold">Publications ({posts.length})</h2>
+              <h2 className="mb-3 text-lg font-bold">{t('dash.nav.publications')} ({posts.length})</h2>
               {posts.length === 0 ? (
                 <div className="card p-10 text-center text-muted">
-                  Aucune publication. Créez-en une depuis{' '}
-                  <Link href="/dashboard/campaigns" className="text-brand-violet hover:underline">Campagnes IA</Link>.
+                  {t('pub.empty')}{' '}
+                  <Link href="/dashboard/campaigns" className="text-brand-violet hover:underline">{t('dash.nav.campaigns')}</Link>.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -142,11 +135,11 @@ export default function PublicationsPage() {
                         </p>
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[p.status]}`}>
-                        {STATUS_LABEL[p.status] ?? p.status}
+                        {t(`ps.${p.status}`)}
                       </span>
                       {p.status === 'SCHEDULED' && (
                         <button onClick={() => cancel(p.id)} className="text-xs text-red-400 hover:text-red-300">
-                          Annuler
+                          {t('common.cancel')}
                         </button>
                       )}
                     </div>

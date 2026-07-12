@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AvatarSex, SkinTone, type TryOnResult } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 
 export default function TryOnPage() {
+  const t = useT();
   const [products, setProducts] = useState<Product[]>([]);
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
@@ -29,7 +31,7 @@ export default function TryOnPage() {
 
   const tryOn = async () => {
     if (!productId) {
-      setError('Sélectionnez un produit');
+      setError(t('tryon.selectProduct'));
       return;
     }
     setLoading(true);
@@ -41,7 +43,7 @@ export default function TryOnPage() {
       });
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de l’essayage');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -56,8 +58,8 @@ export default function TryOnPage() {
             👗
           </span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Essayage virtuel</h1>
-            <p className="text-muted">Visualisez un vêtement sur un mannequin sous tous les angles.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.tryon')}</h1>
+            <p className="text-muted">{t('tryon.subtitle')}</p>
           </div>
           <span className="ml-3 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs font-bold text-brand-violet">
             Phase 3
@@ -66,17 +68,17 @@ export default function TryOnPage() {
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[320px_1fr]">
             {/* Contrôles */}
             <div className="card h-fit space-y-4 p-5">
               <div>
-                <label className="label">Produit</label>
+                <label className="label">{t('common.product')}</label>
                 {products.length === 0 ? (
-                  <p className="text-sm text-muted">Aucun produit. <Link href="/dashboard/products" className="text-brand-violet hover:underline">Ajoutez-en un</Link>.</p>
+                  <p className="text-sm text-muted">{t('common.noProducts')} <Link href="/dashboard/products" className="text-brand-violet hover:underline">{t('common.addOne')}</Link>.</p>
                 ) : (
                   <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
                     {products.map((p) => (
@@ -86,7 +88,7 @@ export default function TryOnPage() {
                 )}
               </div>
               <div>
-                <label className="label">Mannequin</label>
+                <label className="label">{t('tryon.mannequin')}</label>
                 <select className="input" value={avatarSex} onChange={(e) => setAvatarSex(e.target.value as AvatarSex)}>
                   {Object.values(AvatarSex).map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -94,7 +96,7 @@ export default function TryOnPage() {
                 </select>
               </div>
               <div>
-                <label className="label">Teint</label>
+                <label className="label">{t('tryon.skinTone')}</label>
                 <select className="input" value={skinTone} onChange={(e) => setSkinTone(e.target.value as SkinTone)}>
                   {Object.values(SkinTone).map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -105,7 +107,7 @@ export default function TryOnPage() {
               {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
               <button onClick={tryOn} disabled={loading || products.length === 0} className="btn-primary w-full">
-                {loading ? 'Génération des vues…' : <>{Icon.sparkles({ width: 16, height: 16 })} Essayer</>}
+                {loading ? t('tryon.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('tryon.try')}</>}
               </button>
             </div>
 
@@ -120,7 +122,7 @@ export default function TryOnPage() {
               ) : result ? (
                 <>
                   <p className="mb-3 text-sm text-muted">
-                    Rendu de <span className="font-semibold text-content">{result.productName}</span> sous {result.views.length} angles :
+                    {t('tryon.renderOf')} <span className="font-semibold text-content">{result.productName}</span> — {result.views.length} {t('tryon.angles')}
                   </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                     {result.views.map((v) => (
@@ -132,14 +134,14 @@ export default function TryOnPage() {
                     ))}
                   </div>
                   <p className="mt-3 text-[10px] text-faint">
-                    {result.views[0]?.provider === 'mock' ? '⚙️ Rendu simulé (sans clé OpenAI)' : `✨ Généré via ${result.views[0]?.provider}`}
+                    {result.views[0]?.provider === 'mock' ? t('common.mockNote') : `${t('common.generatedVia')} ${result.views[0]?.provider}`}
                   </p>
                 </>
               ) : (
                 <div className="card grid h-full min-h-[300px] place-items-center p-10 text-center text-muted">
                   <div>
                     <p className="text-4xl">👗</p>
-                    <p className="mt-3">Choisissez un produit et cliquez sur « Essayer » pour générer les 5 vues.</p>
+                    <p className="mt-3">{t('tryon.emptyHint')}</p>
                   </div>
                 </div>
               )}

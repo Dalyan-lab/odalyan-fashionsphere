@@ -4,17 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AvatarSex, SkinTone, type TryOnResult, type TryOnView } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
-  { label: 'Lent', ms: 2600 },
-  { label: 'Normal', ms: 1700 },
-  { label: 'Rapide', ms: 1000 },
+  { key: 'defile.slow', ms: 2600 },
+  { key: 'defile.normal', ms: 1700 },
+  { key: 'defile.fast', ms: 1000 },
 ];
 
 export default function DefilePage() {
+  const t = useT();
   const [products, setProducts] = useState<Product[]>([]);
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
@@ -54,7 +56,7 @@ export default function DefilePage() {
 
   const generate = async () => {
     if (!productId) {
-      setError('Sélectionnez un produit');
+      setError(t('tryon.selectProduct'));
       return;
     }
     setLoading(true);
@@ -69,7 +71,7 @@ export default function DefilePage() {
       setIdx(0);
       setPlaying(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la génération');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -82,15 +84,15 @@ export default function DefilePage() {
         <div className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-violet-magenta text-white">🎬</span>
           <div>
-            <h1 className="font-display text-3xl font-bold">Défilé animé</h1>
-            <p className="text-muted">Le mannequin réaliste présente votre produit, animé comme sur un podium.</p>
+            <h1 className="font-display text-3xl font-bold">{t('dash.nav.defile')}</h1>
+            <p className="text-muted">{t('defile.subtitle')}</p>
           </div>
         </div>
 
         {noShop ? (
           <div className="card mt-6 p-10 text-center text-muted">
-            Vous devez d’abord créer votre boutique.
-            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">Créer ma boutique</Link>
+            {t('common.mustCreateShop')}
+            <Link href="/dashboard" className="btn-primary mx-auto mt-4 block w-fit">{t('dh.createShop')}</Link>
           </div>
         ) : (
           <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -102,7 +104,7 @@ export default function DefilePage() {
               {views.length === 0 ? (
                 <div className="relative z-10 text-center text-muted">
                   <p className="text-5xl">🎬</p>
-                  <p className="mt-3">Choisissez un produit et lancez le défilé.</p>
+                  <p className="mt-3">{t('defile.emptyHint')}</p>
                 </div>
               ) : (
                 <>
@@ -148,10 +150,10 @@ export default function DefilePage() {
             {/* Contrôles */}
             <div className="space-y-5">
               <div className="card p-5">
-                <h2 className="mb-3 font-bold">Mise en scène</h2>
-                <label className="label">Produit</label>
+                <h2 className="mb-3 font-bold">{t('defile.staging')}</h2>
+                <label className="label">{t('common.product')}</label>
                 {products.length === 0 ? (
-                  <p className="text-sm text-muted">Aucun produit. <Link href="/dashboard/products" className="text-brand-violet hover:underline">Ajoutez-en un</Link>.</p>
+                  <p className="text-sm text-muted">{t('common.noProducts')} <Link href="/dashboard/products" className="text-brand-violet hover:underline">{t('common.addOne')}</Link>.</p>
                 ) : (
                   <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
                     {products.map((p) => (
@@ -159,13 +161,13 @@ export default function DefilePage() {
                     ))}
                   </select>
                 )}
-                <label className="label mt-3">Mannequin</label>
+                <label className="label mt-3">{t('tryon.mannequin')}</label>
                 <select className="input" value={avatarSex} onChange={(e) => setAvatarSex(e.target.value as AvatarSex)}>
                   {Object.values(AvatarSex).map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
-                <label className="label mt-3">Teint</label>
+                <label className="label mt-3">{t('tryon.skinTone')}</label>
                 <select className="input" value={skinTone} onChange={(e) => setSkinTone(e.target.value as SkinTone)}>
                   {Object.values(SkinTone).map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -175,32 +177,30 @@ export default function DefilePage() {
                 {error && <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
                 <button onClick={generate} disabled={loading || products.length === 0} className="btn-primary mt-4 w-full">
-                  {loading ? 'Génération du défilé…' : <>{Icon.sparkles({ width: 16, height: 16 })} Lancer le défilé</>}
+                  {loading ? t('defile.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('dh.runway.launch')}</>}
                 </button>
               </div>
 
               {views.length > 0 && (
                 <div className="card p-5">
-                  <h2 className="mb-3 font-bold">Vitesse</h2>
+                  <h2 className="mb-3 font-bold">{t('defile.speed')}</h2>
                   <div className="grid grid-cols-3 gap-2">
                     {SPEEDS.map((s) => (
                       <button
-                        key={s.label}
+                        key={s.key}
                         onClick={() => setSpeed(s.ms)}
                         className={`rounded-xl border py-2 text-sm transition ${speed === s.ms ? 'border-brand-violet bg-surface-2' : 'border-border text-muted'}`}
                       >
-                        {s.label}
+                        {t(s.key)}
                       </button>
                     ))}
                   </div>
-                  <p className="mt-3 text-[10px] text-faint">
-                    Le défilé enchaîne les angles (face, profils, dos) avec un effet de mouvement. Avec une clé OpenAI, les vues sont générées de façon cohérente sur le même mannequin.
-                  </p>
+                  <p className="mt-3 text-[10px] text-faint">{t('defile.note')}</p>
                 </div>
               )}
 
               <Link href="/dashboard/showroom" className="card block p-4 text-sm transition hover:border-brand-violet">
-                🧊 Voir aussi en <span className="text-brand-violet">3D interactif</span> (option secondaire) →
+                {t('defile.see3d')}
               </Link>
             </div>
           </div>
