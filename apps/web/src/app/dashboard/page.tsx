@@ -11,6 +11,7 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { AiStudioModal, type StudioMode } from '@/components/dashboard/ai-studio-modal';
 import { ProductForm } from '@/components/dashboard/product-form';
+import { BrandIcon, type BrandName } from '@/components/brand-icons';
 
 interface HomeStats {
   customersCount: number;
@@ -95,9 +96,9 @@ export default function DashboardPage() {
               <h1 className="mt-1 font-display text-4xl font-bold text-white">FashionSphere AI</h1>
               <p className="mt-3 text-sm text-white/85">{t('dh.heroDesc')}</p>
               <div className="mt-5 flex flex-wrap gap-3">
-                <button className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-brand-magenta transition hover:opacity-90">
+                <Link href="/dashboard/products" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-brand-magenta transition hover:opacity-90">
                   {Icon.plus({ width: 18, height: 18 })} {t('dh.addProduct')}
-                </button>
+                </Link>
                 <Link
                   href={`/shop/${shop.slug}`}
                   className="rounded-xl border border-white/40 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
@@ -230,21 +231,28 @@ export default function DashboardPage() {
 
           {/* Réseaux sociaux */}
           <Panel title={t('dh.social.title')} subtitle={t('dh.social.sub')}>
-            <button className="btn-primary mb-3 w-full py-2 text-sm">{t('dh.social.cta')}</button>
+            <Link href="/dashboard/campaigns" className="btn-primary mb-3 block w-full py-2 text-center text-sm">
+              {t('dh.social.cta')}
+            </Link>
             <div className="grid grid-cols-5 gap-2">
-              {SOCIALS.map((s) => (
-                <div key={s.name} className="flex flex-col items-center gap-1">
-                  <span
-                    className="grid h-10 w-10 place-items-center rounded-xl text-white"
-                    style={{ background: s.color }}
-                  >
-                    {s.short}
-                  </span>
-                  <span className="text-[9px] text-faint">{s.name}</span>
-                </div>
-              ))}
+              {SOCIALS.map((s) => {
+                const I = BrandIcon[s.name];
+                return (
+                  <Link key={s.name} href="/dashboard/publications" className="flex flex-col items-center gap-1" title={s.name}>
+                    <span
+                      className="grid h-10 w-10 place-items-center rounded-xl text-white transition hover:scale-105"
+                      style={{ background: s.color }}
+                    >
+                      <I width={20} height={20} />
+                    </span>
+                    <span className="text-[9px] text-faint">{s.name}</span>
+                  </Link>
+                );
+              })}
             </div>
-            <PhaseTag phase="Phase 5" />
+            <Link href="/dashboard/publications" className="mt-3 block text-center text-[10px] text-brand-violet hover:underline">
+              {t('dh.social.manage')} →
+            </Link>
           </Panel>
         </aside>
       </div>
@@ -256,12 +264,12 @@ export default function DashboardPage() {
   );
 }
 
-const SOCIALS = [
-  { name: 'Instagram', short: 'IG', color: 'linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)' },
-  { name: 'TikTok', short: 'TT', color: '#010101' },
-  { name: 'YouTube', short: 'YT', color: '#FF0000' },
-  { name: 'Pinterest', short: 'P', color: '#E60023' },
-  { name: 'X', short: 'X', color: '#111' },
+const SOCIALS: { name: BrandName; color: string }[] = [
+  { name: 'Instagram', color: 'linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)' },
+  { name: 'TikTok', color: '#010101' },
+  { name: 'YouTube', color: '#FF0000' },
+  { name: 'Pinterest', color: '#E60023' },
+  { name: 'X', color: '#111' },
 ];
 
 function StatCard({ icon, label, value }: { icon: keyof typeof Icon; label: string; value: string }) {
@@ -345,13 +353,6 @@ function Panel({ title, subtitle, children }: { title: string; subtitle: string;
       <p className="mb-3 mt-0.5 text-xs text-faint">{subtitle}</p>
       {children}
     </section>
-  );
-}
-
-function PhaseTag({ phase }: { phase: string }) {
-  const t = useT();
-  return (
-    <p className="mt-3 text-center text-[10px] text-faint">{t('dh.availableIn')} {phase}</p>
   );
 }
 

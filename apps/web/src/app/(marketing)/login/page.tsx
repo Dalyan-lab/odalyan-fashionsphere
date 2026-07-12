@@ -7,6 +7,7 @@ import type { AuthResponse } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { SocialAuthButtons } from '@/components/social-auth-buttons';
+import { PasswordInput } from '@/components/password-input';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,7 +54,7 @@ export default function LoginPage() {
               Mot de passe oublié ?
             </Link>
           </div>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" required />
         </div>
         <button className="btn-primary w-full" disabled={loading}>
           {loading ? '…' : 'Se connecter'}

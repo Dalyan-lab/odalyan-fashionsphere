@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { PasswordInput } from '@/components/password-input';
 
 function ResetForm() {
   const router = useRouter();
@@ -61,11 +62,11 @@ function ResetForm() {
       {error && <p className="rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-400">{error}</p>}
       <div>
         <label className="label">Nouveau mot de passe</label>
-        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+        <PasswordInput value={password} onChange={setPassword} autoComplete="new-password" required minLength={8} />
       </div>
       <div>
         <label className="label">Confirmer</label>
-        <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={8} />
+        <PasswordInput value={confirm} onChange={setConfirm} autoComplete="new-password" required minLength={8} />
       </div>
       <button className="btn-primary w-full" disabled={loading}>
         {loading ? '…' : 'Réinitialiser'}

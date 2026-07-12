@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { PasswordInput } from '@/components/password-input';
 
 export default function SettingsPage() {
   const t = useT();
@@ -103,37 +104,15 @@ function PasswordForm() {
       {msg && <p className="rounded-lg bg-emerald-500/15 px-3 py-2 text-sm text-emerald-500">{msg}</p>}
       <div>
         <label className="label">{t('set.currentPassword')}</label>
-        <input
-          className="input"
-          type="password"
-          autoComplete="current-password"
-          value={form.current}
-          onChange={(e) => setForm({ ...form, current: e.target.value })}
-        />
+        <PasswordInput value={form.current} onChange={(v) => setForm({ ...form, current: v })} autoComplete="current-password" />
       </div>
       <div>
         <label className="label">{t('set.newPassword')}</label>
-        <input
-          className="input"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          value={form.next}
-          onChange={(e) => setForm({ ...form, next: e.target.value })}
-          required
-        />
+        <PasswordInput value={form.next} onChange={(v) => setForm({ ...form, next: v })} autoComplete="new-password" minLength={8} required />
       </div>
       <div>
         <label className="label">{t('set.confirmPassword')}</label>
-        <input
-          className="input"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          value={form.confirm}
-          onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-          required
-        />
+        <PasswordInput value={form.confirm} onChange={(v) => setForm({ ...form, confirm: v })} autoComplete="new-password" minLength={8} required />
       </div>
       <button className="btn-primary" disabled={saving}>
         {saving ? t('common.saving') : t('set.changePassword')}

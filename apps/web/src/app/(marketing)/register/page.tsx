@@ -7,6 +7,7 @@ import { UserRole, type AuthResponse } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { SocialAuthButtons } from '@/components/social-auth-buttons';
+import { PasswordInput } from '@/components/password-input';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -65,7 +66,7 @@ export default function RegisterPage() {
         </div>
         <div>
           <label className="label">Mot de passe</label>
-          <input className="input" type="password" value={form.password} onChange={(e) => update('password', e.target.value)} required minLength={8} />
+          <PasswordInput value={form.password} onChange={(v) => update('password', v)} autoComplete="new-password" required minLength={8} />
         </div>
         <div>
           <label className="label">Je suis…</label>

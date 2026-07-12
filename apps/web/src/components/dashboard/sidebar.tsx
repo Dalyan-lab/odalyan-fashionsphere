@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
   { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
 ];
 
-export function Sidebar({ shopName }: { shopName?: string }) {
+export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { open, close } = useSidebar();
@@ -131,9 +131,14 @@ export function Sidebar({ shopName }: { shopName?: string }) {
       {/* Profil */}
       <div className="mt-4 rounded-xl px-2 py-2">
         <div className="flex items-center gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
-            {(shopName ?? 'O').charAt(0).toUpperCase()}
-          </span>
+          {shopLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shopLogo} alt="" className="h-9 w-9 shrink-0 rounded-full border border-border object-cover" />
+          ) : (
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
+              {(shopName ?? 'O').charAt(0).toUpperCase()}
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{shopName ?? t('dash.profile.myStore')}</p>
             <p className="text-xs text-faint">{t('dash.profile.store')}</p>
