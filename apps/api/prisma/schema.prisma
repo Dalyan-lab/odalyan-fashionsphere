@@ -134,6 +134,9 @@ model Shop {
   // Placement du logo (top-left|top-right|bottom-left|bottom-right) et cadrage bannière (top|center|bottom)
   logoPosition       String  @default("top-left")
   bannerPosition     String  @default("center")
+  // Crédits IA : solde courant + date du dernier renouvellement mensuel selon le plan
+  aiCredits          Int      @default(0)
+  creditsRenewedAt   DateTime?
 
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId String @unique

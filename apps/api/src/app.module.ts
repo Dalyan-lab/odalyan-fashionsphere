@@ -9,6 +9,7 @@ import { PaymentModule } from './payment/payment.module';
 import { AiModule } from './ai/ai.module';
 import { SocialModule } from './social/social.module';
 import { AdminModule } from './admin/admin.module';
+import { CreditsModule } from './credits/credits.module';
 import { UploadModule } from './upload/upload.module';
 import { MailModule } from './mail/mail.module';
 import { StorageModule } from './storage/storage.module';
@@ -28,6 +29,7 @@ import { HealthController } from './health.controller';
     AiModule,
     SocialModule,
     AdminModule,
+    CreditsModule,
     UploadModule,
   ],
   controllers: [HealthController],

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { Icon, type IconName } from './icons';
+import { AiCreditsCard } from './ai-credits';
 import { useSidebar, useAuth } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
@@ -115,6 +116,9 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
           );
         })}
       </nav>
+
+      {/* Crédits IA */}
+      <AiCreditsCard />
 
       {/* Carte upgrade Pro */}
       <div className="mt-4 rounded-2xl bg-brand-violet-magenta p-4 text-white">

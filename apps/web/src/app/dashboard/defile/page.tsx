@@ -199,9 +199,6 @@ export default function DefilePage() {
                 </div>
               )}
 
-              <Link href="/dashboard/showroom" className="card block p-4 text-sm transition hover:border-brand-violet">
-                {t('defile.see3d')}
-              </Link>
             </div>
           </div>
         )}

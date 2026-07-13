@@ -11,11 +11,15 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CreditsService } from '../credits/credits.service';
 import { ShopService } from './shop.service';
 
 @Controller('shops')
 export class ShopController {
-  constructor(private readonly shopService: ShopService) {}
+  constructor(
+    private readonly shopService: ShopService,
+    private readonly credits: CreditsService,
+  ) {}
 
   /** Vitrine publique d'une marque. */
   @Get('public/:slug')
@@ -41,6 +45,13 @@ export class ShopController {
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   stats(@CurrentUser('id') userId: string) {
     return this.shopService.getStats(userId);
+  }
+
+  @Get('me/credits')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  myCredits(@CurrentUser('id') userId: string) {
+    return this.credits.getBalance(userId);
   }
 
   @Post()

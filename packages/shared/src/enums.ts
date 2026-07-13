@@ -67,3 +67,22 @@ export const PLAN_STORAGE_LIMITS: Record<SubscriptionPlan, number> = {
   [SubscriptionPlan.BUSINESS]: 50 * 1024 * 1024 * 1024, // 50 Go
   [SubscriptionPlan.ENTERPRISE]: Infinity,
 };
+
+/** Crédits IA offerts chaque mois selon le plan (générations d'images/vidéos). */
+export const PLAN_AI_CREDITS: Record<SubscriptionPlan, number> = {
+  [SubscriptionPlan.STARTER]: 15,
+  [SubscriptionPlan.PRO]: 150,
+  [SubscriptionPlan.BUSINESS]: 600,
+  [SubscriptionPlan.ENTERPRISE]: 5000,
+};
+
+/** Coût en crédits d'une génération, par type de contenu. */
+export const AI_CREDIT_COSTS = {
+  image: 1, // mannequin IA, avatar
+  tryon: 3, // essayage / défilé (plusieurs vues)
+  campaign: 3, // visuel + textes multi-réseaux
+  video: 10, // vidéo IA (le plus coûteux)
+  text: 0, // textes publicitaires seuls : gratuits
+} as const;
+
+export type AiCreditKind = keyof typeof AI_CREDIT_COSTS;
