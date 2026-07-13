@@ -131,6 +131,9 @@ model Shop {
   // Affichage sur la vitrine : masquer si la bannière contient déjà le nom/slogan
   showNameOnBanner   Boolean @default(true)
   showSloganOnBanner Boolean @default(true)
+  // Placement du logo (top-left|top-right|bottom-left|bottom-right) et cadrage bannière (top|center|bottom)
+  logoPosition       String  @default("top-left")
+  bannerPosition     String  @default("center")
 
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId String @unique

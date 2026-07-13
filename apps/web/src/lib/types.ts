@@ -42,6 +42,8 @@ export interface Shop {
   secondaryColor?: string | null;
   showNameOnBanner?: boolean;
   showSloganOnBanner?: boolean;
+  logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  bannerPosition?: 'top' | 'center' | 'bottom';
   products?: Product[];
   subscription?: { plan: string } | null;
   _count?: { products: number; orders: number };

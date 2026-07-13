@@ -19,6 +19,8 @@ export const createShopSchema = z.object({
   secondaryColor: hexColor.optional(),
   showNameOnBanner: z.boolean().optional(),
   showSloganOnBanner: z.boolean().optional(),
+  logoPosition: z.enum(['top-left', 'top-right', 'bottom-left', 'bottom-right']).optional(),
+  bannerPosition: z.enum(['top', 'center', 'bottom']).optional(),
 });
 
 export const updateShopSchema = createShopSchema.partial();

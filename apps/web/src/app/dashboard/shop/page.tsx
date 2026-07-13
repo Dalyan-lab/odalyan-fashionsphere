@@ -8,6 +8,13 @@ import type { Shop } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
 
+const PREVIEW_LOGO_POS: Record<string, string> = {
+  'top-left': 'left-3 top-3',
+  'top-right': 'right-3 top-3',
+  'bottom-left': 'left-3 bottom-3',
+  'bottom-right': 'right-3 bottom-3',
+};
+
 export default function ShopSettingsPage() {
   const t = useT();
   const [shop, setShop] = useState<Shop | null>(null);
@@ -22,6 +29,8 @@ export default function ShopSettingsPage() {
     bannerUrl: '',
     showNameOnBanner: true,
     showSloganOnBanner: true,
+    logoPosition: 'top-left',
+    bannerPosition: 'center',
   });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -42,6 +51,8 @@ export default function ShopSettingsPage() {
             bannerUrl: s.bannerUrl ?? '',
             showNameOnBanner: s.showNameOnBanner !== false,
             showSloganOnBanner: s.showSloganOnBanner !== false,
+            logoPosition: s.logoPosition ?? 'top-left',
+            bannerPosition: s.bannerPosition ?? 'center',
           });
       })
       .catch(() => setShop(null))
@@ -64,6 +75,8 @@ export default function ShopSettingsPage() {
       payload.secondaryColor = form.secondaryColor;
       payload.showNameOnBanner = form.showNameOnBanner;
       payload.showSloganOnBanner = form.showSloganOnBanner;
+      payload.logoPosition = form.logoPosition;
+      payload.bannerPosition = form.bannerPosition;
       await apiFetch('/shops/me', { method: 'PATCH', body: JSON.stringify(payload) });
       setMsg(t('shop.updated'));
     } catch (err) {
@@ -164,17 +177,37 @@ export default function ShopSettingsPage() {
                 />
                 {t('shop.showSlogan')}
               </label>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">{t('shop.logoPos')}</label>
+                  <select className="input" value={form.logoPosition} onChange={(e) => setForm({ ...form, logoPosition: e.target.value })}>
+                    <option value="top-left">{t('shop.pos.top-left')}</option>
+                    <option value="top-right">{t('shop.pos.top-right')}</option>
+                    <option value="bottom-left">{t('shop.pos.bottom-left')}</option>
+                    <option value="bottom-right">{t('shop.pos.bottom-right')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">{t('shop.bannerFraming')}</label>
+                  <select className="input" value={form.bannerPosition} onChange={(e) => setForm({ ...form, bannerPosition: e.target.value })}>
+                    <option value="top">{t('shop.frame.top')}</option>
+                    <option value="center">{t('shop.frame.center')}</option>
+                    <option value="bottom">{t('shop.frame.bottom')}</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Aperçu — reflète exactement la vitrine */}
             <div className="overflow-hidden rounded-xl border border-border">
               <div
                 className="relative flex h-32 flex-col items-center justify-center p-3 text-center"
-                style={{
-                  background: form.bannerUrl
-                    ? `url(${form.bannerUrl}) center/cover`
-                    : `linear-gradient(135deg, ${form.primaryColor}, ${form.secondaryColor})`,
-                }}
+                style={
+                  form.bannerUrl
+                    ? { backgroundImage: `url(${form.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: `center ${form.bannerPosition}` }
+                    : { background: `linear-gradient(135deg, ${form.primaryColor}, ${form.secondaryColor})` }
+                }
               >
                 {form.bannerUrl && (form.showNameOnBanner || form.showSloganOnBanner) && (
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20" />
@@ -184,7 +217,7 @@ export default function ShopSettingsPage() {
                   <img
                     src={form.logoUrl}
                     alt=""
-                    className={form.bannerUrl ? 'absolute left-3 top-3 z-10 h-11 w-11 rounded-full border-2 border-white object-cover' : 'mb-1 h-12 w-12 rounded-full border-2 border-white object-cover'}
+                    className={form.bannerUrl ? `absolute z-20 h-11 w-11 rounded-full border-2 border-white object-cover ${PREVIEW_LOGO_POS[form.logoPosition] ?? 'left-3 top-3'}` : 'mb-1 h-12 w-12 rounded-full border-2 border-white object-cover'}
                   />
                 )}
                 <div className="relative z-10">
