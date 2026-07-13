@@ -43,14 +43,14 @@ export function AiCreditsCard() {
         />
       </div>
       <p className="mt-2 text-[10px] text-faint">{t('credits.hint')}</p>
-      {low && (
-        <Link
-          href="/dashboard/subscriptions"
-          className="mt-2 block rounded-lg bg-brand-violet-magenta py-1.5 text-center text-xs font-semibold text-white"
-        >
-          {t('dash.upgrade.cta')}
-        </Link>
-      )}
+      <Link
+        href="/dashboard/credits"
+        className={`mt-2 block rounded-lg py-1.5 text-center text-xs font-semibold ${
+          low ? 'bg-brand-violet-magenta text-white' : 'border border-border text-muted hover:bg-surface-hover'
+        }`}
+      >
+        {t('credits.recharge')}
+      </Link>
     </div>
   );
 }

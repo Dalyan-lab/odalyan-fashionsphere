@@ -86,3 +86,27 @@ export const AI_CREDIT_COSTS = {
 } as const;
 
 export type AiCreditKind = keyof typeof AI_CREDIT_COSTS;
+
+/**
+ * Packs de recharge de crédits IA (achat ponctuel via Paystack).
+ * Le prix est en EUR (converti en XOF par Paystack). Modifiable librement.
+ * Les crédits achetés sont reportés d'un mois sur l'autre (jamais réinitialisés).
+ */
+export interface CreditPack {
+  id: string;
+  credits: number;
+  priceEur: number;
+  label: string;
+  popular?: boolean;
+}
+
+export const CREDIT_PACKS: CreditPack[] = [
+  { id: 'pack-50', credits: 50, priceEur: 5, label: 'Recharge Découverte' },
+  { id: 'pack-150', credits: 150, priceEur: 12, label: 'Recharge Créateur', popular: true },
+  { id: 'pack-500', credits: 500, priceEur: 35, label: 'Recharge Studio' },
+  { id: 'pack-1500', credits: 1500, priceEur: 90, label: 'Recharge Agence' },
+];
+
+export function getCreditPack(id: string): CreditPack | undefined {
+  return CREDIT_PACKS.find((p) => p.id === id);
+}

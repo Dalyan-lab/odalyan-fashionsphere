@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { PaymentProvider } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { CreditsService } from '../credits/credits.service';
 import {
   PaystackProvider,
   PaystackUnreachableError,
@@ -18,6 +19,7 @@ export class PaymentService {
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackProvider,
     private readonly mail: MailService,
+    private readonly credits: CreditsService,
   ) {
     const key = process.env.STRIPE_SECRET_KEY;
     this.stripe = key ? new Stripe(key) : null;
@@ -198,7 +200,13 @@ export class PaymentService {
     if (!this.paystack.enabled) return { status: 'MOCK' };
     const v = await this.paystack.verify(reference);
     const payment = await this.prisma.payment.findFirst({ where: { providerRef: reference } });
-    if (payment && v.successful) {
+
+    // Recharge de crédits IA (référence sans commande associée)
+    if (!payment) {
+      return this.credits.verifyPurchase(reference, v.successful);
+    }
+
+    if (v.successful) {
       // Idempotence : n'envoie les emails qu'à la première confirmation
       const firstConfirmation = !payment.paid;
       await this.prisma.payment.update({

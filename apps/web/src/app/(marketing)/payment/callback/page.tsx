@@ -10,6 +10,9 @@ function CallbackInner() {
   const params = useSearchParams();
   const clearCart = useCart((s) => s.clear);
   const [state, setState] = useState<'verifying' | 'paid' | 'failed'>('verifying');
+  const [credits, setCredits] = useState<number | null>(null);
+
+  const isCredits = params.get('kind') === 'credits';
 
   useEffect(() => {
     const status = params.get('status');
@@ -20,14 +23,15 @@ function CallbackInner() {
       setState('failed');
       return;
     }
-    apiFetch<{ status: string }>('/payments/paystack/verify', {
+    apiFetch<{ status: string; kind?: string; credits?: number }>('/payments/paystack/verify', {
       method: 'POST',
       auth: false,
       body: JSON.stringify({ reference }),
     })
       .then((res) => {
         if (res.status === 'PAID') {
-          clearCart();
+          if (res.kind === 'credits') setCredits(res.credits ?? null);
+          else clearCart();
           setState('paid');
         } else {
           setState('failed');
@@ -46,6 +50,18 @@ function CallbackInner() {
   }
 
   if (state === 'paid') {
+    if (isCredits) {
+      return (
+        <div>
+          <div className="text-6xl">⚡</div>
+          <h1 className="mt-4 font-display text-3xl font-bold">Crédits rechargés !</h1>
+          <p className="mt-2 text-muted">
+            {credits ? `${credits} crédits IA ont été ajoutés à votre boutique.` : 'Vos crédits IA ont été ajoutés.'}
+          </p>
+          <Link href="/dashboard/credits" className="btn-primary mt-8">Retour aux crédits</Link>
+        </div>
+      );
+    }
     return (
       <div>
         <div className="text-6xl">✅</div>

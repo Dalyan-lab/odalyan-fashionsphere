@@ -134,9 +134,11 @@ model Shop {
   // Placement du logo (top-left|top-right|bottom-left|bottom-right) et cadrage bannière (top|center|bottom)
   logoPosition       String  @default("top-left")
   bannerPosition     String  @default("center")
-  // Crédits IA : solde courant + date du dernier renouvellement mensuel selon le plan
+  // Crédits IA : solde mensuel (réinitialisé chaque mois selon le plan) + date du dernier renouvellement
   aiCredits          Int      @default(0)
   creditsRenewedAt   DateTime?
+  // Crédits IA achetés en supplément (recharge Paystack) : reportés, JAMAIS réinitialisés
+  aiCreditsExtra     Int      @default(0)
 
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId String @unique
@@ -147,11 +149,30 @@ model Shop {
   generatedAssets GeneratedAsset[]
   socialConnections SocialConnection[]
   scheduledPosts    ScheduledPost[]
+  creditPurchases   CreditPurchase[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([slug])
+}
+
+/** Achat ponctuel de crédits IA (recharge) via Paystack. */
+model CreditPurchase {
+  id          String   @id @default(cuid())
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId      String
+  packId      String
+  credits     Int
+  amount      Decimal  @db.Decimal(12, 2)
+  currency    String
+  provider    String   @default("paystack")
+  providerRef String   @unique
+  status      String   @default("PENDING") // PENDING | PAID | FAILED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([shopId])
 }
 
 model Subscription {

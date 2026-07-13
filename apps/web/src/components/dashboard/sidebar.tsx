@@ -29,6 +29,7 @@ const NAV: NavItem[] = [
   { key: 'dash.nav.video', href: '/dashboard/video', icon: 'video' },
   { key: 'dash.nav.publications', href: '/dashboard/publications', icon: 'publications', phase: 'P5' },
   { key: 'dash.nav.stats', href: '/dashboard/stats', icon: 'stats' },
+  { key: 'dash.nav.credits', href: '/dashboard/credits', icon: 'credits' },
   { key: 'dash.nav.subscriptions', href: '/dashboard/subscriptions', icon: 'subscriptions' },
   { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
 ];

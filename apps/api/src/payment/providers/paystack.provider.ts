@@ -9,6 +9,15 @@ export interface PsLinkInput {
   phone?: string;
 }
 
+export interface PsGenericLinkInput {
+  reference: string;
+  amountEur: number;
+  email: string;
+  /** Suffixe ajouté au callback (?kind=…) pour router la vérification côté web. */
+  kind?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface PsLinkResult {
   link: string;
   txRef: string;
@@ -119,6 +128,45 @@ export class PaystackProvider {
     }
     const detail = data.message ?? JSON.stringify(data);
     this.logger.error(`Paystack initialize a échoué : ${detail}`);
+    throw new PaystackApiError(detail);
+  }
+
+  /**
+   * Lien de paiement générique (hors commande) : recharge de crédits IA.
+   * Réutilise le même flux hébergé Paystack ; la vérification passe par verify().
+   */
+  async createGenericLink(input: PsGenericLinkInput): Promise<PsLinkResult> {
+    const localAmount = this.convert(input.amountEur);
+    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    const kind = input.kind ? `&kind=${encodeURIComponent(input.kind)}` : '';
+
+    const res = await this.request('/transaction/initialize', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: input.email,
+        amount: localAmount * 100, // sous-unité : XOF × 100
+        currency: this.currency,
+        reference: input.reference,
+        callback_url: `${webOrigin}/payment/callback?provider=paystack${kind}`,
+        metadata: input.metadata ?? {},
+      }),
+    });
+
+    const data = (await res.json()) as {
+      status?: boolean;
+      message?: string;
+      data?: { authorization_url?: string; reference?: string };
+    };
+    if (data.status === true && data.data?.authorization_url) {
+      return {
+        link: data.data.authorization_url,
+        txRef: data.data.reference ?? input.reference,
+        amount: localAmount,
+        currency: this.currency,
+      };
+    }
+    const detail = data.message ?? JSON.stringify(data);
+    this.logger.error(`Paystack initialize (crédits) a échoué : ${detail}`);
     throw new PaystackApiError(detail);
   }
 
