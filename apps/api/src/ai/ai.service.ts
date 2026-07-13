@@ -32,7 +32,7 @@ export class AiService {
   /** Indique au frontend si de vrais providers sont configurés. */
   status() {
     return {
-      image: this.imageProvider.enabled ? 'openai' : 'mock',
+      image: this.imageProvider.providerName,
       text: this.textProvider.enabled ? 'anthropic' : 'mock',
     };
   }

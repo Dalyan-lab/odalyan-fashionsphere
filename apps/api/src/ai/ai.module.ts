@@ -7,6 +7,7 @@ import { TextProvider } from './providers/text.provider';
 import { HeyGenProvider } from './providers/video/heygen.provider';
 import { RunwayProvider } from './providers/video/runway.provider';
 import { KlingProvider } from './providers/video/kling.provider';
+import { ReplicateVideoProvider } from './providers/video/replicate.provider';
 import { VideoRegistry } from './providers/video/video.registry';
 
 @Module({
@@ -19,6 +20,7 @@ import { VideoRegistry } from './providers/video/video.registry';
     HeyGenProvider,
     RunwayProvider,
     KlingProvider,
+    ReplicateVideoProvider,
     VideoRegistry,
   ],
   exports: [AiService],
