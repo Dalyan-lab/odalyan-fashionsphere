@@ -1,14 +1,18 @@
 'use client';
 
+import Link from 'next/link';
 import { Icon } from './icons';
 import { ThemeToggle } from '../theme-provider';
 import { LocaleSwitcher } from '../locale-switcher';
-import { useSidebar } from '@/lib/store';
+import { NotificationBell } from './notification-bell';
+import { useSidebar, useShop } from '@/lib/store';
 import { useT } from '@/lib/i18n';
 
 export function Topbar({ userInitial = 'O' }: { userInitial?: string }) {
   const toggle = useSidebar((s) => s.toggle);
+  const shop = useShop((s) => s.shop);
   const t = useT();
+  const initial = (shop?.name ?? userInitial ?? 'O').charAt(0).toUpperCase();
 
   return (
     <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-bg/80 px-4 py-3 backdrop-blur-lg sm:px-6">
@@ -31,13 +35,17 @@ export function Topbar({ userInitial = 'O' }: { userInitial?: string }) {
       <div className="ml-auto flex items-center gap-2.5">
         <LocaleSwitcher />
         <ThemeToggle />
-        <button className="relative grid h-10 w-10 place-items-center rounded-xl border border-border text-content transition hover:bg-surface-hover">
-          {Icon.bell({})}
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-brand-magenta" />
-        </button>
-        <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
-          {userInitial}
-        </span>
+        <NotificationBell />
+        <Link href="/dashboard/shop" title={shop?.name ?? ''} className="shrink-0">
+          {shop?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shop.logoUrl} alt="" className="h-10 w-10 rounded-full border border-border object-cover" />
+          ) : (
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
+              {initial}
+            </span>
+          )}
+        </Link>
       </div>
     </div>
   );

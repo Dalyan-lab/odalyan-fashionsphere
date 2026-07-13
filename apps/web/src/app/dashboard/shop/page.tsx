@@ -15,6 +15,15 @@ const PREVIEW_LOGO_POS: Record<string, string> = {
   'bottom-right': 'right-3 bottom-3',
 };
 
+/** Convertit une valeur de cadrage (top/center/bottom ou "N%") en pourcentage 0-100. */
+function posToPercent(pos: string): number {
+  if (pos === 'top') return 0;
+  if (pos === 'bottom') return 100;
+  if (pos === 'center' || !pos) return 50;
+  const n = parseInt(pos, 10);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50;
+}
+
 export default function ShopSettingsPage() {
   const t = useT();
   const [shop, setShop] = useState<Shop | null>(null);
@@ -178,23 +187,32 @@ export default function ShopSettingsPage() {
                 {t('shop.showSlogan')}
               </label>
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">{t('shop.logoPos')}</label>
-                  <select className="input" value={form.logoPosition} onChange={(e) => setForm({ ...form, logoPosition: e.target.value })}>
-                    <option value="top-left">{t('shop.pos.top-left')}</option>
-                    <option value="top-right">{t('shop.pos.top-right')}</option>
-                    <option value="bottom-left">{t('shop.pos.bottom-left')}</option>
-                    <option value="bottom-right">{t('shop.pos.bottom-right')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">{t('shop.bannerFraming')}</label>
-                  <select className="input" value={form.bannerPosition} onChange={(e) => setForm({ ...form, bannerPosition: e.target.value })}>
-                    <option value="top">{t('shop.frame.top')}</option>
-                    <option value="center">{t('shop.frame.center')}</option>
-                    <option value="bottom">{t('shop.frame.bottom')}</option>
-                  </select>
+              <div className="mt-3">
+                <label className="label">{t('shop.logoPos')}</label>
+                <select className="input" value={form.logoPosition} onChange={(e) => setForm({ ...form, logoPosition: e.target.value })}>
+                  <option value="top-left">{t('shop.pos.top-left')}</option>
+                  <option value="top-right">{t('shop.pos.top-right')}</option>
+                  <option value="bottom-left">{t('shop.pos.bottom-left')}</option>
+                  <option value="bottom-right">{t('shop.pos.bottom-right')}</option>
+                </select>
+              </div>
+              <div className="mt-3">
+                <label className="label flex items-center justify-between">
+                  <span>{t('shop.bannerFraming')}</span>
+                  <span className="text-xs text-faint">{posToPercent(form.bannerPosition)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={posToPercent(form.bannerPosition)}
+                  onChange={(e) => setForm({ ...form, bannerPosition: `${e.target.value}%` })}
+                  className="w-full accent-brand-violet"
+                />
+                <div className="flex justify-between text-[10px] text-faint">
+                  <span>{t('shop.frame.top')}</span>
+                  <span>{t('shop.frame.center')}</span>
+                  <span>{t('shop.frame.bottom')}</span>
                 </div>
               </div>
             </div>

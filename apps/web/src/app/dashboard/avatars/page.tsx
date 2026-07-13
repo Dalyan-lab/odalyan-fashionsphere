@@ -100,7 +100,7 @@ export default function AvatarsPage() {
                   <p className="mt-1 text-xs text-muted">{t('av.tryonDesc')}</p>
                   <p className="mt-2 text-[10px] text-brand-violet">{t('av.openTryon')}</p>
                 </Link>
-                <Link href="/dashboard/showroom" className="card p-4 transition hover:border-brand-violet">
+                <Link href="/dashboard/defile" className="card p-4 transition hover:border-brand-violet">
                   <p className="text-sm font-semibold">{t('av.avatar3d')}</p>
                   <p className="mt-1 text-xs text-muted">{t('av.avatar3dDesc')}</p>
                   <p className="mt-2 text-[10px] text-brand-violet">{t('av.openShowroom')}</p>

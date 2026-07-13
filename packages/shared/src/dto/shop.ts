@@ -20,7 +20,8 @@ export const createShopSchema = z.object({
   showNameOnBanner: z.boolean().optional(),
   showSloganOnBanner: z.boolean().optional(),
   logoPosition: z.enum(['top-left', 'top-right', 'bottom-left', 'bottom-right']).optional(),
-  bannerPosition: z.enum(['top', 'center', 'bottom']).optional(),
+  // "top" | "center" | "bottom" (héritage) ou pourcentage vertical "0%"…"100%"
+  bannerPosition: z.string().max(12).optional(),
 });
 
 export const updateShopSchema = createShopSchema.partial();

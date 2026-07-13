@@ -43,7 +43,7 @@ export interface Shop {
   showNameOnBanner?: boolean;
   showSloganOnBanner?: boolean;
   logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-  bannerPosition?: 'top' | 'center' | 'bottom';
+  bannerPosition?: string; // "top"|"center"|"bottom" (héritage) ou "0%"…"100%"
   products?: Product[];
   subscription?: { plan: string } | null;
   _count?: { products: number; orders: number };

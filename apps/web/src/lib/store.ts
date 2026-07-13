@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AuthResponse, AuthUser } from '@odalyan/shared';
+import type { Shop } from './types';
 import { setToken } from './api';
 
 interface AuthState {
@@ -31,6 +32,17 @@ export const useAuth = create<AuthState>()(
     { name: 'odalyan-auth' },
   ),
 );
+
+/** Boutique du vendeur connecté, partagée entre le layout, la sidebar et la topbar. */
+interface ShopState {
+  shop: Shop | null;
+  setShop: (shop: Shop | null) => void;
+}
+
+export const useShop = create<ShopState>((set) => ({
+  shop: null,
+  setShop: (shop) => set({ shop }),
+}));
 
 interface SidebarState {
   open: boolean;
