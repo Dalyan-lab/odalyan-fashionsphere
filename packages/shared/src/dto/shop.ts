@@ -17,6 +17,8 @@ export const createShopSchema = z.object({
   bannerUrl: z.string().url().optional(),
   primaryColor: hexColor.optional(),
   secondaryColor: hexColor.optional(),
+  showNameOnBanner: z.boolean().optional(),
+  showSloganOnBanner: z.boolean().optional(),
 });
 
 export const updateShopSchema = createShopSchema.partial();

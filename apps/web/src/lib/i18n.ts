@@ -195,6 +195,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'shop.myBrand': 'Ma marque',
     'shop.yourSlogan': 'Votre slogan',
     'shop.updated': 'Boutique mise à jour ✓',
+    'shop.overlay': 'Affichage sur la bannière',
+    'shop.overlayHint': 'Si ta bannière contient déjà le nom ou le slogan, décoche pour éviter le doublon.',
+    'shop.showName': 'Afficher le nom sur la bannière',
+    'shop.showSlogan': 'Afficher le slogan sur la bannière',
     // Paramètres
     'set.subtitle': 'Préférences du compte, sécurité et langue.',
     'set.account': 'Mon compte',
@@ -534,6 +538,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'shop.myBrand': 'My brand',
     'shop.yourSlogan': 'Your slogan',
     'shop.updated': 'Store updated ✓',
+    'shop.overlay': 'Display on banner',
+    'shop.overlayHint': 'If your banner already shows the name or slogan, uncheck to avoid duplication.',
+    'shop.showName': 'Show name on banner',
+    'shop.showSlogan': 'Show slogan on banner',
     // Settings
     'set.subtitle': 'Account preferences, security and language.',
     'set.account': 'My account',

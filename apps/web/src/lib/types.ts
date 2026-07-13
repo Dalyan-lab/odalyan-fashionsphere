@@ -40,6 +40,8 @@ export interface Shop {
   bannerUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  showNameOnBanner?: boolean;
+  showSloganOnBanner?: boolean;
   products?: Product[];
   subscription?: { plan: string } | null;
   _count?: { products: number; orders: number };

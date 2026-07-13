@@ -20,6 +20,8 @@ export default function ShopSettingsPage() {
     secondaryColor: '#e8527a',
     logoUrl: '',
     bannerUrl: '',
+    showNameOnBanner: true,
+    showSloganOnBanner: true,
   });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -38,6 +40,8 @@ export default function ShopSettingsPage() {
             secondaryColor: s.secondaryColor ?? '#e8527a',
             logoUrl: s.logoUrl ?? '',
             bannerUrl: s.bannerUrl ?? '',
+            showNameOnBanner: s.showNameOnBanner !== false,
+            showSloganOnBanner: s.showSloganOnBanner !== false,
           });
       })
       .catch(() => setShop(null))
@@ -51,13 +55,15 @@ export default function ShopSettingsPage() {
     setSaving(true);
     try {
       // n'envoyer que les champs renseignés
-      const payload: Record<string, string> = { name: form.name };
+      const payload: Record<string, string | boolean> = { name: form.name };
       if (form.slogan) payload.slogan = form.slogan;
       if (form.description) payload.description = form.description;
       if (form.logoUrl) payload.logoUrl = form.logoUrl;
       if (form.bannerUrl) payload.bannerUrl = form.bannerUrl;
       payload.primaryColor = form.primaryColor;
       payload.secondaryColor = form.secondaryColor;
+      payload.showNameOnBanner = form.showNameOnBanner;
+      payload.showSloganOnBanner = form.showSloganOnBanner;
       await apiFetch('/shops/me', { method: 'PATCH', body: JSON.stringify(payload) });
       setMsg(t('shop.updated'));
     } catch (err) {
@@ -135,24 +141,62 @@ export default function ShopSettingsPage() {
             <h2 className="font-bold">{t('shop.visuals')}</h2>
             <ImageUploadInput label={t('shop.logo')} value={form.logoUrl} onChange={(url) => setForm({ ...form, logoUrl: url })} />
             <ImageUploadInput label={t('shop.banner')} value={form.bannerUrl} onChange={(url) => setForm({ ...form, bannerUrl: url })} />
-            {/* Aperçu */}
+
+            {/* Interrupteurs d'affichage (évite le doublon avec une bannière déjà brandée) */}
+            <div className="rounded-xl border border-border p-3">
+              <p className="text-sm font-semibold">{t('shop.overlay')}</p>
+              <p className="mb-2 mt-0.5 text-xs text-faint">{t('shop.overlayHint')}</p>
+              <label className="flex cursor-pointer items-center gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.showNameOnBanner}
+                  onChange={(e) => setForm({ ...form, showNameOnBanner: e.target.checked })}
+                  className="h-4 w-4 accent-brand-violet"
+                />
+                {t('shop.showName')}
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 py-1 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.showSloganOnBanner}
+                  onChange={(e) => setForm({ ...form, showSloganOnBanner: e.target.checked })}
+                  className="h-4 w-4 accent-brand-violet"
+                />
+                {t('shop.showSlogan')}
+              </label>
+            </div>
+
+            {/* Aperçu — reflète exactement la vitrine */}
             <div className="overflow-hidden rounded-xl border border-border">
               <div
-                className="flex h-28 items-end p-3"
+                className="relative flex h-32 flex-col items-center justify-center p-3 text-center"
                 style={{
                   background: form.bannerUrl
                     ? `url(${form.bannerUrl}) center/cover`
                     : `linear-gradient(135deg, ${form.primaryColor}, ${form.secondaryColor})`,
                 }}
               >
+                {form.bannerUrl && (form.showNameOnBanner || form.showSloganOnBanner) && (
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20" />
+                )}
                 {form.logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={form.logoUrl} alt="" className="h-12 w-12 rounded-full border-2 border-white object-cover" />
+                  <img
+                    src={form.logoUrl}
+                    alt=""
+                    className={form.bannerUrl ? 'absolute left-3 top-3 z-10 h-11 w-11 rounded-full border-2 border-white object-cover' : 'mb-1 h-12 w-12 rounded-full border-2 border-white object-cover'}
+                  />
                 )}
-              </div>
-              <div className="p-3">
-                <p className="font-display text-lg font-bold" style={{ color: form.primaryColor }}>{form.name || t('shop.myBrand')}</p>
-                <p className="text-xs text-muted">{form.slogan || t('shop.yourSlogan')}</p>
+                <div className="relative z-10">
+                  {form.showNameOnBanner && (
+                    <p className="font-display text-lg font-bold drop-shadow" style={{ color: form.bannerUrl ? '#fff' : '#fff' }}>
+                      {form.name || t('shop.myBrand')}
+                    </p>
+                  )}
+                  {form.showSloganOnBanner && (
+                    <p className="text-xs text-white/90 drop-shadow">{form.slogan || t('shop.yourSlogan')}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
