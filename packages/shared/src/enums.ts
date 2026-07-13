@@ -59,3 +59,11 @@ export const PLAN_PRODUCT_LIMITS: Record<SubscriptionPlan, number> = {
   [SubscriptionPlan.BUSINESS]: Infinity,
   [SubscriptionPlan.ENTERPRISE]: Infinity,
 };
+
+/** Quota de stockage d'images/fichiers par plan, en octets (levier de revenus). */
+export const PLAN_STORAGE_LIMITS: Record<SubscriptionPlan, number> = {
+  [SubscriptionPlan.STARTER]: 200 * 1024 * 1024, // 200 Mo
+  [SubscriptionPlan.PRO]: 5 * 1024 * 1024 * 1024, // 5 Go
+  [SubscriptionPlan.BUSINESS]: 50 * 1024 * 1024 * 1024, // 50 Go
+  [SubscriptionPlan.ENTERPRISE]: Infinity,
+};
