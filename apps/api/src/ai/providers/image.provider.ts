@@ -196,6 +196,46 @@ export class ImageProvider {
     }
   }
 
+  // ------------------------------------------------------------------ Diagnostic
+
+  /** Teste la clé Replicate + la facturation, et renvoie la vraie réponse (admin). */
+  async diagnose(): Promise<Record<string, unknown>> {
+    if (!this.replicateEnabled) return { replicate: 'AUCUN_TOKEN', hint: 'Ajoutez REPLICATE_API_TOKEN.' };
+    const out: Record<string, unknown> = {
+      imageModel: REPLICATE_IMAGE_MODEL(),
+      editModel: REPLICATE_EDIT_MODEL(),
+      storageR2: this.storage.enabled,
+    };
+    try {
+      const acc = await fetch('https://api.replicate.com/v1/account', {
+        headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+      });
+      out.accountStatus = acc.status;
+      out.account = (await acc.text().catch(() => '')).slice(0, 300);
+    } catch (err) {
+      out.accountError = String(err);
+    }
+    try {
+      const res = await fetch(`https://api.replicate.com/v1/models/${REPLICATE_IMAGE_MODEL()}/predictions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+          Prefer: 'wait',
+        },
+        body: JSON.stringify({ input: { prompt: 'a red apple on a white table', num_outputs: 1 } }),
+      });
+      out.predictionStatus = res.status;
+      const body = (await res.json().catch(() => ({}))) as { status?: string; error?: string; output?: unknown };
+      out.predictionState = body.status ?? null;
+      out.predictionError = body.error ?? null;
+      out.hasOutput = Boolean(body.output);
+    } catch (err) {
+      out.predictionError = String(err);
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ Utilitaires
 
   /** Télécharge une image distante et la stocke sur R2 (URL permanente). */

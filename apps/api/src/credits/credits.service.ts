@@ -46,6 +46,18 @@ export class CreditsService {
     return { credits: shop.aiCredits, plan, monthlyAllowance: allowance, renewedAt: shop.creditsRenewedAt };
   }
 
+  /** Vérifie que le solde couvre `amount` (403 sinon), SANS débiter. À appeler avant une génération payante. */
+  async ensure(userId: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const balance = await this.getBalance(userId);
+    if (balance.credits < amount) {
+      throw new ForbiddenException(
+        `Crédits IA épuisés (${balance.credits}/${balance.monthlyAllowance} — plan ${balance.plan}). ` +
+          `Rechargez ou passez à une offre supérieure pour continuer à générer.`,
+      );
+    }
+  }
+
   /** Débite `amount` crédits, ou lève une 403 explicite si le solde est insuffisant. */
   async consume(userId: string, amount: number): Promise<number> {
     if (amount <= 0) return (await this.getBalance(userId)).credits;

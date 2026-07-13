@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GeneratedAssetStatus, GeneratedAssetType, Prisma } from '@prisma/client';
 import {
+  AI_CREDIT_COSTS,
   PhotoStyle,
   TRYON_ANGLES,
   type CampaignResult,
@@ -16,6 +17,7 @@ import { NotFoundException } from '@nestjs/common';
 import { VideoRegistry } from './providers/video/video.registry';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
+import { CreditsService } from '../credits/credits.service';
 import { ImageProvider } from './providers/image.provider';
 import { TextProvider } from './providers/text.provider';
 
@@ -24,6 +26,7 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly shopService: ShopService,
+    private readonly credits: CreditsService,
     private readonly imageProvider: ImageProvider,
     private readonly textProvider: TextProvider,
     private readonly videoRegistry: VideoRegistry,
@@ -49,6 +52,7 @@ export class AiService {
   async generateVideo(userId: string, input: GenerateVideoInput) {
     const shop = await this.shopService.requireOwnedShop(userId);
     const provider = this.videoRegistry.get(input.providerId);
+    if (provider?.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.video);
 
     // Image source : explicite, sinon l'image du produit
     let imageUrl = input.imageUrl;
@@ -98,6 +102,10 @@ export class AiService {
           : res.status === 'FAILED'
             ? GeneratedAssetStatus.FAILED
             : GeneratedAssetStatus.PENDING;
+      // Débit uniquement si la génération a bien démarré (pas d'échec immédiat).
+      if (status !== GeneratedAssetStatus.FAILED) {
+        await this.credits.consume(userId, AI_CREDIT_COSTS.video);
+      }
     }
 
     return this.prisma.generatedAsset.create({
@@ -155,6 +163,7 @@ export class AiService {
   /** Génère des photos mannequin / studio à partir d'un produit ou d'un prompt. */
   async generateMannequin(userId: string, input: GenerateMannequinInput) {
     const shop = await this.shopService.requireOwnedShop(userId);
+    if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.image);
 
     let productName = 'un vêtement';
     if (input.productId) {
@@ -168,6 +177,7 @@ export class AiService {
         `style ${input.style}, rendu professionnel, éclairage ${input.style === PhotoStyle.STUDIO ? 'studio' : 'naturel'}, haute qualité, 8k`;
 
     const { url, provider } = await this.imageProvider.generate(prompt, input.mannequinType);
+    if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.image);
 
     const asset = await this.prisma.generatedAsset.create({
       data: {
@@ -193,6 +203,7 @@ export class AiService {
     if (!product || product.shopId !== shop.id) {
       throw new NotFoundException('Produit introuvable dans votre boutique');
     }
+    if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.tryon);
 
     const extra = input.prompt?.trim() ? `, ${input.prompt.trim()}` : '';
 
@@ -220,12 +231,17 @@ export class AiService {
       }),
     );
 
+    if (views.some((v) => v.provider !== 'mock')) {
+      await this.credits.consume(userId, AI_CREDIT_COSTS.tryon);
+    }
+
     return { productName: product.name, views };
   }
 
   /** Génère un avatar personnalisé à partir de paramètres (création manuelle). */
   async generateAvatar(userId: string, input: GenerateAvatarInput) {
     const shop = await this.shopService.requireOwnedShop(userId);
+    if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.image);
 
     const hairstyle = input.hairstyle?.trim() ? `, coiffure ${input.hairstyle}` : '';
     const extra = input.prompt?.trim() ? `, ${input.prompt.trim()}` : '';
@@ -245,6 +261,8 @@ export class AiService {
         `teint ${input.skinTone}${hairstyle}${extra}, fond neutre studio, plein corps, haute qualité, 8k`;
       ({ url, provider } = await this.imageProvider.generate(prompt, input.sex));
     }
+
+    if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.image);
 
     return this.prisma.generatedAsset.create({
       data: {
@@ -291,10 +309,12 @@ export class AiService {
    */
   async generateCampaign(userId: string, input: GenerateCampaignInput): Promise<CampaignResult> {
     const shop = await this.shopService.requireOwnedShop(userId);
+    if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.campaign);
 
     // Visuel marketing
     const imgPrompt = `Photo publicitaire mode, mannequin portant "${input.productName}", style ${PhotoStyle.LUXE}, composition marketing premium, haute qualité, 8k`;
     const image = await this.imageProvider.generate(imgPrompt, 'Femme');
+    if (image.provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.campaign);
 
     // Texte publicitaire
     const { result: copy, provider: textProvider } = await this.textProvider.generateAdCopy({
