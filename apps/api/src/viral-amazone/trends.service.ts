@@ -93,6 +93,12 @@ export class TrendsService {
     return this.prisma.amazonProduct.findUnique({ where: { id: product.id } });
   }
 
+  /** Retire un produit du tracker (curation admin) — supprime aussi son historique et ses scripts liés. */
+  async untrackProduct(productId: string): Promise<{ deleted: boolean }> {
+    await this.prisma.amazonProduct.delete({ where: { id: productId } }).catch(() => null);
+    return { deleted: true };
+  }
+
   /** Rafraîchit un produit : nouvel état PA-API + snapshot + recalcul de vélocité. */
   async refreshOne(productId: string): Promise<void> {
     const product = await this.prisma.amazonProduct.findUnique({ where: { id: productId } });

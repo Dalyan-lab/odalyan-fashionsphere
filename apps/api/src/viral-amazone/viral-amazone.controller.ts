@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   AMAZON_MARKETPLACES,
   UserRole,
@@ -45,6 +45,13 @@ export class ViralAmazoneController {
   @Roles(UserRole.ADMIN)
   track(@Body('asin') asin: string, @Body('marketplace') marketplace: string) {
     return this.trends.trackAsin(asin, marketplace);
+  }
+
+  /** Retire un produit du tracker (curation admin). */
+  @Delete('trends/:id')
+  @Roles(UserRole.ADMIN)
+  untrack(@Param('id') id: string) {
+    return this.trends.untrackProduct(id);
   }
 
   @Post('scripts/generate')
