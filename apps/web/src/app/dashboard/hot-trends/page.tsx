@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react';
 import {
   AMAZON_MARKETPLACES,
+  CreatorTier,
   ScriptPlatform,
+  TIER_THRESHOLDS,
   TrendTier,
   type AmazonTrendProductDto,
+  type CreatorProgressDto,
+  type LeaderboardEntryDto,
   type ViralScriptDto,
 } from '@odalyan/shared';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch, ApiError, API_ORIGIN } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
@@ -32,9 +36,25 @@ const TIER_META: Record<TrendTier, { emoji: string; color: string; labelKey: str
   [TrendTier.SLOW_BURN]: { emoji: '📈', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30', labelKey: 'hot.tier.slowBurn' },
 };
 
+const LEVEL_META: Record<CreatorTier, { emoji: string; labelKey: string }> = {
+  [CreatorTier.BRONZE]: { emoji: '🥉', labelKey: 'hot.level.bronze' },
+  [CreatorTier.SILVER]: { emoji: '🥈', labelKey: 'hot.level.silver' },
+  [CreatorTier.GOLD]: { emoji: '🥇', labelKey: 'hot.level.gold' },
+  [CreatorTier.PLATINUM]: { emoji: '💎', labelKey: 'hot.level.platinum' },
+};
+
+const REWARD_LABEL_KEY: Record<string, string> = {
+  CLICK_MILESTONE: 'hot.reward.clickMilestone',
+  STREAK_MILESTONE: 'hot.reward.streakMilestone',
+  TIER_UP: 'hot.reward.tierUp',
+  LEADERBOARD: 'hot.reward.leaderboard',
+};
+
 export default function HotTrendsPage() {
   const t = useT();
   const [status, setStatus] = useState<Status | null>(null);
+  const [progress, setProgress] = useState<CreatorProgressDto | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntryDto[] | null>(null);
   const [data, setData] = useState<TrendsPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [marketplace, setMarketplace] = useState('');
@@ -52,8 +72,14 @@ export default function HotTrendsPage() {
       .finally(() => setLoading(false));
   };
 
+  const loadProgress = () => {
+    apiFetch<CreatorProgressDto>('/viral-amazone/progress').then(setProgress).catch(() => setProgress(null));
+  };
+
   useEffect(() => {
     apiFetch<Status>('/viral-amazone/status').then(setStatus).catch(() => setStatus(null));
+    apiFetch<LeaderboardEntryDto[]>('/viral-amazone/leaderboard').then(setLeaderboard).catch(() => setLeaderboard(null));
+    loadProgress();
   }, []);
 
   useEffect(load, [marketplace, tier]);
@@ -75,6 +101,12 @@ export default function HotTrendsPage() {
               {t('hot.demoMode')}
             </span>
           )}
+        </div>
+
+        {/* Système d'encouragement : progression + classement */}
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+          <ProgressCard progress={progress} />
+          <LeaderboardCard entries={leaderboard} />
         </div>
 
         {/* Filtres */}
@@ -150,12 +182,103 @@ export default function HotTrendsPage() {
         )}
       </div>
 
-      {panelProduct && <CreatePostPanel product={panelProduct} onClose={() => setPanelProduct(null)} />}
+      {panelProduct && (
+        <CreatePostPanel product={panelProduct} onClose={() => setPanelProduct(null)} onGenerated={loadProgress} />
+      )}
     </>
   );
 }
 
-function CreatePostPanel({ product, onClose }: { product: AmazonTrendProductDto; onClose: () => void }) {
+function ProgressCard({ progress }: { progress: CreatorProgressDto | null }) {
+  const t = useT();
+  if (!progress) return <div className="card p-5 text-sm text-muted">{t('common.loading')}</div>;
+
+  const meta = LEVEL_META[progress.tier];
+  const pct = progress.nextTier
+    ? Math.min(100, (progress.totalClicks / TIER_THRESHOLDS[progress.nextTier]) * 100)
+    : 100;
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">{meta.emoji}</span>
+          <div>
+            <p className="font-display text-lg font-bold">{t(meta.labelKey)}</p>
+            <p className="text-xs text-faint">{t('hot.progress.scriptCost').replace('{n}', String(progress.scriptCost))}</p>
+          </div>
+        </div>
+        <div className="text-right text-sm">
+          <p className="font-bold text-brand-violet">{progress.totalClicks} {t('hot.progress.clicksWord')}</p>
+          <p className="text-xs text-faint">
+            {progress.currentStreakDays > 0
+              ? `🔥 ${t('hot.progress.streakDays').replace('{n}', String(progress.currentStreakDays))}`
+              : t('hot.progress.noStreak')}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 h-2 rounded-full bg-surface-2">
+        <div className="h-full rounded-full bg-brand-violet-magenta" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-2 text-xs text-faint">
+        {progress.nextTier
+          ? t('hot.progress.nextTier')
+              .replace('{n}', String(progress.clicksToNextTier))
+              .replace('{tier}', t(LEVEL_META[progress.nextTier].labelKey))
+          : t('hot.progress.maxTier')}
+      </p>
+
+      {progress.recentRewards.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">{t('hot.progress.rewards')}</p>
+          <ul className="space-y-1.5">
+            {progress.recentRewards.slice(0, 4).map((r, i) => (
+              <li key={i} className="flex items-center justify-between text-xs">
+                <span className="text-muted">{t(REWARD_LABEL_KEY[r.kind] ?? r.kind)}</span>
+                <span className="font-semibold text-emerald-500">+{r.credits} {t('hot.progress.creditsWord')}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeaderboardCard({ entries }: { entries: LeaderboardEntryDto[] | null }) {
+  const t = useT();
+  return (
+    <div className="card p-5">
+      <p className="font-bold">🏆 {t('hot.leaderboard.title')}</p>
+      {!entries || entries.length === 0 ? (
+        <p className="mt-3 text-xs text-faint">{t('hot.leaderboard.empty')}</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {entries.slice(0, 5).map((e, i) => (
+            <li key={e.shopId} className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-sm ${e.isMe ? 'bg-surface-2' : ''}`}>
+              <span className="flex items-center gap-2">
+                <span className="w-4 text-xs font-bold text-faint">{i + 1}</span>
+                <span className="truncate">{e.isMe ? `${t('hot.leaderboard.you')} (${e.shopName})` : e.shopName}</span>
+              </span>
+              <span className="text-xs font-semibold text-brand-violet">{e.clicks}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function CreatePostPanel({
+  product,
+  onClose,
+  onGenerated,
+}: {
+  product: AmazonTrendProductDto;
+  onClose: () => void;
+  onGenerated: () => void;
+}) {
   const t = useT();
   const [platform, setPlatform] = useState<ScriptPlatform>(ScriptPlatform.TIKTOK);
   const [script, setScript] = useState<ViralScriptDto | null>(null);
@@ -173,6 +296,7 @@ function CreatePostPanel({ product, onClose }: { product: AmazonTrendProductDto;
       });
       setScript(res);
       setDraft(`${res.hook}\n\n${res.problem}\n\n${res.solution}\n\n${res.cta}`);
+      onGenerated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('common.error'));
     } finally {
@@ -181,6 +305,7 @@ function CreatePostPanel({ product, onClose }: { product: AmazonTrendProductDto;
   };
 
   const copy = (text: string) => navigator.clipboard?.writeText(text);
+  const trackedLink = script ? `${API_ORIGIN}/go/${script.id}` : '';
 
   return (
     <>
@@ -231,10 +356,11 @@ function CreatePostPanel({ product, onClose }: { product: AmazonTrendProductDto;
 
             <div>
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-faint">{t('hot.affiliateLink')}</span>
-                <button onClick={() => copy(script.affiliateUrl)} className="text-xs text-brand-violet hover:underline">{t('aim.copy')}</button>
+                <span className="text-xs font-semibold uppercase tracking-wide text-faint">⚡ {t('hot.trackedLink')}</span>
+                <button onClick={() => copy(trackedLink)} className="text-xs text-brand-violet hover:underline">{t('aim.copy')}</button>
               </div>
-              <p className="break-all rounded-lg bg-surface-2 p-2 text-xs text-muted">{script.affiliateUrl}</p>
+              <p className="break-all rounded-lg bg-surface-2 p-2 text-xs text-muted">{trackedLink}</p>
+              <p className="mt-1 text-[10px] text-faint">{t('hot.trackedLinkHint')}</p>
             </div>
 
             {/* Studio : édition rapide avant copie */}

@@ -22,7 +22,8 @@ async function bootstrap() {
     },
   });
 
-  app.setGlobalPrefix('api');
+  // /go/:scriptId reste hors préfixe : lien traçant court collé dans les bios TikTok/Reels
+  app.setGlobalPrefix('api', { exclude: ['go/(.*)'] });
   app.enableCors({
     origin: process.env.WEB_ORIGIN?.split(',') ?? 'http://localhost:3000',
     credentials: true,

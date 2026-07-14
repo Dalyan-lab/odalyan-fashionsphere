@@ -4,6 +4,8 @@
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+/** Origine de l'API sans le suffixe /api — pour les routes hors préfixe (ex: /go/:id). */
+export const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
 
 export class ApiError extends Error {
   constructor(

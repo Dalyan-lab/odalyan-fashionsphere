@@ -89,6 +89,14 @@ enum ScriptPlatform {
   SHORTS
 }
 
+/** Niveau du vendeur créateur (système d'encouragement, basé sur les clics cumulés). */
+enum CreatorTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -157,6 +165,13 @@ model Shop {
   // par la plateforme (voir module ViralAmazone), ce tag sert au partage de revenu interne.
   affiliateTrackingId String? @unique
 
+  // Système d'encouragement ViralAmazone (Couche 1 — voir GamificationService)
+  totalClicks       Int         @default(0)
+  currentStreakDays Int         @default(0)
+  longestStreakDays Int         @default(0)
+  lastActivityDate  DateTime?
+  creatorTier       CreatorTier @default(BRONZE)
+
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId String @unique
 
@@ -168,6 +183,8 @@ model Shop {
   scheduledPosts    ScheduledPost[]
   creditPurchases   CreditPurchase[]
   viralScripts      ViralScript[]
+  affiliateClicks   AffiliateClick[]
+  rewardEvents      RewardEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -463,8 +480,49 @@ model ViralScript {
   affiliateUrl String @db.Text
   provider     String // 'anthropic' | 'openai' | 'mock'
 
+  clicks AffiliateClick[]
+
   createdAt DateTime @default(now())
 
   @@index([shopId])
   @@index([productId])
+}
+
+/**
+ * Clic enregistré sur le lien traçant maison (/go/:scriptId) avant redirection vers
+ * Amazon. Sert de proxy immédiat à l'intérêt généré (Amazon ne donne aucune donnée
+ * de commission en temps réel) — alimente les niveaux, jalons et le classement.
+ * Un clic dédupliqué (même boutique+script+IP dans les 30 min) n'est pas ré-inséré.
+ */
+model AffiliateClick {
+  id       String      @id @default(cuid())
+  shop     Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId   String
+  script   ViralScript @relation(fields: [scriptId], references: [id], onDelete: Cascade)
+  scriptId String
+  ipHash   String
+
+  createdAt DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([scriptId, ipHash, createdAt])
+}
+
+/**
+ * Récompense accordée au vendeur (crédits IA bonus) — jalon de clics, de série,
+ * passage de niveau ou classement hebdomadaire. `key` garantit l'octroi UNIQUE
+ * (idempotent) par boutique, et sert d'historique visible côté dashboard.
+ */
+model RewardEvent {
+  id      String @id @default(cuid())
+  shop    Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId  String
+  kind    String // 'CLICK_MILESTONE' | 'STREAK_MILESTONE' | 'TIER_UP' | 'LEADERBOARD'
+  key     String // identifiant unique du jalon, ex: 'clicks_100', 'streak_7', 'tier_GOLD'
+  credits Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([shopId, key])
+  @@index([shopId])
 }

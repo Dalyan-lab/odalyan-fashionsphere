@@ -1,14 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { AI_CREDIT_COSTS, type GenerateViralScriptInput } from '@odalyan/shared';
+import type { GenerateViralScriptInput } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
 import { CreditsService } from '../credits/credits.service';
 import { TextProvider } from '../ai/providers/text.provider';
 import { PaapiProvider } from './providers/paapi.provider';
+import { GamificationService } from './gamification.service';
 
 /**
  * Générateur de scripts vidéo viraux (Hook/Problème/Solution/CTA) pour un produit
  * Amazon suivi. Réutilise le TextProvider IA existant et le système de crédits.
+ * Le coût est réduit selon le niveau du vendeur (système d'encouragement).
  */
 @Injectable()
 export class ScriptGeneratorService {
@@ -18,11 +20,13 @@ export class ScriptGeneratorService {
     private readonly credits: CreditsService,
     private readonly text: TextProvider,
     private readonly paapi: PaapiProvider,
+    private readonly gamification: GamificationService,
   ) {}
 
   async generate(userId: string, input: GenerateViralScriptInput) {
     const shop = await this.shopService.requireOwnedShop(userId);
-    if (this.text.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.viralScript);
+    const cost = this.gamification.scriptCostFor(shop.creatorTier);
+    if (this.text.enabled) await this.credits.ensure(userId, cost);
 
     const product = await this.prisma.amazonProduct.findUnique({ where: { id: input.productId } });
     if (!product) throw new NotFoundException('Produit Amazon introuvable');
@@ -34,12 +38,12 @@ export class ScriptGeneratorService {
       currency: product.currency,
       platform: input.platform,
     });
-    if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.viralScript);
+    if (provider !== 'mock') await this.credits.consume(userId, cost);
 
     const trackingId = await this.ensureTrackingId(shop.id);
     const affiliateUrl = this.paapi.buildAffiliateUrl(product.asin, product.marketplace, trackingId);
 
-    return this.prisma.viralScript.create({
+    const script = await this.prisma.viralScript.create({
       data: {
         shopId: shop.id,
         productId: product.id,
@@ -52,6 +56,9 @@ export class ScriptGeneratorService {
         provider,
       },
     });
+
+    await this.gamification.recordActivity(shop.id);
+    return script;
   }
 
   async list(userId: string) {

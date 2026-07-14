@@ -95,6 +95,16 @@ export class CreditsService {
     return shop.aiCredits + shop.aiCreditsExtra;
   }
 
+  /**
+   * Crédite un bonus (gamification, jalons ViralAmazone) directement dans le
+   * report acheté (`aiCreditsExtra`) — jamais réinitialisé au mois, cohérent
+   * avec les crédits achetés via Paystack. Aucun mouvement d'argent réel.
+   */
+  async grantBonus(shopId: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    await this.prisma.shop.update({ where: { id: shopId }, data: { aiCreditsExtra: { increment: amount } } });
+  }
+
   private depletedError(balance: CreditBalance): ForbiddenException {
     return new ForbiddenException(
       `Crédits IA épuisés (${balance.credits}/${balance.monthlyAllowance} — plan ${balance.plan}). ` +
