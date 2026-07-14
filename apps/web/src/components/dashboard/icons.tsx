@@ -141,6 +141,11 @@ export const Icon = {
       <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
     </svg>
   ),
+  flame: (p: SVGProps<SVGSVGElement>) => (
+    <svg {...base(p)}>
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 17a2.5 2.5 0 0 0 2.5-2.5c0-1.38-1.5-2.5-1.5-4 0 0 3 1.5 3 5a4.5 4.5 0 0 1-9 0c0-2.5 1.5-3.5 1.5-5.5C7.5 8 9 6 9 6s-1 2.5.5 4c1 1 2 2 2 4.5" />
+    </svg>
+  ),
 };
 
 export type IconName = keyof typeof Icon;

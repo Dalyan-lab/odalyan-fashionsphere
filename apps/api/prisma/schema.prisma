@@ -76,6 +76,19 @@ enum GeneratedAssetStatus {
   FAILED
 }
 
+/** Classification de vélocité des produits Amazon suivis (module ViralAmazone). */
+enum TrendTier {
+  SUPER_NOVA // 🔴 Explosion Éclair : progression > 200% en < 12h
+  HOT_WOOD // 🔥 Tendance Forte : croissance constante sur 3 jours
+  SLOW_BURN // 📈 Croissance Stable : hausse régulière + avis en hausse
+}
+
+enum ScriptPlatform {
+  TIKTOK
+  REELS
+  SHORTS
+}
+
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
@@ -139,6 +152,10 @@ model Shop {
   creditsRenewedAt   DateTime?
   // Crédits IA achetés en supplément (recharge Paystack) : reportés, JAMAIS réinitialisés
   aiCreditsExtra     Int      @default(0)
+  // ViralAmazone : identifiant de suivi interne (sub-tag) pour attribuer les clics/ventes
+  // d'affiliation Amazon à ce vendeur — le compte Associates Amazon est unique et détenu
+  // par la plateforme (voir module ViralAmazone), ce tag sert au partage de revenu interne.
+  affiliateTrackingId String? @unique
 
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId String @unique
@@ -150,6 +167,7 @@ model Shop {
   socialConnections SocialConnection[]
   scheduledPosts    ScheduledPost[]
   creditPurchases   CreditPurchase[]
+  viralScripts      ViralScript[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -371,4 +389,82 @@ model ScheduledPost {
 
   @@index([shopId])
   @@index([status])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// ViralAmazone Trend Machine — tracker de tendances Amazon + générateur de
+// scripts viraux. Données sourcées via Amazon PA-API (officielle) + Keepa
+// (historique de rang), jamais par scraping direct.
+// ────────────────────────────────────────────────────────────────────────
+
+/** Produit Amazon suivi (identité stable ASIN + marketplace, état courant). */
+model AmazonProduct {
+  id          String @id @default(cuid())
+  asin        String
+  marketplace String // domaine Amazon ciblé, ex: "amazon.fr", "amazon.com"
+  title       String
+  imageUrl    String?
+  category    String?
+  productUrl  String @db.Text
+
+  // État courant (rafraîchi périodiquement via PA-API/Keepa)
+  currentRank   Int?
+  currentPrice  Decimal? @db.Decimal(12, 2)
+  currency      String?
+  reviewCount   Int?
+  rating        Decimal? @db.Decimal(3, 2)
+  lastCheckedAt DateTime?
+
+  // Vélocité calculée (voir TrendsService) + classification
+  velocity3h  Float?
+  velocity12h Float?
+  velocity24h Float?
+  trendTier   TrendTier?
+
+  snapshots AmazonRankSnapshot[]
+  scripts   ViralScript[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([asin, marketplace])
+  @@index([trendTier])
+  @@index([category])
+}
+
+/** Relevé horodaté du rang de vente — série temporelle pour le calcul de vélocité. */
+model AmazonRankSnapshot {
+  id          String        @id @default(cuid())
+  product     AmazonProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+  salesRank   Int
+  price       Decimal?      @db.Decimal(12, 2)
+  reviewCount Int?
+  rating      Decimal?      @db.Decimal(3, 2)
+  capturedAt  DateTime      @default(now())
+
+  @@index([productId, capturedAt])
+}
+
+/** Script vidéo viral généré par IA pour un produit, propre à un vendeur. */
+model ViralScript {
+  id        String         @id @default(cuid())
+  shop      Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId    String
+  product   AmazonProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  platform  ScriptPlatform @default(TIKTOK)
+
+  hook     String @db.Text
+  problem  String @db.Text
+  solution String @db.Text
+  cta      String @db.Text
+
+  affiliateUrl String @db.Text
+  provider     String // 'anthropic' | 'openai' | 'mock'
+
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
+  @@index([productId])
 }

@@ -23,6 +23,6 @@ import { VideoRegistry } from './providers/video/video.registry';
     ReplicateVideoProvider,
     VideoRegistry,
   ],
-  exports: [AiService],
+  exports: [AiService, TextProvider],
 })
 export class AiModule {}

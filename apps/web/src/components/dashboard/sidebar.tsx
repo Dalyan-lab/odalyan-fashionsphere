@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { key: 'dash.nav.shop', href: '/dashboard/shop', icon: 'shop' },
   { key: 'dash.nav.studio', href: '/dashboard/studio', icon: 'sparkles' },
   { key: 'dash.nav.campaigns', href: '/dashboard/campaigns', icon: 'marketing' },
+  { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
   { key: 'dash.nav.avatars', href: '/dashboard/avatars', icon: 'avatars' },
   { key: 'dash.nav.tryon', href: '/dashboard/tryon', icon: 'shirt' },
   { key: 'dash.nav.defile', href: '/dashboard/defile', icon: 'play' },

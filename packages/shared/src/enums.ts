@@ -83,6 +83,7 @@ export const AI_CREDIT_COSTS = {
   campaign: 3, // visuel + textes multi-réseaux
   video: 10, // vidéo IA (le plus coûteux)
   text: 0, // textes publicitaires seuls : gratuits
+  viralScript: 2, // script viral ViralAmazone (Hook/Problème/Solution/CTA)
 } as const;
 
 export type AiCreditKind = keyof typeof AI_CREDIT_COSTS;
