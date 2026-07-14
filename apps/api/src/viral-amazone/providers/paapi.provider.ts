@@ -22,6 +22,16 @@ const REGION_BY_CODE: Record<string, RegionConfig> = {
 
 const SERVICE = 'ProductAdvertisingAPI';
 
+/**
+ * Tag Associates par défaut, par marketplace. Le Partner Tag n'est PAS un secret
+ * (il apparaît en clair dans chaque lien d'affiliation), on peut donc l'embarquer.
+ * Surchargé par AMAZON_PAAPI_PARTNER_TAG[_CODE] si défini côté environnement.
+ * fashionsphe05-21 = compte Club Partenaires amazon.fr d'Odalyan FashionSphere.
+ */
+const DEFAULT_PARTNER_TAG: Record<string, string> = {
+  FR: 'fashionsphe05-21',
+};
+
 export interface PaapiItem {
   asin: string;
   title: string;
@@ -54,7 +64,10 @@ export class PaapiProvider {
   private credentials(code: string) {
     const accessKey = process.env[`AMAZON_PAAPI_ACCESS_KEY_${code}`] || process.env.AMAZON_PAAPI_ACCESS_KEY;
     const secretKey = process.env[`AMAZON_PAAPI_SECRET_KEY_${code}`] || process.env.AMAZON_PAAPI_SECRET_KEY;
-    const partnerTag = process.env[`AMAZON_PAAPI_PARTNER_TAG_${code}`] || process.env.AMAZON_PAAPI_PARTNER_TAG;
+    const partnerTag =
+      process.env[`AMAZON_PAAPI_PARTNER_TAG_${code}`] ||
+      process.env.AMAZON_PAAPI_PARTNER_TAG ||
+      DEFAULT_PARTNER_TAG[code];
     return { accessKey, secretKey, partnerTag };
   }
 
