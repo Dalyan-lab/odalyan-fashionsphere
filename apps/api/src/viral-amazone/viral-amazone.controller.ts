@@ -44,11 +44,22 @@ export class ViralAmazoneController {
     return this.trends.listTrends(query);
   }
 
-  /** Ajoute manuellement un ASIN au tracker (curation admin/vendeur). */
+  /** Ajoute manuellement un ASIN au tracker, avec métadonnées optionnelles (curation admin). */
   @Post('trends/track')
   @Roles(UserRole.ADMIN)
-  track(@Body('asin') asin: string, @Body('marketplace') marketplace: string) {
-    return this.trends.trackAsin(asin, marketplace);
+  track(
+    @Body()
+    body: {
+      asin: string;
+      marketplace: string;
+      title?: string;
+      imageUrl?: string;
+      category?: string;
+      price?: number;
+      currency?: string;
+    },
+  ) {
+    return this.trends.trackAsin(body.asin, body.marketplace, body);
   }
 
   /** Retire un produit du tracker (curation admin). */

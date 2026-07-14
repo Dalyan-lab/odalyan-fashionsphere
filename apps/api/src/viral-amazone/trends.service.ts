@@ -6,6 +6,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaapiProvider } from './providers/paapi.provider';
 import { KeepaProvider } from './providers/keepa.provider';
 
+/** Métadonnées de curation manuelle d'un produit (avant que PA-API ne les fournisse). */
+export interface TrackMeta {
+  title?: string;
+  imageUrl?: string;
+  category?: string;
+  price?: number;
+  currency?: string;
+}
+
 /**
  * Analyseur de vélocité ("Hot Products") : calcule la progression du rang de
  * vente et classe les produits Amazon suivis. Rappel : en rang de vente Amazon,
@@ -73,18 +82,35 @@ export class TrendsService {
    * Récupère l'état initial via PA-API/Keepa si disponible, sinon crée un
    * enregistrement minimal complété au prochain cycle de rafraîchissement.
    */
-  async trackAsin(asin: string, marketplaceDomain: string) {
+  async trackAsin(asin: string, marketplaceDomain: string, meta?: TrackMeta) {
+    // Métadonnées de curation (utiles tant que PA-API n'est pas branché) : titre,
+    // image, catégorie, prix fournis à la main. PA-API les écrasera ensuite si actif.
+    const curated = {
+      ...(meta?.title ? { title: meta.title } : {}),
+      ...(meta?.imageUrl ? { imageUrl: meta.imageUrl } : {}),
+      ...(meta?.category ? { category: meta.category } : {}),
+      ...(meta?.price != null ? { currentPrice: new Prisma.Decimal(meta.price) } : {}),
+      ...(meta?.currency ? { currency: meta.currency } : {}),
+    };
+
     const existing = await this.prisma.amazonProduct.findUnique({
       where: { asin_marketplace: { asin, marketplace: marketplaceDomain } },
     });
-    if (existing) return existing;
+    if (existing) {
+      // Ré-ajout avec métadonnées : on met à jour la fiche curée
+      if (Object.keys(curated).length) {
+        return this.prisma.amazonProduct.update({ where: { id: existing.id }, data: curated });
+      }
+      return existing;
+    }
 
     const product = await this.prisma.amazonProduct.create({
       data: {
         asin,
         marketplace: marketplaceDomain,
-        title: asin,
+        title: meta?.title || asin,
         productUrl: `https://www.${marketplaceDomain}/dp/${asin}`,
+        ...curated,
       },
     });
     await this.refreshOne(product.id).catch((err) =>
