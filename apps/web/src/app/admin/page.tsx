@@ -77,6 +77,7 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted">Connecté : {me?.email}</span>
+          <Link href="/admin/subscriptions" className="btn-secondary">💳 Revenus</Link>
           <Link href="/admin/coupons" className="btn-secondary">🎟️ Coupons</Link>
           <Link href="/dashboard" className="btn-ghost">Mon dashboard</Link>
         </div>

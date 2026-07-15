@@ -31,14 +31,18 @@ export function SocialAuthButtons() {
         <button
           type="button"
           onClick={() => go('google')}
-          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 py-2.5 text-sm font-medium transition hover:bg-surface-hover"
+          disabled={providers ? !providers.google : false}
+          title={providers && !providers.google ? 'Bientôt disponible' : undefined}
+          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 py-2.5 text-sm font-medium transition hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <BrandIcon.Google width={18} height={18} /> Google
         </button>
         <button
           type="button"
           onClick={() => go('github')}
-          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 py-2.5 text-sm font-medium transition hover:bg-surface-hover"
+          disabled={providers ? !providers.github : false}
+          title={providers && !providers.github ? 'Bientôt disponible' : undefined}
+          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 py-2.5 text-sm font-medium transition hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <BrandIcon.GitHub width={18} height={18} /> GitHub
         </button>
@@ -46,7 +50,7 @@ export function SocialAuthButtons() {
 
       {providers && !providers.google && !providers.github && (
         <p className="text-center text-[10px] text-faint">
-          Connexion Google/GitHub disponible après configuration des clés OAuth côté serveur.
+          Connexion Google/GitHub bientôt disponible.
         </p>
       )}
     </div>

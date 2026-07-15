@@ -52,4 +52,11 @@ export class SubscriptionController {
   runDowngrade() {
     return this.subscriptions.downgradeExpired();
   }
+
+  /** Suivi des revenus d'abonnement (admin). */
+  @Get('admin/payments')
+  @Roles(UserRole.ADMIN)
+  adminPayments() {
+    return this.subscriptions.adminPayments();
+  }
 }

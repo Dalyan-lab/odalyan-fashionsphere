@@ -210,6 +210,55 @@ export class SubscriptionService {
     return { processed };
   }
 
+  /** Suivi des revenus d'abonnement (admin) : paiements récents + synthèse. */
+  async adminPayments() {
+    const payments = await this.prisma.subscriptionPayment.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    const shopIds = [...new Set(payments.map((p) => p.shopId))];
+    const shops = await this.prisma.shop.findMany({
+      where: { id: { in: shopIds } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(shops.map((s) => [s.id, s.name]));
+
+    const paid = payments.filter((p) => p.status === 'PAID');
+    const totalEur = paid.reduce((sum, p) => sum + Number(p.amount), 0);
+    const byPlan: Record<string, { count: number; eur: number }> = {};
+    for (const p of paid) {
+      byPlan[p.plan] = byPlan[p.plan] ?? { count: 0, eur: 0 };
+      byPlan[p.plan]!.count += 1;
+      byPlan[p.plan]!.eur += Number(p.amount);
+    }
+
+    // Abonnements actifs (revenu récurrent potentiel)
+    const activePaid = await this.prisma.subscription.count({
+      where: { plan: { not: SubscriptionPlan.STARTER }, expiresAt: { gt: new Date() } },
+    });
+
+    return {
+      summary: {
+        totalEur: Math.round(totalEur * 100) / 100,
+        paidCount: paid.length,
+        pendingCount: payments.filter((p) => p.status === 'PENDING').length,
+        activeSubscriptions: activePaid,
+        byPlan,
+      },
+      payments: payments.map((p) => ({
+        id: p.id,
+        shop: nameById.get(p.shopId) ?? '—',
+        plan: p.plan,
+        period: p.period,
+        amount: Number(p.amount),
+        currency: p.currency,
+        status: p.status,
+        couponCode: p.couponCode,
+        createdAt: p.createdAt.toISOString(),
+      })),
+    };
+  }
+
   /** Rétrograde tous les plans payants expirés vers STARTER (appelé par le cron). */
   async downgradeExpired(): Promise<{ downgraded: number }> {
     const now = new Date();
