@@ -6,40 +6,40 @@ import { motion } from 'framer-motion';
 
 const FEATURES = [
   {
-    icon: '🧍',
-    title: 'Avatar IA personnalisé',
-    desc: 'Le client crée son avatar à partir de photos ou manuellement.',
-    img: 'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=600',
-  },
-  {
-    icon: '👗',
-    title: 'Essayage virtuel',
-    desc: 'Visualisez chaque vêtement sur l’avatar, vue 360°.',
-    img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600',
+    icon: '🔥',
+    title: 'ViralAmazone',
+    desc: 'Repérez les produits Amazon en explosion et générez un script viral en un clic — avec vos liens d’affiliation.',
+    img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=600',
   },
   {
     icon: '🎭',
     title: 'Mannequins IA',
-    desc: 'Générez des photos studio pro à partir d’une seule image produit.',
+    desc: 'Votre vraie photo produit, portée par un mannequin réaliste. Fini les shootings coûteux.',
     img: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=600',
-  },
-  {
-    icon: '🌀',
-    title: 'Défilé 3D animé',
-    desc: 'Mannequins 3D rotatifs et animation défilé premium.',
-    img: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=600',
   },
   {
     icon: '🎬',
     title: 'Vidéo IA',
-    desc: 'Transformez une photo en vidéo TikTok / Reels / Shorts.',
+    desc: 'Transformez une photo ou un visuel en vidéo défilé prête pour TikTok / Reels / Shorts.',
     img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600',
   },
   {
     icon: '📣',
-    title: 'Publicité automatique',
-    desc: 'Visuels, slogans, hashtags et publication multi-réseaux.',
+    title: 'Campagnes en 1 clic',
+    desc: 'Visuel, textes et légendes par réseau — à partir de vos produits ou de vos créations IA.',
     img: 'https://images.unsplash.com/photo-1467043237213-65f2da53396f?w=600',
+  },
+  {
+    icon: '👗',
+    title: 'Essayage virtuel & défilé 360°',
+    desc: 'Visualisez chaque vêtement sur un mannequin réaliste, en rotation 360°.',
+    img: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600',
+  },
+  {
+    icon: '🏆',
+    title: 'Niveaux & récompenses',
+    desc: 'Plus vous créez et générez de clics, plus vous montez de niveau et gagnez des crédits IA offerts.',
+    img: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600',
   },
 ];
 
@@ -49,10 +49,34 @@ const STUDIO_STEPS = [
 ];
 
 const PLANS = [
-  { name: 'Starter', price: 'Gratuit', items: ['Boutique simple', '50 produits', 'Logo & slogan'], highlight: false },
-  { name: 'Pro', price: '15€/mois', items: ['Produits illimités', 'Mannequin & Avatar IA', 'Photos IA'], highlight: true },
-  { name: 'Business', price: '49€/mois', items: ['Avatar 3D', 'Défilé 3D', 'Essayage virtuel', 'Publicités IA'], highlight: false },
-  { name: 'Enterprise', price: '199€/mois', items: ['White Label', 'Domaine perso', 'API complète', 'IA dédiée'], highlight: false },
+  {
+    name: 'Découverte',
+    price: 'Gratuit',
+    eur: '',
+    items: ['Boutique en ligne + 50 produits', 'Liens d’affiliation ViralAmazone', '15 crédits IA / mois'],
+    highlight: false,
+  },
+  {
+    name: 'Créateur',
+    price: '9 800 FCFA',
+    eur: '≈ 15 € / mois',
+    items: ['Produits illimités', 'Mannequins & avatars IA', 'Campagnes IA multi-réseaux', '150 crédits IA / mois'],
+    highlight: true,
+  },
+  {
+    name: 'Studio Pro',
+    price: '32 000 FCFA',
+    eur: '≈ 49 € / mois',
+    items: ['Tout Créateur, plus', 'Vidéos IA (défilé, animation)', 'Essayage virtuel & défilé 360°', '600 crédits IA / mois'],
+    highlight: false,
+  },
+  {
+    name: 'Marque',
+    price: '130 000 FCFA',
+    eur: '≈ 199 € / mois',
+    items: ['Tout Studio Pro, plus', 'Domaine perso & marque blanche', 'API complète', '5 000 crédits IA / mois'],
+    highlight: false,
+  },
 ];
 
 const STATS = [
@@ -195,7 +219,19 @@ export default function HomePage() {
       {/* PRICING */}
       <section id="pricing" className="mx-auto max-w-7xl px-6 py-20">
         <h2 className="text-center font-display text-4xl font-bold">Des offres pour chaque ambition</h2>
-        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <p className="mx-auto mt-3 max-w-xl text-center text-muted">
+          Paiement mensuel ou annuel (−2 mois), sans engagement. Wave, Orange Money, MTN, Moov &amp; carte.
+        </p>
+
+        {/* Offre Fondateur */}
+        <div className="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-3 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-3 text-center text-sm">
+          <span className="font-semibold text-amber-500">★ Offre Fondateur — 40 % sur vos 3 premiers mois</span>
+          <span className="text-muted">
+            avec le code <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-brand-violet">FONDATEUR</span>, pour les 100 premières boutiques.
+          </span>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((p) => (
             <div key={p.name} className={`card flex flex-col p-6 ${p.highlight ? 'ring-2 ring-brand-violet' : ''}`}>
               {p.highlight && (
@@ -205,6 +241,7 @@ export default function HomePage() {
               )}
               <h3 className="font-display text-2xl font-bold">{p.name}</h3>
               <p className="mt-2 text-3xl font-bold brand-gradient-text">{p.price}</p>
+              {p.eur && <p className="mt-0.5 text-xs text-faint">{p.eur}</p>}
               <ul className="mt-6 flex-1 space-y-2 text-sm text-muted">
                 {p.items.map((it) => (
                   <li key={it} className="flex items-center gap-2">
@@ -213,7 +250,7 @@ export default function HomePage() {
                 ))}
               </ul>
               <Link href="/register" className="btn-primary mt-6 w-full">
-                Choisir
+                {p.price === 'Gratuit' ? 'Commencer' : 'Choisir'}
               </Link>
             </div>
           ))}

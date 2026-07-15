@@ -34,14 +34,21 @@ export class SubscriptionService {
     private readonly mail: MailService,
   ) {}
 
-  /** Statut d'abonnement de la boutique du vendeur. */
+  /** Statut d'abonnement de la boutique du vendeur (rétrograde à la volée si expiré). */
   async me(userId: string): Promise<SubscriptionStatusDto> {
     const shop = await this.prisma.shop.findUnique({
       where: { ownerId: userId },
       include: { subscription: true },
     });
     if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
-    const sub = shop.subscription;
+    let sub = shop.subscription;
+
+    // Blocage strict : un plan payant expiré redescend immédiatement en STARTER
+    if (sub && sub.plan !== SubscriptionPlan.STARTER && sub.expiresAt && sub.expiresAt.getTime() < Date.now()) {
+      await this.downgradeToStarter(sub.id, shop.id);
+      sub = await this.prisma.subscription.findUnique({ where: { id: sub.id } });
+    }
+
     const plan = sub?.plan ?? SubscriptionPlan.STARTER;
     const expired = Boolean(sub?.expiresAt && sub.expiresAt.getTime() < Date.now());
     return {
@@ -158,7 +165,14 @@ export class SubscriptionService {
    * qui n'ont pas encore été relancés pour ce cycle. reminderSentAt dédoublonne ;
    * il est remis à null au renouvellement (activate).
    */
+  /** Tâches quotidiennes : rappels d'expiration puis blocage des plans expirés. */
   @Cron('0 9 * * *')
+  async runDailyJobs(): Promise<void> {
+    await this.sendExpiryReminders();
+    const d = await this.downgradeExpired();
+    if (d.downgraded) this.logger.log(`Blocage expiration : ${d.downgraded} plan(s) rétrogradé(s) en STARTER`);
+  }
+
   async sendExpiryReminders(): Promise<{ processed: number }> {
     if (!this.mail.enabled) return { processed: 0 };
     const now = new Date();
@@ -194,6 +208,29 @@ export class SubscriptionService {
       }
     }
     return { processed };
+  }
+
+  /** Rétrograde tous les plans payants expirés vers STARTER (appelé par le cron). */
+  async downgradeExpired(): Promise<{ downgraded: number }> {
+    const now = new Date();
+    const expired = await this.prisma.subscription.findMany({
+      where: { plan: { not: SubscriptionPlan.STARTER }, expiresAt: { not: null, lt: now } },
+      select: { id: true, shopId: true },
+    });
+    for (const s of expired) await this.downgradeToStarter(s.id, s.shopId);
+    return { downgraded: expired.length };
+  }
+
+  /** Repasse une boutique en STARTER et recharge ses crédits au niveau STARTER. */
+  private async downgradeToStarter(subId: string, shopId: string): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.subscription.update({
+        where: { id: subId },
+        data: { plan: SubscriptionPlan.STARTER, active: true, expiresAt: null, reminderSentAt: null },
+      }),
+      // creditsRenewedAt=null → au prochain accès, getBalance recrédite au quota STARTER
+      this.prisma.shop.update({ where: { id: shopId }, data: { creditsRenewedAt: null } }),
+    ]);
   }
 
   // ------------------------------------------------------------------ internes

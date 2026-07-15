@@ -135,10 +135,10 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <AiToolCard img={IMG.mannequin} title={t('dh.tool.mannequin')} desc={t('dh.tool.mannequinDesc')} phase="P2" onAction={() => setStudio('mannequin')} />
-              <AiToolCard img={IMG.pub} title={t('dh.tool.adcopy')} desc={t('dh.tool.adcopyDesc')} phase="P2" onAction={() => setStudio('adcopy')} />
-              <AiToolCard img={IMG.runway} title={t('dh.tool.mannequin3d')} desc={t('dh.tool.mannequin3dDesc')} phase="P3" soon />
-              <AiToolCard img={IMG.video} title={t('dh.tool.video')} desc={t('dh.tool.videoDesc')} phase="P4" soon />
+              <AiToolCard img={IMG.mannequin} title={t('dh.tool.mannequin')} desc={t('dh.tool.mannequinDesc')} onAction={() => setStudio('mannequin')} />
+              <AiToolCard img={IMG.pub} title={t('dh.tool.adcopy')} desc={t('dh.tool.adcopyDesc')} onAction={() => setStudio('adcopy')} />
+              <AiToolCard img={IMG.video} title={t('dh.tool.video')} desc={t('dh.tool.videoDesc')} href="/dashboard/video" />
+              <AiToolCard img={IMG.runway} badge="🔥" title={t('dh.tool.viral')} desc={t('dh.tool.viralDesc')} href="/dashboard/hot-trends" />
             </div>
           </section>
 
@@ -288,15 +288,17 @@ function AiToolCard({
   img,
   title,
   desc,
-  phase,
   onAction,
+  href,
+  badge,
   soon,
 }: {
   img: string;
   title: string;
   desc: string;
-  phase: string;
   onAction?: () => void;
+  href?: string;
+  badge?: string;
   soon?: boolean;
 }) {
   const t = useT();
@@ -305,17 +307,21 @@ function AiToolCard({
       <div className="relative aspect-[16/10] overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={img} alt={title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-        <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          {phase}
-        </span>
+        {badge && (
+          <span className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-sm">{badge}</span>
+        )}
       </div>
       <div className="p-3.5">
         <h3 className="text-sm font-semibold">{title}</h3>
         <p className="mt-1 line-clamp-2 text-xs text-muted">{desc}</p>
         {soon ? (
           <button disabled className="btn-ghost mt-3 w-full cursor-not-allowed py-1.5 text-xs opacity-60">
-            🔒 {t('common.soon')} ({phase})
+            🔒 {t('common.soon')}
           </button>
+        ) : href ? (
+          <Link href={href} className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 py-1.5 text-xs">
+            {Icon.sparkles({ width: 14, height: 14 })} {t('common.open')}
+          </Link>
         ) : (
           <button onClick={onAction} className="btn-primary mt-3 w-full py-1.5 text-xs">
             {Icon.sparkles({ width: 14, height: 14 })} {t('common.generate')}

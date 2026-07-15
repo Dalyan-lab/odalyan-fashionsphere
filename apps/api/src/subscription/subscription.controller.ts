@@ -45,4 +45,11 @@ export class SubscriptionController {
   runReminders() {
     return this.subscriptions.sendExpiryReminders();
   }
+
+  /** Déclenche manuellement le blocage des plans expirés (admin). */
+  @Post('run-downgrade')
+  @Roles(UserRole.ADMIN)
+  runDowngrade() {
+    return this.subscriptions.downgradeExpired();
+  }
 }
