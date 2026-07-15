@@ -330,16 +330,32 @@ export class AiService {
     const shop = await this.shopService.requireOwnedShop(userId);
     if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.campaign);
 
-    // Visuel marketing
-    const imgPrompt = `Photo publicitaire mode, mannequin portant "${input.productName}", style ${PhotoStyle.LUXE}, composition marketing premium, haute qualité, 8k`;
-    const image = await this.imageProvider.generate(imgPrompt, 'Femme');
+    // Visuel de base importé (photo produit, avatar/mannequin généré, ou upload)
+    let sourceImageUrl = input.sourceImageUrl;
+    if (!sourceImageUrl && input.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: input.productId } });
+      if (product && product.shopId === shop.id) sourceImageUrl = product.images[0];
+    }
+
+    const extra = input.details?.trim() ? `, ${input.details.trim()}` : '';
+    // Visuel marketing : image→image si on a une base, sinon texte→image
+    const imgPrompt = sourceImageUrl
+      ? `Transforme cette image en visuel publicitaire mode premium pour "${input.productName}", ` +
+        `style ${PhotoStyle.LUXE}, composition marketing pro, éclairage soigné, haute qualité, 8k${extra}, ` +
+        `en conservant fidèlement le produit`
+      : `Photo publicitaire mode, mannequin portant "${input.productName}", style ${PhotoStyle.LUXE}, ` +
+        `composition marketing premium, haute qualité, 8k${extra}`;
+    const image = sourceImageUrl
+      ? await this.imageProvider.generateFromImage(imgPrompt, sourceImageUrl, 'Femme')
+      : await this.imageProvider.generate(imgPrompt, 'Femme');
     if (image.provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.campaign);
 
-    // Texte publicitaire
+    // Texte publicitaire (enrichi par les précisions du vendeur)
     const { result: copy, provider: textProvider } = await this.textProvider.generateAdCopy({
       productName: input.productName,
       category: input.category,
       tone: input.tone,
+      details: input.details,
     });
 
     // Légendes prêtes à publier par réseau
@@ -362,6 +378,8 @@ export class AiService {
           posts,
           networks: input.networks,
           providers: { image: image.provider, text: textProvider },
+          fromImage: Boolean(sourceImageUrl),
+          details: input.details ?? null,
         } as unknown as Prisma.InputJsonValue,
         ownerId: userId,
         shopId: shop.id,

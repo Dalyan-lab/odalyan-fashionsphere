@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdTone, SocialNetwork, type CampaignResult } from '@odalyan/shared';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, uploadImage } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
+import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
 
 const ALL_NETWORKS = Object.values(SocialNetwork);
 
@@ -19,6 +20,8 @@ export default function CampaignsPage() {
   const [productId, setProductId] = useState('');
   const [productName, setProductName] = useState('');
   const [tone, setTone] = useState<AdTone>(AdTone.LUXE);
+  const [sourceImageUrl, setSourceImageUrl] = useState('');
+  const [details, setDetails] = useState('');
   const [networks, setNetworks] = useState<SocialNetwork[]>([
     SocialNetwork.FACEBOOK,
     SocialNetwork.INSTAGRAM,
@@ -60,7 +63,14 @@ export default function CampaignsPage() {
     try {
       const res = await apiFetch<CampaignResult>('/ai/campaign', {
         method: 'POST',
-        body: JSON.stringify({ productId: productId || undefined, productName, tone, networks }),
+        body: JSON.stringify({
+          productId: productId || undefined,
+          productName,
+          tone,
+          networks,
+          sourceImageUrl: sourceImageUrl || undefined,
+          details: details.trim() || undefined,
+        }),
       });
       setCampaign(res);
       loadHistory();
@@ -122,6 +132,20 @@ export default function CampaignsPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Visuel de base importé : catalogue / upload / créations IA */}
+              <VisualSourcePicker value={sourceImageUrl} onChange={setSourceImageUrl} />
+
+              <div>
+                <label className="label">{t('camp.details')}</label>
+                <textarea
+                  className="input min-h-[64px]"
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                  placeholder={t('camp.detailsPh')}
+                />
+              </div>
+
               <div>
                 <label className="label">{t('camp.targets')}</label>
                 <div className="flex flex-wrap gap-2">
@@ -306,6 +330,108 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+interface AiAsset {
+  id: string;
+  url?: string | null;
+  type: string;
+}
+
+/**
+ * Choix du visuel de base d'une campagne : depuis le catalogue (produits +
+ * affiliés), un import de fichier, ou une création IA existante (avatar/mannequin).
+ * Quand un visuel est choisi, la campagne le transforme en image→image.
+ */
+function VisualSourcePicker({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const t = useT();
+  const [tab, setTab] = useState<'catalog' | 'upload' | 'creations'>('catalog');
+  const [assets, setAssets] = useState<AiAsset[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    apiFetch<AiAsset[]>('/ai/assets')
+      .then((list) => setAssets(list.filter((a) => a.url && ['AVATAR', 'MANNEQUIN', 'STUDIO_PHOTO'].includes(a.type))))
+      .catch(() => setAssets([]));
+  }, []);
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { url } = await uploadImage(file);
+      onChange(url);
+    } catch {
+      /* ignore */
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const TABS: { key: typeof tab; label: string }[] = [
+    { key: 'catalog', label: `📦 ${t('camp.srcCatalog')}` },
+    { key: 'upload', label: `📤 ${t('camp.srcUpload')}` },
+    { key: 'creations', label: `✨ ${t('camp.srcCreations')}` },
+  ];
+
+  return (
+    <div>
+      <label className="label">{t('camp.visualSource')}</label>
+      <div className="mb-2 flex gap-1 rounded-xl bg-surface-2 p-1">
+        {TABS.map((tb) => (
+          <button
+            key={tb.key}
+            type="button"
+            onClick={() => setTab(tb.key)}
+            className={`flex-1 rounded-lg py-1.5 text-[11px] font-medium transition ${tab === tb.key ? 'bg-brand-violet-magenta text-white' : 'text-muted'}`}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'catalog' && <ProductImagePicker value={value || undefined} onPick={(url) => onChange(url)} />}
+
+      {tab === 'upload' && (
+        <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-surface-2 p-4 text-center transition hover:border-brand-violet">
+          <input type="file" accept="image/*" className="hidden" onChange={onFile} />
+          <span className="text-xl">📤</span>
+          <span className="text-xs text-muted">{uploading ? t('common.loading') : t('camp.uploadHint')}</span>
+        </label>
+      )}
+
+      {tab === 'creations' &&
+        (assets.length === 0 ? (
+          <p className="text-xs text-faint">{t('camp.noCreations')}</p>
+        ) : (
+          <div className="grid max-h-40 grid-cols-4 gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-2 scrollbar-thin">
+            {assets.map((a) => (
+              <button
+                type="button"
+                key={a.id}
+                onClick={() => onChange(a.url!)}
+                className={`overflow-hidden rounded-lg border transition ${value === a.url ? 'border-brand-violet ring-1 ring-brand-violet/40' : 'border-border hover:border-brand-violet'}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={a.url!} alt="" className="aspect-square w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        ))}
+
+      {value && (
+        <div className="mt-2 flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt="" className="h-10 w-10 rounded object-cover" />
+          <span className="text-[11px] text-brand-violet">✨ {t('camp.willUseVisual')}</span>
+          <button type="button" onClick={() => onChange('')} className="text-[11px] text-faint hover:text-content">
+            ✕ {t('aim.clearPhoto')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -144,6 +144,8 @@ export const generateAdCopySchema = z.object({
   productName: z.string().min(2, 'Nom du produit requis').max(140),
   category: z.string().optional(),
   tone: z.nativeEnum(AdTone).default(AdTone.LUXE),
+  /** Précisions du vendeur (points forts, cible, promo…) pour un texte plus pertinent. */
+  details: z.string().max(600).optional(),
 });
 
 export type GenerateMannequinInput = z.infer<typeof generateMannequinSchema>;
@@ -173,6 +175,10 @@ export const generateCampaignSchema = z.object({
   networks: z
     .array(z.nativeEnum(SocialNetwork))
     .default([SocialNetwork.FACEBOOK, SocialNetwork.INSTAGRAM, SocialNetwork.TIKTOK]),
+  /** Visuel de base importé (photo produit, avatar/mannequin généré, ou upload) → image→image. */
+  sourceImageUrl: z.string().url().optional(),
+  /** Précisions du vendeur pour un visuel + texte plus pertinents et pros. */
+  details: z.string().max(600).optional(),
 });
 
 export type GenerateCampaignInput = z.infer<typeof generateCampaignSchema>;

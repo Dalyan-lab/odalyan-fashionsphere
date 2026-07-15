@@ -22,7 +22,7 @@ export class TextProvider {
     try {
       const prompt = `Tu es un expert en marketing mode. Génère un contenu publicitaire en français pour ce produit.
 Produit : "${input.productName}"${input.category ? ` (catégorie ${input.category})` : ''}
-Ton : ${input.tone}
+Ton : ${input.tone}${input.details?.trim() ? `\nPrécisions du vendeur (à intégrer) : ${input.details.trim()}` : ''}
 
 Réponds UNIQUEMENT avec un objet JSON valide de cette forme exacte :
 {"description": "2-3 phrases vendeuses", "slogans": ["3 slogans courts"], "hashtags": ["8 hashtags sans #"], "cta": "un appel à l'action"}`;
