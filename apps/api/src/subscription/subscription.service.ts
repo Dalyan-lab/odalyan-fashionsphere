@@ -5,6 +5,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma, SubscriptionPlan } from '@prisma/client';
 import {
   PERIOD_DAYS,
@@ -16,7 +17,11 @@ import {
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupon/coupons.service';
+import { MailService } from '../mail/mail.service';
 import { PaystackProvider, PaystackUnreachableError } from '../payment/providers/paystack.provider';
+
+/** Fenêtre de rappel avant expiration (jours). */
+const REMINDER_DAYS = 3;
 
 @Injectable()
 export class SubscriptionService {
@@ -26,6 +31,7 @@ export class SubscriptionService {
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackProvider,
     private readonly coupons: CouponsService,
+    private readonly mail: MailService,
   ) {}
 
   /** Statut d'abonnement de la boutique du vendeur. */
@@ -144,6 +150,52 @@ export class SubscriptionService {
     return { status: 'PAID', kind: 'subscription', plan: payment.plan };
   }
 
+  // --------------------------------------------------------------- Rappels (cron)
+
+  /**
+   * Rappel d'expiration : chaque jour à 09h00 UTC, prévient par email les vendeurs
+   * dont le plan payant expire dans ≤ REMINDER_DAYS jours (ou vient d'expirer) et
+   * qui n'ont pas encore été relancés pour ce cycle. reminderSentAt dédoublonne ;
+   * il est remis à null au renouvellement (activate).
+   */
+  @Cron('0 9 * * *')
+  async sendExpiryReminders(): Promise<{ processed: number }> {
+    if (!this.mail.enabled) return { processed: 0 };
+    const now = new Date();
+    const horizon = new Date(now.getTime() + REMINDER_DAYS * 86_400_000);
+
+    const subs = await this.prisma.subscription.findMany({
+      where: {
+        plan: { not: SubscriptionPlan.STARTER },
+        expiresAt: { not: null, lte: horizon }, // expire bientôt ou déjà expiré
+        reminderSentAt: null,
+      },
+      include: { shop: { include: { owner: { select: { email: true } } } } },
+    });
+    if (subs.length === 0) return { processed: 0 };
+
+    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'https://odalyan-fashionsphere.vercel.app';
+    this.logger.log(`Rappels d'expiration : ${subs.length} abonnement(s) à relancer`);
+
+    let processed = 0;
+    for (const sub of subs) {
+      const email = sub.shop.owner.email;
+      if (!email || !sub.expiresAt) continue;
+      const daysLeft = Math.ceil((sub.expiresAt.getTime() - now.getTime()) / 86_400_000);
+      const sent = await this.mail.sendSubscriptionExpiring(email, {
+        plan: sub.plan,
+        expiresOn: sub.expiresAt.toLocaleDateString('fr-FR'),
+        daysLeft,
+        renewUrl: `${webOrigin}/dashboard/subscriptions`,
+      });
+      if (sent) {
+        await this.prisma.subscription.update({ where: { id: sub.id }, data: { reminderSentAt: now } });
+        processed++;
+      }
+    }
+    return { processed };
+  }
+
   // ------------------------------------------------------------------ internes
 
   /** Active/prolonge le plan et recharge les crédits au niveau du plan. */
@@ -155,7 +207,8 @@ export class SubscriptionService {
       this.prisma.subscription.upsert({
         where: { shopId },
         create: { shopId, plan, active: true, startedAt: now, expiresAt },
-        update: { plan, active: true, startedAt: now, expiresAt },
+        // reminderSentAt remis à null : le rappel pourra repartir au prochain cycle
+        update: { plan, active: true, startedAt: now, expiresAt, reminderSentAt: null },
       }),
       // Recharge immédiate des crédits mensuels au niveau du nouveau plan
       this.prisma.shop.update({

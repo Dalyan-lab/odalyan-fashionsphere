@@ -98,6 +98,27 @@ export class MailService {
     return this.send(to, `Nouvelle commande ${order.orderNumber} — Odalyan`, html);
   }
 
+  /** Rappel d'expiration d'abonnement (envoyé à J-3, puis à l'expiration). */
+  async sendSubscriptionExpiring(
+    to: string,
+    info: { plan: string; expiresOn: string; daysLeft: number; renewUrl: string },
+  ): Promise<boolean> {
+    const expired = info.daysLeft <= 0;
+    const title = expired ? 'Votre plan a expiré ⏳' : 'Votre plan expire bientôt ⏳';
+    const lead = expired
+      ? `Votre plan <strong>${info.plan}</strong> a expiré le <strong>${info.expiresOn}</strong>. Renouvelez-le pour garder vos fonctionnalités IA et vos crédits.`
+      : `Votre plan <strong>${info.plan}</strong> expire le <strong>${info.expiresOn}</strong> (dans ${info.daysLeft} jour${info.daysLeft > 1 ? 's' : ''}). Renouvelez en un clic pour ne rien perdre.`;
+    const html = this.wrap(
+      title,
+      `<p style="color:#555">${lead}</p>
+       <p style="text-align:center;margin:28px 0">
+         <a href="${info.renewUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Renouveler mon plan</a>
+       </p>
+       <p style="color:#888;font-size:12px">Paiement ponctuel — Wave, Orange Money, MTN, Moov &amp; carte. Aucun prélèvement automatique.</p>`,
+    );
+    return this.send(to, expired ? `Votre plan ${info.plan} a expiré — Odalyan` : `Votre plan expire bientôt — Odalyan`, html);
+  }
+
   async sendPasswordReset(to: string, resetUrl: string): Promise<boolean> {
     if (!this.transporter) return false;
     const html = `

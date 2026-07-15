@@ -257,6 +257,8 @@ model Subscription {
   active    Boolean          @default(true)
   startedAt DateTime         @default(now())
   expiresAt DateTime?
+  // Dernier rappel d'expiration envoyé (dédoublonnage du cron), remis à null au renouvellement
+  reminderSentAt DateTime?
 
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopId String @unique

@@ -38,4 +38,11 @@ export class SubscriptionController {
   ) {
     return this.subscriptions.checkout(userId, input);
   }
+
+  /** Déclenche manuellement les rappels d'expiration (admin — sinon quotidien à 09h UTC). */
+  @Post('run-reminders')
+  @Roles(UserRole.ADMIN)
+  runReminders() {
+    return this.subscriptions.sendExpiryReminders();
+  }
 }

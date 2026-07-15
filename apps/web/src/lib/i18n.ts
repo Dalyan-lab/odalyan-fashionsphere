@@ -329,6 +329,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'sub.downgraded': 'Vous êtes repassé au plan gratuit.',
     'sub.activated': 'Plan activé ! Toutes les fonctionnalités sont débloquées.',
     'sub.paymentNote': 'Paiement ponctuel par période (sans prélèvement automatique) — Wave, Orange Money, MTN, Moov & carte via Paystack. Renouvelez quand vous voulez.',
+    'subBanner.expiring': 'Votre plan {plan} expire dans {n} jour(s), le {date}.',
+    'subBanner.expired': 'Votre plan {plan} a expiré le {date}.',
+    'subBanner.renew': 'Renouveler',
     // Catch-all
     'rest.sectionSoon': 'Cette section sera bientôt disponible.',
     'rest.back': '← Retour au tableau de bord',
@@ -792,6 +795,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'sub.downgraded': 'You are back on the free plan.',
     'sub.activated': 'Plan activated! All features unlocked.',
     'sub.paymentNote': 'One-off payment per period (no auto-billing) — Wave, Orange Money, MTN, Moov & card via Paystack. Renew whenever you want.',
+    'subBanner.expiring': 'Your {plan} plan expires in {n} day(s), on {date}.',
+    'subBanner.expired': 'Your {plan} plan expired on {date}.',
+    'subBanner.renew': 'Renew',
     // Catch-all
     'rest.sectionSoon': 'This section is coming soon.',
     'rest.back': '← Back to dashboard',

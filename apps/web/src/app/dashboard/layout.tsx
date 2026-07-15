@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import type { Shop } from '@/lib/types';
 import { useShop } from '@/lib/store';
 import { Sidebar } from '@/components/dashboard/sidebar';
+import { SubscriptionBanner } from '@/components/dashboard/subscription-banner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const shop = useShop((s) => s.shop);
@@ -19,7 +20,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen bg-bg lg:flex">
       <Sidebar shopName={shop?.name} shopLogo={shop?.logoUrl ?? undefined} />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        <SubscriptionBanner />
+        {children}
+      </div>
     </div>
   );
 }
