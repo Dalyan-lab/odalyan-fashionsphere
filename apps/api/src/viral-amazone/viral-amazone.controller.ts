@@ -82,6 +82,12 @@ export class ViralAmazoneController {
     return this.scripts.list(userId);
   }
 
+  /** Ajoute un produit Amazon suivi au catalogue de la boutique (produit affilié). */
+  @Post('products/:id/add-to-catalog')
+  addToCatalog(@CurrentUser('id') userId: string, @Param('id') amazonProductId: string) {
+    return this.scripts.addToCatalog(userId, amazonProductId);
+  }
+
   /** Progression du système d'encouragement : niveau, série, clics, historique de récompenses. */
   @Get('progress')
   async progress(@CurrentUser('id') userId: string) {

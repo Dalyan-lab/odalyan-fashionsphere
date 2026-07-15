@@ -80,14 +80,30 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         )}
 
-        <div className="mt-10 flex gap-4">
-          <button onClick={handleAdd} className="btn-primary">
-            {added ? '✓ Ajouté' : 'Ajouter au panier'}
-          </button>
-          <button onClick={() => router.push('/cart')} className="btn-ghost">
-            Voir le panier
-          </button>
-        </div>
+        {product.affiliateUrl ? (
+          <div className="mt-10">
+            <a
+              href={product.affiliateUrl}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              🛒 Voir sur Amazon
+            </a>
+            <p className="mt-2 text-xs text-faint">
+              Produit partenaire — l’achat se fait sur {product.sourceMarketplace ?? 'Amazon'}.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-10 flex gap-4">
+            <button onClick={handleAdd} className="btn-primary">
+              {added ? '✓ Ajouté' : 'Ajouter au panier'}
+            </button>
+            <button onClick={() => router.push('/cart')} className="btn-ghost">
+              Voir le panier
+            </button>
+          </div>
+        )}
 
         {/* Emplacements pour les modules IA des phases suivantes */}
         <div className="mt-10 grid grid-cols-2 gap-3 text-sm text-faint">

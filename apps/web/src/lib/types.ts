@@ -19,6 +19,8 @@ export interface Product {
   videos: string[];
   status: string;
   variants?: Variant[];
+  affiliateUrl?: string | null;
+  sourceMarketplace?: string | null;
   shop?: { name: string; slug: string; logoUrl?: string | null };
 }
 

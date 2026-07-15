@@ -27,6 +27,13 @@ export class OrderService {
       throw new BadRequestException('Un ou plusieurs produits sont introuvables ou indisponibles');
     }
 
+    // Un produit affilié (lien Amazon) ne s'achète pas via le panier interne
+    if (products.some((p) => p.affiliateUrl)) {
+      throw new BadRequestException(
+        'Un produit affilié ne peut pas être commandé ici — il s’achète directement sur Amazon.',
+      );
+    }
+
     const shopIds = new Set(products.map((p) => p.shopId));
     if (shopIds.size > 1) {
       throw new BadRequestException(

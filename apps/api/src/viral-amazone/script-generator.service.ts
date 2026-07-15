@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, ProductCategory, ProductStatus } from '@prisma/client';
 import type { GenerateViralScriptInput } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
@@ -68,6 +69,40 @@ export class ScriptGeneratorService {
       orderBy: { createdAt: 'desc' },
       take: 60,
       include: { product: true },
+    });
+  }
+
+  /**
+   * Ajoute un produit Amazon suivi au catalogue de la boutique, comme produit
+   * AFFILIÉ (lien externe). Il rejoint les collections du vendeur et devient
+   * utilisable par les outils IA (Studio, Avatars, Vidéo). Idempotent par
+   * boutique+ASIN (renvoie l'existant si déjà importé).
+   */
+  async addToCatalog(userId: string, amazonProductId: string) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const product = await this.prisma.amazonProduct.findUnique({ where: { id: amazonProductId } });
+    if (!product) throw new NotFoundException('Produit Amazon introuvable');
+
+    const trackingId = await this.ensureTrackingId(shop.id);
+    const affiliateUrl = this.paapi.buildAffiliateUrl(product.asin, product.marketplace, trackingId);
+
+    const existing = await this.prisma.product.findFirst({
+      where: { shopId: shop.id, affiliateUrl },
+    });
+    if (existing) return existing;
+
+    return this.prisma.product.create({
+      data: {
+        shopId: shop.id,
+        name: product.title,
+        category: ProductCategory.ACCESSOIRES, // par défaut ; le vendeur peut affiner
+        price: product.currentPrice ?? new Prisma.Decimal(0),
+        currency: product.currency ?? 'EUR',
+        status: ProductStatus.ACTIVE,
+        images: product.imageUrl ? [product.imageUrl] : [],
+        affiliateUrl,
+        sourceMarketplace: product.marketplace,
+      },
     });
   }
 

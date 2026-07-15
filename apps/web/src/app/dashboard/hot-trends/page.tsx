@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   AMAZON_MARKETPLACES,
   CreatorTier,
@@ -285,6 +286,17 @@ function CreatePostPanel({
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [catalogState, setCatalogState] = useState<'idle' | 'saving' | 'done'>('idle');
+
+  const addToCatalog = async () => {
+    setCatalogState('saving');
+    try {
+      await apiFetch(`/viral-amazone/products/${product.id}/add-to-catalog`, { method: 'POST' });
+      setCatalogState('done');
+    } catch {
+      setCatalogState('idle');
+    }
+  };
 
   const generate = async () => {
     setLoading(true);
@@ -346,6 +358,24 @@ function CreatePostPanel({
         <button onClick={generate} disabled={loading} className="btn-primary mt-4 w-full">
           {loading ? t('hot.generating') : `✨ ${t('hot.generateScript')}`}
         </button>
+
+        {/* Ajouter ce produit affilié au catalogue de la boutique */}
+        {catalogState === 'done' ? (
+          <Link
+            href="/dashboard/products"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 py-2 text-sm font-semibold text-emerald-600"
+          >
+            ✅ {t('hot.addedToCatalog')} — {t('hot.viewCatalog')}
+          </Link>
+        ) : (
+          <button
+            onClick={addToCatalog}
+            disabled={catalogState === 'saving'}
+            className="mt-2 w-full rounded-lg border border-border py-2 text-sm font-semibold text-muted transition hover:bg-surface-hover hover:text-content"
+          >
+            {catalogState === 'saving' ? t('hot.adding') : `➕ ${t('hot.addToCatalog')}`}
+          </button>
+        )}
 
         {script && (
           <div className="mt-6 space-y-4">

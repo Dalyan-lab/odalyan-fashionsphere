@@ -166,17 +166,31 @@ export class AiService {
     if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.image);
 
     let productName = 'un vêtement';
+    let productImage: string | undefined;
     if (input.productId) {
       const product = await this.prisma.product.findUnique({ where: { id: input.productId } });
-      if (product && product.shopId === shop.id) productName = product.name;
+      if (product && product.shopId === shop.id) {
+        productName = product.name;
+        productImage = product.images[0];
+      }
     }
+    // Image source : explicite (import catalogue) sinon la photo du produit choisi
+    const sourceImageUrl = input.sourceImageUrl ?? productImage;
 
-    const prompt =
-      input.prompt?.trim() ||
-      `Photo marketing mode, mannequin ${input.mannequinType}, portant ${productName}, ` +
-        `style ${input.style}, rendu professionnel, éclairage ${input.style === PhotoStyle.STUDIO ? 'studio' : 'naturel'}, haute qualité, 8k`;
+    const lighting = input.style === PhotoStyle.STUDIO ? 'studio' : 'naturel';
+    const prompt = sourceImageUrl
+      ? input.prompt?.trim() ||
+        `Photo marketing mode : fais porter ce vêtement/produit par un mannequin ${input.mannequinType}, ` +
+          `style ${input.style}, plein cadre, rendu professionnel, éclairage ${lighting}, haute qualité, 8k, ` +
+          `en conservant fidèlement le produit`
+      : input.prompt?.trim() ||
+        `Photo marketing mode, mannequin ${input.mannequinType}, portant ${productName}, ` +
+          `style ${input.style}, rendu professionnel, éclairage ${lighting}, haute qualité, 8k`;
 
-    const { url, provider } = await this.imageProvider.generate(prompt, input.mannequinType);
+    // image→image si on a une photo source (vêtement réel porté), sinon texte→image
+    const { url, provider } = sourceImageUrl
+      ? await this.imageProvider.generateFromImage(prompt, sourceImageUrl, input.mannequinType)
+      : await this.imageProvider.generate(prompt, input.mannequinType);
     if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.image);
 
     const asset = await this.prisma.generatedAsset.create({
@@ -185,7 +199,12 @@ export class AiService {
         provider,
         prompt,
         url,
-        meta: { mannequinType: input.mannequinType, style: input.style } as Prisma.InputJsonValue,
+        meta: {
+          mannequinType: input.mannequinType,
+          style: input.style,
+          fromImage: Boolean(sourceImageUrl),
+          sourceImageUrl: sourceImageUrl ?? null,
+        } as Prisma.InputJsonValue,
         ownerId: userId,
         shopId: shop.id,
         productId: input.productId ?? null,

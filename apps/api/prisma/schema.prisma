@@ -232,6 +232,11 @@ model Product {
   images      String[]        @default([])
   videos      String[]        @default([])
 
+  // Produit affilié (importé d'un marketplace, ex. ViralAmazone) : lien externe.
+  // Quand présent, la vitrine redirige vers ce lien au lieu du panier interne.
+  affiliateUrl      String? @db.Text
+  sourceMarketplace String? // ex: "amazon.fr" — provenance du produit affilié
+
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopId String
 

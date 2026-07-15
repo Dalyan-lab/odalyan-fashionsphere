@@ -19,6 +19,8 @@ export const createProductSchema = z.object({
   images: z.array(z.string().url()).default([]),
   videos: z.array(z.string().url()).default([]),
   variants: z.array(variantSchema).default([]),
+  affiliateUrl: z.string().url().optional(),
+  sourceMarketplace: z.string().max(40).optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

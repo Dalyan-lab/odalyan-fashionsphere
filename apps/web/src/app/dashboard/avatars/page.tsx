@@ -7,6 +7,7 @@ import { apiFetch, uploadImage } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
+import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
 
 interface AvatarAsset {
   id: string;
@@ -216,6 +217,12 @@ function AvatarCreator({ onCreated }: { onCreated: () => void }) {
             )}
           </label>
           <p className="mt-1 text-[10px] text-faint">{t('av.photoNote')}</p>
+
+          {/* Alternative : importer depuis le catalogue (produits boutique + affiliés) */}
+          <div className="mt-3">
+            <p className="mb-1 text-center text-[10px] uppercase tracking-wide text-faint">{t('av.orFromCatalog')}</p>
+            <ProductImagePicker value={sourceUrl || undefined} onPick={(url) => setSourceUrl(url)} />
+          </div>
         </div>
       )}
 

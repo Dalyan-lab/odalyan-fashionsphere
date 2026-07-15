@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Icon } from './icons';
+import { ProductImagePicker } from './product-image-picker';
 
 export type StudioMode = 'mannequin' | 'adcopy';
 
@@ -61,6 +62,7 @@ export function AiStudioModal({
 export function MannequinForm({ products, onGenerated }: { products: Product[]; onGenerated?: () => void }) {
   const t = useT();
   const [productId, setProductId] = useState('');
+  const [sourceImageUrl, setSourceImageUrl] = useState('');
   const [mannequinType, setMannequinType] = useState<MannequinType>(MannequinType.FEMME);
   const [style, setStyle] = useState<PhotoStyle>(PhotoStyle.STUDIO);
   const [prompt, setPrompt] = useState('');
@@ -74,7 +76,13 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
     try {
       const asset = await apiFetch<{ url: string; provider: string }>('/ai/mannequin', {
         method: 'POST',
-        body: JSON.stringify({ productId: productId || undefined, mannequinType, style, prompt: prompt || undefined }),
+        body: JSON.stringify({
+          productId: productId || undefined,
+          sourceImageUrl: sourceImageUrl || undefined,
+          mannequinType,
+          style,
+          prompt: prompt || undefined,
+        }),
       });
       setImages((prev) => [{ url: asset.url, provider: asset.provider }, ...prev]);
       onGenerated?.();
@@ -92,7 +100,15 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
       {products.length > 0 && (
         <div>
           <label className="label">{t('aim.productOptional')}</label>
-          <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
+          <select
+            className="input"
+            value={productId}
+            onChange={(e) => {
+              setProductId(e.target.value);
+              const p = products.find((x) => x.id === e.target.value);
+              setSourceImageUrl(p?.images?.[0] ?? '');
+            }}
+          >
             <option value="">{t('aim.noProduct')}</option>
             {products.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -100,6 +116,26 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
           </select>
         </div>
       )}
+
+      {/* Import de la photo produit depuis le catalogue → génération image→image */}
+      <div>
+        <label className="label">{t('aim.importPhoto')}</label>
+        <ProductImagePicker
+          value={sourceImageUrl || undefined}
+          onPick={(url, p) => {
+            setSourceImageUrl(url);
+            setProductId(p.id);
+          }}
+        />
+        {sourceImageUrl && (
+          <p className="mt-1 flex items-center gap-2 text-[10px] text-brand-violet">
+            ✨ {t('aim.willUsePhoto')}
+            <button type="button" onClick={() => setSourceImageUrl('')} className="text-faint hover:text-content">
+              ✕ {t('aim.clearPhoto')}
+            </button>
+          </p>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>

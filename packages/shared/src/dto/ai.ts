@@ -61,6 +61,8 @@ export const generateMannequinSchema = z.object({
   prompt: z.string().max(500).optional(),
   mannequinType: z.nativeEnum(MannequinType).default(MannequinType.FEMME),
   style: z.nativeEnum(PhotoStyle).default(PhotoStyle.STUDIO),
+  /** Photo produit importée du catalogue : génère en image→image (vêtement réel porté). */
+  sourceImageUrl: z.string().url().optional(),
 });
 
 export const TRYON_ANGLES = ['Face', '45° gauche', 'Profil', '45° droite', 'Dos'] as const;
