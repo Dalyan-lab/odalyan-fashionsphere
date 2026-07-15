@@ -262,6 +262,25 @@ model Subscription {
   shopId String @unique
 }
 
+/** Paiement ponctuel d'un plan (mensuel/annuel) via Paystack — active la période. */
+model SubscriptionPayment {
+  id          String           @id @default(cuid())
+  shopId      String
+  plan        SubscriptionPlan
+  period      String // monthly | annual
+  amount      Decimal          @db.Decimal(12, 2)
+  currency    String
+  provider    String           @default("paystack")
+  providerRef String           @unique
+  status      String           @default("PENDING") // PENDING | PAID | FAILED
+  couponCode  String?
+  discountEur Decimal?         @db.Decimal(10, 2)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([shopId])
+}
+
 model Product {
   id          String          @id @default(cuid())
   name        String

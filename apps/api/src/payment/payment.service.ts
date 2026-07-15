@@ -5,6 +5,7 @@ import { PaymentProvider } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CreditsService } from '../credits/credits.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 import {
   PaystackProvider,
   PaystackUnreachableError,
@@ -20,6 +21,7 @@ export class PaymentService {
     private readonly paystack: PaystackProvider,
     private readonly mail: MailService,
     private readonly credits: CreditsService,
+    private readonly subscriptions: SubscriptionService,
   ) {
     const key = process.env.STRIPE_SECRET_KEY;
     this.stripe = key ? new Stripe(key) : null;
@@ -201,9 +203,11 @@ export class PaymentService {
     const v = await this.paystack.verify(reference);
     const payment = await this.prisma.payment.findFirst({ where: { providerRef: reference } });
 
-    // Recharge de crédits IA (référence sans commande associée)
+    // Référence sans commande associée : recharge de crédits ou abonnement
     if (!payment) {
-      return this.credits.verifyPurchase(reference, v.successful);
+      const credit = await this.prisma.creditPurchase.findUnique({ where: { providerRef: reference } });
+      if (credit) return this.credits.verifyPurchase(reference, v.successful);
+      return this.subscriptions.verify(reference, v.successful);
     }
 
     if (v.successful) {

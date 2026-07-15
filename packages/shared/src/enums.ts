@@ -10,12 +10,15 @@ export enum UserRole {
   MARKETING_AGENCY = 'MARKETING_AGENCY',
 }
 
-export enum SubscriptionPlan {
-  STARTER = 'STARTER',
-  PRO = 'PRO',
-  BUSINESS = 'BUSINESS',
-  ENTERPRISE = 'ENTERPRISE',
-}
+// Union de littéraux (pas un `enum` TS) pour rester structurellement compatible
+// avec l'enum SubscriptionPlan généré par Prisma côté API (évite les casts).
+export const SubscriptionPlan = {
+  STARTER: 'STARTER',
+  PRO: 'PRO',
+  BUSINESS: 'BUSINESS',
+  ENTERPRISE: 'ENTERPRISE',
+} as const;
+export type SubscriptionPlan = (typeof SubscriptionPlan)[keyof typeof SubscriptionPlan];
 
 export enum ProductStatus {
   DRAFT = 'DRAFT',
@@ -75,6 +78,29 @@ export const PLAN_AI_CREDITS: Record<SubscriptionPlan, number> = {
   [SubscriptionPlan.BUSINESS]: 600,
   [SubscriptionPlan.ENTERPRISE]: 5000,
 };
+
+/**
+ * Prix mensuel des plans en EUR (converti en FCFA par Paystack).
+ * Paiement ponctuel par période (mensuel/annuel) — adapté au Mobile Money
+ * qui ne gère pas le prélèvement récurrent. L'annuel = 10 mois (2 offerts).
+ */
+export const PLAN_PRICES_EUR: Record<SubscriptionPlan, number> = {
+  [SubscriptionPlan.STARTER]: 0,
+  [SubscriptionPlan.PRO]: 15,
+  [SubscriptionPlan.BUSINESS]: 49,
+  [SubscriptionPlan.ENTERPRISE]: 199,
+};
+
+export type BillingPeriod = 'monthly' | 'annual';
+
+/** Prix EUR d'un plan pour une période donnée (annuel = ×10). */
+export function planPrice(plan: SubscriptionPlan, period: BillingPeriod): number {
+  const monthly = PLAN_PRICES_EUR[plan];
+  return period === 'annual' ? monthly * 10 : monthly;
+}
+
+/** Durée d'une période en jours. */
+export const PERIOD_DAYS: Record<BillingPeriod, number> = { monthly: 30, annual: 365 };
 
 /** Coût en crédits d'une génération, par type de contenu. */
 export const AI_CREDIT_COSTS = {

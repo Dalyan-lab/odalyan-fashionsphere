@@ -11,8 +11,11 @@ function CallbackInner() {
   const clearCart = useCart((s) => s.clear);
   const [state, setState] = useState<'verifying' | 'paid' | 'failed'>('verifying');
   const [credits, setCredits] = useState<number | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
 
-  const isCredits = params.get('kind') === 'credits';
+  const kindParam = params.get('kind');
+  const isCredits = kindParam === 'credits';
+  const isSubscription = kindParam === 'subscription';
 
   useEffect(() => {
     const status = params.get('status');
@@ -23,7 +26,7 @@ function CallbackInner() {
       setState('failed');
       return;
     }
-    apiFetch<{ status: string; kind?: string; credits?: number }>('/payments/paystack/verify', {
+    apiFetch<{ status: string; kind?: string; credits?: number; plan?: string }>('/payments/paystack/verify', {
       method: 'POST',
       auth: false,
       body: JSON.stringify({ reference }),
@@ -31,6 +34,7 @@ function CallbackInner() {
       .then((res) => {
         if (res.status === 'PAID') {
           if (res.kind === 'credits') setCredits(res.credits ?? null);
+          else if (res.kind === 'subscription') setPlan(res.plan ?? null);
           else clearCart();
           setState('paid');
         } else {
@@ -50,6 +54,19 @@ function CallbackInner() {
   }
 
   if (state === 'paid') {
+    if (isSubscription) {
+      return (
+        <div>
+          <div className="text-6xl">🚀</div>
+          <h1 className="mt-4 font-display text-3xl font-bold">Plan activé !</h1>
+          <p className="mt-2 text-muted">
+            {plan ? `Votre boutique est passée au plan ${plan}.` : 'Votre nouveau plan est actif.'} Toutes les
+            fonctionnalités sont débloquées.
+          </p>
+          <Link href="/dashboard/subscriptions" className="btn-primary mt-8">Voir mon abonnement</Link>
+        </div>
+      );
+    }
     if (isCredits) {
       return (
         <div>

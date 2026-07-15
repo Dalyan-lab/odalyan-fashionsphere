@@ -16,6 +16,7 @@ import { MailModule } from './mail/mail.module';
 import { StorageModule } from './storage/storage.module';
 import { ViralAmazoneModule } from './viral-amazone/viral-amazone.module';
 import { CouponsModule } from './coupon/coupons.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -37,6 +38,7 @@ import { HealthController } from './health.controller';
     UploadModule,
     ViralAmazoneModule,
     CouponsModule,
+    SubscriptionModule,
   ],
   controllers: [HealthController],
 })

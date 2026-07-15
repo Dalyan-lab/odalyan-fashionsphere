@@ -27,4 +27,13 @@ export class CouponsController {
   setActive(@Param('id') id: string, @Body('active') active: boolean) {
     return this.coupons.setActive(id, active);
   }
+
+  /** Mise à jour partielle d'un coupon (portée, limite, expiration, actif). */
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() body: { appliesTo?: string; maxRedemptions?: number | null; active?: boolean; expiresAt?: string | null },
+  ) {
+    return this.coupons.update(id, body);
+  }
 }

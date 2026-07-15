@@ -27,7 +27,7 @@ export class CouponsService {
   async check(
     code: string,
     shopId: string,
-    scope: 'credits' | 'order',
+    scope: 'credits' | 'order' | 'subscription',
   ): Promise<{ coupon: Coupon } | { reason: string }> {
     const coupon = await this.prisma.coupon.findUnique({ where: { code: code.trim().toUpperCase() } });
     if (!coupon || !coupon.active) return { reason: 'Code promo invalide.' };
@@ -46,7 +46,12 @@ export class CouponsService {
   }
 
   /** Aperçu de la remise pour l'UI (montant de base → montant final). */
-  async preview(code: string, shopId: string, baseEur: number, scope: 'credits' | 'order'): Promise<CouponPreview> {
+  async preview(
+    code: string,
+    shopId: string,
+    baseEur: number,
+    scope: 'credits' | 'order' | 'subscription',
+  ): Promise<CouponPreview> {
     const res = await this.check(code, shopId, scope);
     if ('reason' in res) return { code: code.trim().toUpperCase(), valid: false, reason: res.reason };
     const discountEur = CouponsService.discountFor(res.coupon, baseEur);
@@ -104,5 +109,21 @@ export class CouponsService {
 
   async setActive(id: string, active: boolean): Promise<Coupon> {
     return this.prisma.coupon.update({ where: { id }, data: { active } });
+  }
+
+  /** Mise à jour partielle (portée, limite, expiration, actif). */
+  async update(
+    id: string,
+    data: Partial<{ appliesTo: string; maxRedemptions: number | null; active: boolean; expiresAt: string | null }>,
+  ): Promise<Coupon> {
+    return this.prisma.coupon.update({
+      where: { id },
+      data: {
+        ...(data.appliesTo != null ? { appliesTo: data.appliesTo } : {}),
+        ...(data.maxRedemptions !== undefined ? { maxRedemptions: data.maxRedemptions } : {}),
+        ...(data.active != null ? { active: data.active } : {}),
+        ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null } : {}),
+      },
+    });
   }
 }
