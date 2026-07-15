@@ -24,9 +24,23 @@ export class CreditsController {
     return this.credits.listPacks();
   }
 
+  /** Aperçu d'un code promo sur un pack (montant final avant paiement). */
+  @Post('coupon/preview')
+  previewCoupon(
+    @CurrentUser('id') userId: string,
+    @Body('code') code: string,
+    @Body('packId') packId: string,
+  ) {
+    return this.credits.previewCoupon(userId, code, packId);
+  }
+
   /** Démarre l'achat d'un pack : renvoie un lien de paiement Paystack (ou null si crédité en simulé). */
   @Post('purchase')
-  purchase(@CurrentUser('id') userId: string, @Body('packId') packId: string) {
-    return this.credits.purchase(userId, packId);
+  purchase(
+    @CurrentUser('id') userId: string,
+    @Body('packId') packId: string,
+    @Body('couponCode') couponCode?: string,
+  ) {
+    return this.credits.purchase(userId, packId, couponCode);
   }
 }

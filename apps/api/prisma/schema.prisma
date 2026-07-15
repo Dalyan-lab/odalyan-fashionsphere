@@ -204,9 +204,50 @@ model CreditPurchase {
   provider    String   @default("paystack")
   providerRef String   @unique
   status      String   @default("PENDING") // PENDING | PAID | FAILED
+  couponCode  String? // code promo appliqué (le cas échéant)
+  discountEur Decimal? @db.Decimal(10, 2) // remise appliquée en EUR
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([shopId])
+}
+
+/**
+ * Code promo (ex. FONDATEUR) : remise en % ou montant fixe, appliqué au paiement.
+ * `appliesTo` cadre l'usage (credits pour l'instant ; subscription à venir).
+ */
+model Coupon {
+  id             String   @id @default(cuid())
+  code           String   @unique // stocké en MAJUSCULES
+  description    String?
+  percentOff     Int? // 1-100
+  amountOffEur   Decimal? @db.Decimal(10, 2)
+  appliesTo      String   @default("credits") // credits | order | all
+  maxRedemptions Int? // null = illimité
+  timesRedeemed  Int      @default(0)
+  active         Boolean  @default(true)
+  expiresAt      DateTime?
+
+  redemptions CouponRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+}
+
+/** Utilisation d'un coupon par une boutique (une seule fois par boutique). */
+model CouponRedemption {
+  id           String  @id @default(cuid())
+  coupon       Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  couponId     String
+  shopId       String
+  context      String // ex: "credits:pack-150"
+  amountOffEur Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
+  @@unique([couponId, shopId])
   @@index([shopId])
 }
 

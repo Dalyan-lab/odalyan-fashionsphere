@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CREDIT_PACKS, AI_CREDIT_COSTS, type CreditPack } from '@odalyan/shared';
+import { CREDIT_PACKS, AI_CREDIT_COSTS, type CreditPack, type CouponPreview } from '@odalyan/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
@@ -23,6 +23,44 @@ export default function CreditsPage() {
   const [buying, setBuying] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [coupon, setCoupon] = useState<CouponPreview | null>(null);
+  const [couponMsg, setCouponMsg] = useState('');
+  const [checking, setChecking] = useState(false);
+
+  async function applyCoupon() {
+    if (!couponInput.trim()) return;
+    setChecking(true);
+    setCouponMsg('');
+    try {
+      const preview = await apiFetch<CouponPreview>('/credits/coupon/preview', {
+        method: 'POST',
+        body: JSON.stringify({ code: couponInput.trim(), packId: CREDIT_PACKS[1]!.id }),
+      });
+      if (preview.valid) {
+        setCoupon(preview);
+      } else {
+        setCoupon(null);
+        setCouponMsg(preview.reason ?? t('coupon.invalid'));
+      }
+    } catch (e) {
+      setCoupon(null);
+      setCouponMsg(e instanceof ApiError ? e.message : t('coupon.invalid'));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  /** Prix remisé d'un pack selon le coupon validé (null si aucun). */
+  function discountedPrice(price: number): number | null {
+    if (!coupon || !coupon.originalEur || coupon.finalEur == null) return null;
+    if (coupon.label?.includes('%')) {
+      const ratio = coupon.finalEur / coupon.originalEur;
+      return Math.round(price * ratio * 100) / 100;
+    }
+    const fixed = coupon.originalEur - coupon.finalEur;
+    return Math.max(0, Math.round((price - fixed) * 100) / 100);
+  }
 
   const loadBalance = useCallback(() => {
     apiFetch<Balance>('/credits/balance')
@@ -42,7 +80,7 @@ export default function CreditsPage() {
     try {
       const res = await apiFetch<{ link: string | null }>('/credits/purchase', {
         method: 'POST',
-        body: JSON.stringify({ packId: pack.id }),
+        body: JSON.stringify({ packId: pack.id, couponCode: coupon?.code }),
       });
       if (res.link) {
         // Paystack : redirection vers la page de paiement hébergée
@@ -111,6 +149,32 @@ export default function CreditsPage() {
           </div>
         )}
 
+        {/* Code promo */}
+        <div className="mt-6 rounded-xl border border-border bg-surface-2 p-4">
+          <label className="label">{t('coupon.haveCode')}</label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="input flex-1"
+              value={couponInput}
+              onChange={(e) => {
+                setCouponInput(e.target.value.toUpperCase());
+                setCoupon(null);
+                setCouponMsg('');
+              }}
+              placeholder="FONDATEUR"
+            />
+            <button onClick={applyCoupon} disabled={checking || !couponInput.trim()} className="btn-secondary">
+              {checking ? '…' : t('coupon.apply')}
+            </button>
+          </div>
+          {coupon && (
+            <p className="mt-2 text-sm font-semibold text-emerald-600">
+              ✅ {t('coupon.applied').replace('{code}', coupon.code)} {coupon.label}
+            </p>
+          )}
+          {couponMsg && <p className="mt-2 text-sm text-brand-magenta">{couponMsg}</p>}
+        </div>
+
         {/* Packs de recharge */}
         <h2 className="mt-8 font-display text-xl font-bold">{t('credits.choosePack')}</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -129,7 +193,17 @@ export default function CreditsPage() {
                 {pack.credits}
                 <span className="ml-1 text-sm font-normal text-faint">{t('credits.unit')}</span>
               </p>
-              <p className="mt-1 text-lg font-semibold">{pack.priceEur} €</p>
+              {(() => {
+                const dp = discountedPrice(pack.priceEur);
+                return dp != null ? (
+                  <p className="mt-1 flex items-baseline gap-2">
+                    <span className="text-lg font-semibold text-emerald-600">{dp} €</span>
+                    <span className="text-sm text-faint line-through">{pack.priceEur} €</span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-lg font-semibold">{pack.priceEur} €</p>
+                );
+              })()}
               <button
                 onClick={() => buy(pack)}
                 disabled={buying !== null || !bal}

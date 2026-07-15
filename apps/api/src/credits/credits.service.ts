@@ -8,6 +8,7 @@ import {
 import { Prisma, SubscriptionPlan } from '@prisma/client';
 import { CREDIT_PACKS, PLAN_AI_CREDITS, getCreditPack } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { CouponsService } from '../coupon/coupons.service';
 import {
   PaystackProvider,
   PaystackUnreachableError,
@@ -35,6 +36,7 @@ export class CreditsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackProvider,
+    private readonly coupons: CouponsService,
   ) {}
 
   private isSameMonth(a: Date, b: Date): boolean {
@@ -119,11 +121,25 @@ export class CreditsService {
     return { packs: CREDIT_PACKS, provider: this.paystack.enabled ? 'paystack' : 'mock' };
   }
 
+  /** Aperçu d'un code promo sur un pack (pour l'UI avant paiement). */
+  async previewCoupon(userId: string, code: string, packId: string) {
+    const pack = getCreditPack(packId);
+    if (!pack) throw new BadRequestException('Pack de crédits inconnu.');
+    const shop = await this.prisma.shop.findUnique({ where: { ownerId: userId }, select: { id: true } });
+    if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
+    return this.coupons.preview(code, shop.id, pack.priceEur, 'credits');
+  }
+
   /**
    * Démarre l'achat d'un pack de crédits : crée un lien de paiement Paystack.
+   * Un `couponCode` optionnel applique une remise sur le montant payé.
    * En l'absence de Paystack (dev), crédite immédiatement (mode simulé).
    */
-  async purchase(userId: string, packId: string): Promise<{ link: string | null; reference: string }> {
+  async purchase(
+    userId: string,
+    packId: string,
+    couponCode?: string,
+  ): Promise<{ link: string | null; reference: string }> {
     const pack = getCreditPack(packId);
     if (!pack) throw new BadRequestException('Pack de crédits inconnu.');
 
@@ -132,6 +148,18 @@ export class CreditsService {
       include: { owner: { select: { email: true } } },
     });
     if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
+
+    // Application éventuelle d'un code promo
+    let amountEur = pack.priceEur;
+    let discountEur = 0;
+    let appliedCode: string | undefined;
+    if (couponCode?.trim()) {
+      const res = await this.coupons.check(couponCode, shop.id, 'credits');
+      if ('reason' in res) throw new BadRequestException(res.reason);
+      discountEur = CouponsService.discountFor(res.coupon, pack.priceEur);
+      amountEur = Math.max(0, Math.round((pack.priceEur - discountEur) * 100) / 100);
+      appliedCode = res.coupon.code;
+    }
 
     const reference = `ODLCR-${shop.id.slice(-6)}-${Date.now()}`;
 
@@ -143,11 +171,13 @@ export class CreditsService {
             shopId: shop.id,
             packId: pack.id,
             credits: pack.credits,
-            amount: new Prisma.Decimal(pack.priceEur),
+            amount: new Prisma.Decimal(amountEur),
             currency: 'EUR',
             provider: 'mock',
             providerRef: reference,
             status: 'PAID',
+            couponCode: appliedCode ?? null,
+            discountEur: appliedCode ? new Prisma.Decimal(discountEur) : null,
           },
         }),
         this.prisma.shop.update({
@@ -155,27 +185,30 @@ export class CreditsService {
           data: { aiCreditsExtra: { increment: pack.credits } },
         }),
       ]);
+      if (appliedCode) await this.coupons.redeem(appliedCode, shop.id, `credits:${pack.id}`, discountEur);
       return { link: null, reference };
     }
 
     try {
       const ps = await this.paystack.createGenericLink({
         reference,
-        amountEur: pack.priceEur,
+        amountEur,
         email: shop.owner.email,
         kind: 'credits',
-        metadata: { shopId: shop.id, packId: pack.id, credits: pack.credits },
+        metadata: { shopId: shop.id, packId: pack.id, credits: pack.credits, couponCode: appliedCode ?? '' },
       });
       await this.prisma.creditPurchase.create({
         data: {
           shopId: shop.id,
           packId: pack.id,
           credits: pack.credits,
-          amount: new Prisma.Decimal(pack.priceEur),
+          amount: new Prisma.Decimal(amountEur),
           currency: ps.currency,
           provider: 'paystack',
           providerRef: ps.txRef,
           status: 'PENDING',
+          couponCode: appliedCode ?? null,
+          discountEur: appliedCode ? new Prisma.Decimal(discountEur) : null,
         },
       });
       return { link: ps.link, reference: ps.txRef };
@@ -211,6 +244,15 @@ export class CreditsService {
           data: { aiCreditsExtra: { increment: purchase.credits } },
         }),
       ]);
+      // Enregistre l'utilisation du coupon (idempotent) une fois le paiement confirmé
+      if (purchase.couponCode) {
+        await this.coupons.redeem(
+          purchase.couponCode,
+          purchase.shopId,
+          `credits:${purchase.packId}`,
+          purchase.discountEur ? Number(purchase.discountEur) : 0,
+        );
+      }
     }
     return { status: 'PAID', kind: 'credits', credits: purchase.credits };
   }
