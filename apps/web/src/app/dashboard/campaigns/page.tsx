@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AdTone, SocialNetwork, type CampaignResult } from '@odalyan/shared';
+import { AdTone, SocialNetwork, type CampaignResult, type VideoAsset } from '@odalyan/shared';
 import { apiFetch, uploadImage } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
@@ -276,6 +276,9 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
         </div>
       </div>
 
+      {/* Animer le visuel en vidéo (image → vidéo) */}
+      <CampaignVideo campaign={campaign} />
+
       {/* Légendes par réseau */}
       <div className="grid gap-3 sm:grid-cols-2">
         {campaign.posts.map((p) => (
@@ -330,6 +333,112 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Anime le visuel d'une campagne en vidéo (image→vidéo) — réutilise le pipeline
+ * vidéo existant en le seedant avec l'image de campagne. Poll jusqu'à READY.
+ */
+function CampaignVideo({ campaign }: { campaign: CampaignResult }) {
+  const t = useT();
+  const [asset, setAsset] = useState<VideoAsset | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (poll.current) clearInterval(poll.current);
+    if (asset?.status === 'PENDING') {
+      poll.current = setInterval(async () => {
+        try {
+          const up = await apiFetch<VideoAsset>(`/ai/video/${asset.id}`);
+          setAsset(up);
+          if (up.status !== 'PENDING' && poll.current) clearInterval(poll.current);
+        } catch {
+          /* ignore */
+        }
+      }, 5000);
+    }
+    return () => {
+      if (poll.current) clearInterval(poll.current);
+    };
+  }, [asset?.status, asset?.id]);
+
+  const animate = async () => {
+    if (!campaign.imageUrl) return;
+    setError('');
+    setLoading(true);
+    setAsset(null);
+    try {
+      const providers = await apiFetch<{ id: string; enabled: boolean }[]>('/ai/video/providers');
+      const providerId = providers.find((p) => p.enabled)?.id ?? providers[0]?.id ?? 'replicate';
+      const res = await apiFetch<VideoAsset>('/ai/video', {
+        method: 'POST',
+        body: JSON.stringify({
+          providerId,
+          productName: campaign.productName,
+          imageUrl: campaign.imageUrl,
+          prompt: t('camp.videoPrompt'),
+          language: 'fr',
+        }),
+      });
+      setAsset(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-bold">🎬 {t('camp.video')}</h2>
+          <p className="text-xs text-muted">{t('camp.videoDesc')}</p>
+        </div>
+        <button onClick={animate} disabled={loading || !campaign.imageUrl} className="btn-primary">
+          {loading ? t('common.generating') : `🎬 ${t('camp.animate')}`}
+        </button>
+      </div>
+
+      {error && <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
+
+      {asset && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-border">
+          <div className="relative aspect-video bg-black">
+            {asset.status === 'READY' && asset.url ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video src={asset.url} controls autoPlay loop className="h-full w-full" />
+            ) : asset.status === 'PENDING' ? (
+              <div className="grid h-full place-items-center text-center text-white/80">
+                <div>
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-brand-magenta" />
+                  <p className="mt-2 text-sm">{t('common.generating')} ({asset.provider})</p>
+                </div>
+              </div>
+            ) : asset.status === 'FAILED' ? (
+              <div className="grid h-full place-items-center text-red-300">{t('vid.failed')}</div>
+            ) : (
+              <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_50%_30%,rgba(124,58,237,0.4),transparent_60%)] p-6 text-center text-white">
+                <div>
+                  <p className="text-4xl">🎬</p>
+                  <p className="mt-2 font-semibold">{t('vid.simMode')}</p>
+                  {campaign.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={campaign.imageUrl} alt="" className="mx-auto mt-3 h-32 rounded-lg object-cover" />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="px-3 py-1.5 text-[10px] text-faint">
+            {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
