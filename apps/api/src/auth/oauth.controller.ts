@@ -1,13 +1,21 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Get, Query, Req, Res } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 
 @Controller('auth/oauth')
 export class OAuthController {
   constructor(private readonly authService: AuthService) {}
 
-  private get apiBase() {
-    return process.env.API_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
+  /**
+   * URL publique de l'API. Priorité à API_PUBLIC_URL ; sinon déduite des en-têtes
+   * de la requête (proxy Railway) — évite un redirect_uri en localhost qui casserait
+   * l'OAuth. La valeur doit être IDENTIQUE dans la demande d'auth et l'échange de jeton.
+   */
+  private apiBase(req: Request): string {
+    if (process.env.API_PUBLIC_URL) return process.env.API_PUBLIC_URL.replace(/\/$/, '');
+    const proto = (req.headers['x-forwarded-proto'] as string)?.split(',')[0] || req.protocol || 'https';
+    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+    return `${proto}://${host}`;
   }
   private get webOrigin() {
     return process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
@@ -20,11 +28,11 @@ export class OAuthController {
 
   // ---------- Google ----------
   @Get('google')
-  google(@Res() res: Response) {
+  google(@Req() req: Request, @Res() res: Response) {
     if (!this.authService.oauthEnabled().google) return res.redirect(`${this.webOrigin}/login?error=oauth_disabled`);
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID!,
-      redirect_uri: `${this.apiBase}/api/auth/oauth/google/callback`,
+      redirect_uri: `${this.apiBase(req)}/api/auth/oauth/google/callback`,
       response_type: 'code',
       scope: 'openid email profile',
       access_type: 'online',
@@ -34,7 +42,7 @@ export class OAuthController {
   }
 
   @Get('google/callback')
-  async googleCallback(@Query('code') code: string, @Res() res: Response) {
+  async googleCallback(@Query('code') code: string, @Req() req: Request, @Res() res: Response) {
     try {
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -43,7 +51,7 @@ export class OAuthController {
           code,
           client_id: process.env.GOOGLE_CLIENT_ID!,
           client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-          redirect_uri: `${this.apiBase}/api/auth/oauth/google/callback`,
+          redirect_uri: `${this.apiBase(req)}/api/auth/oauth/google/callback`,
           grant_type: 'authorization_code',
         }),
       });
@@ -77,18 +85,18 @@ export class OAuthController {
 
   // ---------- GitHub ----------
   @Get('github')
-  github(@Res() res: Response) {
+  github(@Req() req: Request, @Res() res: Response) {
     if (!this.authService.oauthEnabled().github) return res.redirect(`${this.webOrigin}/login?error=oauth_disabled`);
     const params = new URLSearchParams({
       client_id: process.env.GITHUB_CLIENT_ID!,
-      redirect_uri: `${this.apiBase}/api/auth/oauth/github/callback`,
+      redirect_uri: `${this.apiBase(req)}/api/auth/oauth/github/callback`,
       scope: 'read:user user:email',
     });
     return res.redirect(`https://github.com/login/oauth/authorize?${params}`);
   }
 
   @Get('github/callback')
-  async githubCallback(@Query('code') code: string, @Res() res: Response) {
+  async githubCallback(@Query('code') code: string, @Req() req: Request, @Res() res: Response) {
     try {
       const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
         method: 'POST',
@@ -97,7 +105,7 @@ export class OAuthController {
           code,
           client_id: process.env.GITHUB_CLIENT_ID,
           client_secret: process.env.GITHUB_CLIENT_SECRET,
-          redirect_uri: `${this.apiBase}/api/auth/oauth/github/callback`,
+          redirect_uri: `${this.apiBase(req)}/api/auth/oauth/github/callback`,
         }),
       });
       const token = (await tokenRes.json()) as { access_token?: string };
