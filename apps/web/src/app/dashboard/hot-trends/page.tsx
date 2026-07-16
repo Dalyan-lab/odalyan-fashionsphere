@@ -61,6 +61,7 @@ export default function HotTrendsPage() {
   const [marketplace, setMarketplace] = useState('');
   const [tier, setTier] = useState<TrendTier | ''>('');
   const [panelProduct, setPanelProduct] = useState<AmazonTrendProductDto | null>(null);
+  const [zoomProduct, setZoomProduct] = useState<AmazonTrendProductDto | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -152,13 +153,29 @@ export default function HotTrendsPage() {
               <div key={p.id} className="card overflow-hidden">
                 <div className="flex items-center gap-3 p-4">
                   {p.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg border border-border object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setZoomProduct(p)}
+                      title={t('hot.zoom')}
+                      className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.imageUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" />
+                      <span className="absolute inset-0 grid place-items-center bg-black/0 text-transparent transition group-hover:bg-black/40 group-hover:text-white">
+                        🔍
+                      </span>
+                    </button>
                   ) : (
                     <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-surface-2 text-2xl">📦</div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-semibold">{p.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => p.imageUrl && setZoomProduct(p)}
+                      className="line-clamp-2 text-left text-sm font-semibold hover:text-brand-violet"
+                    >
+                      {p.title}
+                    </button>
                     <p className="mt-1 text-xs text-faint">
                       {p.currentPrice != null ? `${p.currentPrice} ${p.currency ?? ''}` : t('hot.priceUnknown')}
                       {p.currentRank != null && ` · #${p.currentRank}`}
@@ -183,10 +200,78 @@ export default function HotTrendsPage() {
         )}
       </div>
 
+      {zoomProduct && (
+        <ProductZoomModal
+          product={zoomProduct}
+          onClose={() => setZoomProduct(null)}
+          onCreatePost={() => {
+            setPanelProduct(zoomProduct);
+            setZoomProduct(null);
+          }}
+        />
+      )}
+
       {panelProduct && (
         <CreatePostPanel product={panelProduct} onClose={() => setPanelProduct(null)} onGenerated={loadProgress} />
       )}
     </>
+  );
+}
+
+/** Aperçu agrandi d'un produit avant de créer un post. */
+function ProductZoomModal({
+  product,
+  onClose,
+  onCreatePost,
+}: {
+  product: AmazonTrendProductDto;
+  onClose: () => void;
+  onCreatePost: () => void;
+}) {
+  const t = useT();
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card relative w-full max-w-md overflow-hidden"
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white transition hover:bg-black/70"
+          aria-label={t('common.close')}
+        >
+          ✕
+        </button>
+        {product.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={product.imageUrl} alt={product.title} className="max-h-[55vh] w-full bg-white object-contain" />
+        )}
+        <div className="p-5">
+          <h2 className="font-display text-lg font-bold">{product.title}</h2>
+          <p className="mt-1 text-sm text-muted">
+            {product.currentPrice != null ? `${product.currentPrice} ${product.currency ?? ''}` : t('hot.priceUnknown')}
+            {product.currentRank != null && ` · #${product.currentRank}`}
+            {product.category ? ` · ${product.category}` : ''}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={onCreatePost} className="btn-primary flex-1">
+              ✨ {t('hot.createPost')}
+            </button>
+            <a
+              href={product.productUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary flex-1 text-center"
+            >
+              🔗 {t('hot.viewOnAmazon')}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
