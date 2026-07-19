@@ -448,8 +448,15 @@ model SocialConnection {
   network     String // Facebook, Instagram, TikTok, YouTube, Pinterest, X
   connected   Boolean   @default(false)
   accountName String?
-  accessToken String? // jeton OAuth (placeholder en mode simulé)
+  accessToken String?   @db.Text // jeton OAuth (placeholder en mode simulé)
   connectedAt DateTime?
+
+  // Publication réelle : jetons et identifiants renvoyés par le réseau
+  refreshToken   String?   @db.Text
+  tokenExpiresAt DateTime?
+  externalId     String? // ex: id de Page Facebook ou de compte Instagram Business
+  scope          String? // permissions accordées
+  simulated      Boolean   @default(true) // false quand la connexion est un vrai compte OAuth
 
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopId String
@@ -463,8 +470,13 @@ model ScheduledPost {
   imageUrl    String?
   networks    String[]  @default([])
   scheduledAt DateTime
-  status      String    @default("SCHEDULED") // SCHEDULED | PUBLISHED | FAILED | CANCELLED
+  status      String    @default("SCHEDULED") // SCHEDULED | PUBLISHED | PARTIAL | FAILED | CANCELLED
   publishedAt DateTime?
+
+  // Résultat détaillé par réseau : { "Instagram": { ok, externalId?, error? }, … }
+  results   Json?
+  attempts  Int     @default(0)
+  lastError String? @db.Text
 
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopId String

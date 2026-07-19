@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { ScheduledPostDto, SocialConnectionInfo } from '@odalyan/shared';
+import type { ScheduledPostDto, SocialConnectionInfo, SocialNetworkStatus } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
@@ -23,29 +23,56 @@ function NetBadge({ network, size = 44 }: { network: string; size?: number }) {
 const STATUS_STYLE: Record<string, string> = {
   SCHEDULED: 'bg-yellow-500/15 text-yellow-500',
   PUBLISHED: 'bg-emerald-500/15 text-emerald-500',
+  PARTIAL: 'bg-amber-500/15 text-amber-500',
   FAILED: 'bg-red-500/15 text-red-400',
   CANCELLED: 'bg-surface-2 text-faint',
 };
 export default function PublicationsPage() {
   const t = useT();
   const [connections, setConnections] = useState<SocialConnectionInfo[]>([]);
+  const [networks, setNetworks] = useState<SocialNetworkStatus[]>([]);
   const [posts, setPosts] = useState<ScheduledPostDto[]>([]);
   const [noShop, setNoShop] = useState(false);
   const [busy, setBusy] = useState('');
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const load = () => {
     apiFetch<SocialConnectionInfo[]>('/social/connections').then(setConnections).catch(() => setNoShop(true));
+    apiFetch<SocialNetworkStatus[]>('/social/networks').then(setNetworks).catch(() => setNetworks([]));
     apiFetch<ScheduledPostDto[]>('/social/scheduled').then(setPosts).catch(() => undefined);
   };
 
   useEffect(() => {
     load();
-  }, []);
+    // Retour du réseau après autorisation OAuth
+    const q = new URLSearchParams(window.location.search);
+    const social = q.get('social');
+    if (social === 'connected') setNotice({ kind: 'ok', text: t('pub.connectedOk').replace('{n}', q.get('network') ?? '') });
+    else if (social === 'error') setNotice({ kind: 'err', text: q.get('message') ?? t('common.error') });
+    else if (social === 'cancelled') setNotice({ kind: 'err', text: t('pub.cancelled') });
+    if (social) window.history.replaceState({}, '', window.location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const netStatus = (network: string) => networks.find((n) => n.network === network);
 
   const toggle = async (network: string, connected: boolean) => {
     setBusy(network);
+    setNotice(null);
     try {
-      await apiFetch(`/social/${connected ? 'disconnect' : 'connect'}/${network}`, { method: 'POST' });
+      if (connected) {
+        await apiFetch(`/social/disconnect/${network}`, { method: 'POST' });
+        load();
+        return;
+      }
+      const res = await apiFetch<{ authorizeUrl: string | null; simulated: boolean }>(
+        `/social/connect/${network}`,
+        { method: 'POST' },
+      );
+      // Vraie connexion → redirection vers le réseau ; sinon connexion simulée
+      if (res.authorizeUrl) {
+        window.location.href = res.authorizeUrl;
+        return;
+      }
       load();
     } finally {
       setBusy('');
@@ -79,30 +106,61 @@ export default function PublicationsPage() {
           </div>
         ) : (
           <div className="mt-6 space-y-8">
+            {notice && (
+              <div
+                className={`rounded-xl border p-3 text-sm ${
+                  notice.kind === 'ok'
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                    : 'border-brand-magenta/40 bg-brand-magenta/10 text-brand-magenta'
+                }`}
+              >
+                {notice.kind === 'ok' ? '✅ ' : '⚠️ '}
+                {notice.text}
+              </div>
+            )}
+
             {/* Connexions */}
             <section>
               <h2 className="mb-3 text-lg font-bold">{t('pub.connected')}</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {connections.map((c) => (
-                  <div key={c.network} className="card flex items-center gap-3 p-4">
-                    <NetBadge network={c.network} />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{c.network}</p>
-                      <p className="truncate text-xs text-faint">
-                        {c.connected ? c.accountName : t('pub.notConnected')}
-                      </p>
+                {connections.map((c) => {
+                  const st = netStatus(c.network);
+                  const mode = st?.enabled ? 'real' : st?.supported ? 'needsApp' : 'soon';
+                  return (
+                    <div key={c.network} className="card flex items-center gap-3 p-4">
+                      <NetBadge network={c.network} />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex items-center gap-1.5 font-medium">
+                          {c.network}
+                          <span
+                            title={st?.requirement}
+                            className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                              mode === 'real'
+                                ? 'bg-emerald-500/15 text-emerald-500'
+                                : mode === 'needsApp'
+                                  ? 'bg-amber-500/15 text-amber-500'
+                                  : 'bg-surface-2 text-faint'
+                            }`}
+                          >
+                            {mode === 'real' ? t('pub.modeReal') : mode === 'needsApp' ? t('pub.modeNeedsApp') : t('common.soon')}
+                          </span>
+                        </p>
+                        <p className="truncate text-xs text-faint">
+                          {c.connected ? c.accountName : t('pub.notConnected')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => toggle(c.network, c.connected)}
+                        disabled={busy === c.network}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                          c.connected ? 'border border-border text-muted hover:bg-surface-hover' : 'bg-brand-violet-magenta text-white'
+                        }`}
+                      >
+                        {busy === c.network ? '…' : c.connected ? t('pub.disconnect') : t('pub.connect')}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => toggle(c.network, c.connected)}
-                      disabled={busy === c.network}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                        c.connected ? 'border border-border text-muted hover:bg-surface-hover' : 'bg-brand-violet-magenta text-white'
-                      }`}
-                    >
-                      {busy === c.network ? '…' : c.connected ? t('pub.disconnect') : t('pub.connect')}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <p className="mt-2 text-[10px] text-faint">{t('pub.simNote')}</p>
             </section>
@@ -133,6 +191,26 @@ export default function PublicationsPage() {
                           </span>
                           · {new Date(p.scheduledAt).toLocaleString('fr-FR')}
                         </p>
+                        {p.results && Object.keys(p.results).length > 0 && (
+                          <p className="mt-1.5 flex flex-wrap gap-1.5">
+                            {Object.entries(p.results).map(([net, r]) => (
+                              <span
+                                key={net}
+                                title={r.error ?? undefined}
+                                className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                  !r.ok
+                                    ? 'bg-red-500/15 text-red-400'
+                                    : r.simulated
+                                      ? 'bg-surface-2 text-faint'
+                                      : 'bg-emerald-500/15 text-emerald-500'
+                                }`}
+                              >
+                                {!r.ok ? '❌' : r.simulated ? '🟡' : '✅'} {net}
+                                {r.simulated ? ` ${t('pub.simulatedTag')}` : ''}
+                              </span>
+                            ))}
+                          </p>
+                        )}
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[p.status]}`}>
                         {t(`ps.${p.status}`)}

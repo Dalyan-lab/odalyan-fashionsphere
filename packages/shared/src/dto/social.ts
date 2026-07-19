@@ -17,13 +17,34 @@ export interface SocialConnectionInfo {
   accountName?: string | null;
 }
 
+/** État d'un réseau : provider écrit ? app développeur configurée ? */
+export interface SocialNetworkStatus {
+  network: string;
+  label: string;
+  supported: boolean;
+  enabled: boolean;
+  requirement: string;
+}
+
+/** Résultat de publication pour un réseau donné. */
+export interface PublishOutcome {
+  ok: boolean;
+  externalId?: string;
+  error?: string;
+  /** Publication simulée (app développeur non configurée ou compte de démo). */
+  simulated?: boolean;
+}
+
 export interface ScheduledPostDto {
   id: string;
   caption: string;
   imageUrl?: string | null;
   networks: string[];
   scheduledAt: string;
-  status: string; // SCHEDULED | PUBLISHED | FAILED | CANCELLED
+  status: string; // SCHEDULED | PUBLISHED | PARTIAL | FAILED | CANCELLED
   publishedAt?: string | null;
   createdAt: string;
+  /** Détail par réseau (clé = nom du réseau). */
+  results?: Record<string, PublishOutcome> | null;
+  lastError?: string | null;
 }

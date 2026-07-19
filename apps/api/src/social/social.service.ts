@@ -1,4 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import {
   SocialNetwork,
   type ScheduledPostDto,
@@ -7,22 +10,28 @@ import {
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
+import { PublisherRegistry } from './publishers/publisher.registry';
+import type { PublishResult } from './publishers/social-publisher.interface';
 
 const NETWORKS = Object.values(SocialNetwork) as string[];
+const MAX_ATTEMPTS = 3;
 
 @Injectable()
 export class SocialService {
+  private readonly logger = new Logger(SocialService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly shopService: ShopService,
+    private readonly registry: PublisherRegistry,
   ) {}
 
-  /** Variable d'env de credentials OAuth attendue pour un réseau (réel). */
-  private envKey(network: string): string {
-    return `${network.toUpperCase().replace(/[^A-Z]/g, '')}_OAUTH_CLIENT_ID`;
+  /** État de tous les réseaux (provider écrit ? app configurée ?). */
+  listNetworks() {
+    return this.registry.list();
   }
 
-  /** État de connexion des 6 réseaux pour la boutique. */
+  /** État de connexion des réseaux pour la boutique. */
   async listConnections(userId: string): Promise<SocialConnectionInfo[]> {
     const shop = await this.shopService.requireOwnedShop(userId);
     const rows = await this.prisma.socialConnection.findMany({ where: { shopId: shop.id } });
@@ -32,21 +41,91 @@ export class SocialService {
     });
   }
 
+  // ------------------------------------------------------------- Connexion OAuth
+
+  /** `state` signé : identifie la boutique au retour du réseau (aucune session côté callback). */
+  private signState(shopId: string, network: string): string {
+    const payload = Buffer.from(JSON.stringify({ shopId, network, t: Date.now() })).toString('base64url');
+    const sig = createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? 'dev').update(payload).digest('base64url');
+    return `${payload}.${sig}`;
+  }
+
+  private verifyState(state: string): { shopId: string; network: string } {
+    const [payload, sig] = state.split('.');
+    if (!payload || !sig) throw new BadRequestException('État OAuth invalide.');
+    const expected = createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? 'dev').update(payload).digest('base64url');
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) throw new BadRequestException('État OAuth invalide.');
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as {
+      shopId: string;
+      network: string;
+      t: number;
+    };
+    if (Date.now() - data.t > 15 * 60_000) throw new BadRequestException('Lien de connexion expiré.');
+    return { shopId: data.shopId, network: data.network };
+  }
+
   /**
-   * Connecte un réseau. Mode simulé : marque connecté avec un compte fictif.
-   * Réel : nécessiterait le flux OAuth (client id/secret de l'app par plateforme).
+   * Démarre la connexion d'un réseau.
+   * App développeur configurée → renvoie l'URL d'autorisation (vraie connexion OAuth).
+   * Sinon → connexion simulée (démo), signalée comme telle.
    */
-  async connect(userId: string, network: string) {
+  async connect(userId: string, network: string, redirectUri: string) {
     if (!NETWORKS.includes(network)) throw new BadRequestException('Réseau inconnu');
     const shop = await this.shopService.requireOwnedShop(userId);
-    const real = Boolean(process.env[this.envKey(network)]);
-    const accountName = real ? `@${shop.slug}` : `@${shop.slug}_${network.toLowerCase()} (simulé)`;
+    const publisher = this.registry.get(network);
 
-    return this.prisma.socialConnection.upsert({
+    if (publisher?.enabled) {
+      return { authorizeUrl: publisher.authorizeUrl(redirectUri, this.signState(shop.id, network)), simulated: false };
+    }
+
+    // Mode démo : connexion fictive pour pouvoir tester le parcours
+    const accountName = `@${shop.slug}_${network.toLowerCase()} (simulé)`;
+    await this.prisma.socialConnection.upsert({
       where: { shopId_network: { shopId: shop.id, network } },
-      update: { connected: true, accountName, connectedAt: new Date() },
-      create: { shopId: shop.id, network, connected: true, accountName, connectedAt: new Date() },
+      update: { connected: true, accountName, connectedAt: new Date(), simulated: true },
+      create: { shopId: shop.id, network, connected: true, accountName, connectedAt: new Date(), simulated: true },
     });
+    return { authorizeUrl: null, simulated: true };
+  }
+
+  /** Retour du réseau : échange le code contre des jetons et enregistre la connexion. */
+  async handleOAuthCallback(network: string, code: string, state: string, redirectUri: string) {
+    const { shopId, network: stateNetwork } = this.verifyState(state);
+    if (stateNetwork !== network) throw new BadRequestException('Réseau incohérent.');
+    const publisher = this.registry.get(network);
+    if (!publisher?.enabled) throw new BadRequestException('Réseau non configuré.');
+
+    const result = await publisher.exchangeCode(code, redirectUri);
+    await this.prisma.socialConnection.upsert({
+      where: { shopId_network: { shopId, network } },
+      update: {
+        connected: true,
+        simulated: false,
+        accountName: result.accountName,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken ?? null,
+        tokenExpiresAt: result.expiresAt ?? null,
+        externalId: result.externalId ?? null,
+        scope: result.scope ?? null,
+        connectedAt: new Date(),
+      },
+      create: {
+        shopId,
+        network,
+        connected: true,
+        simulated: false,
+        accountName: result.accountName,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken ?? null,
+        tokenExpiresAt: result.expiresAt ?? null,
+        externalId: result.externalId ?? null,
+        scope: result.scope ?? null,
+        connectedAt: new Date(),
+      },
+    });
+    return { connected: true, network, accountName: result.accountName };
   }
 
   async disconnect(userId: string, network: string) {
@@ -54,17 +133,27 @@ export class SocialService {
     await this.prisma.socialConnection
       .updateMany({
         where: { shopId: shop.id, network },
-        data: { connected: false, accountName: null, accessToken: null },
+        data: {
+          connected: false,
+          accountName: null,
+          accessToken: null,
+          refreshToken: null,
+          tokenExpiresAt: null,
+          externalId: null,
+          scope: null,
+          simulated: true,
+        },
       })
       .catch(() => undefined);
     return { disconnected: true };
   }
 
+  // ------------------------------------------------------------- Publications
+
   /** Programme une publication (ou immédiate si pas de date). */
   async schedule(userId: string, input: SchedulePostInput) {
     const shop = await this.shopService.requireOwnedShop(userId);
 
-    // Avertit si aucun réseau ciblé n'est connecté
     const connections = await this.prisma.socialConnection.findMany({
       where: { shopId: shop.id, network: { in: input.networks }, connected: true },
     });
@@ -83,12 +172,10 @@ export class SocialService {
       },
     });
 
-    // Publie immédiatement si la date est déjà passée/maintenant
     await this.processDue(shop.id);
     return this.prisma.scheduledPost.findUnique({ where: { id: post.id } });
   }
 
-  /** Liste les publications (traite d'abord celles arrivées à échéance). */
   async listScheduled(userId: string): Promise<ScheduledPostDto[]> {
     const shop = await this.shopService.requireOwnedShop(userId);
     await this.processDue(shop.id);
@@ -106,6 +193,8 @@ export class SocialService {
       status: p.status,
       publishedAt: p.publishedAt?.toISOString() ?? null,
       createdAt: p.createdAt.toISOString(),
+      results: (p.results as ScheduledPostDto['results']) ?? null,
+      lastError: p.lastError ?? null,
     }));
   }
 
@@ -117,19 +206,68 @@ export class SocialService {
     return this.prisma.scheduledPost.update({ where: { id }, data: { status: 'CANCELLED' } });
   }
 
-  /**
-   * Publie les posts arrivés à échéance. Mode simulé : marque PUBLISHED.
-   * Réel : appellerait l'API de chaque réseau connecté (Graph API, etc.).
-   */
-  private async processDue(shopId: string) {
+  /** Worker : publie toutes les boutiques (toutes les 5 minutes). */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async processAllDue(): Promise<{ processed: number }> {
     const due = await this.prisma.scheduledPost.findMany({
-      where: { shopId, status: 'SCHEDULED', scheduledAt: { lte: new Date() } },
+      where: { status: 'SCHEDULED', scheduledAt: { lte: new Date() }, attempts: { lt: MAX_ATTEMPTS } },
+      select: { shopId: true },
+      distinct: ['shopId'],
     });
+    let processed = 0;
+    for (const { shopId } of due) processed += await this.processDue(shopId);
+    if (processed) this.logger.log(`Publications traitées : ${processed}`);
+    return { processed };
+  }
+
+  /**
+   * Publie réellement les posts arrivés à échéance pour une boutique.
+   * Chaque réseau est publié indépendamment ; le résultat est consigné par réseau.
+   * Réseau simulé ou non configuré → marqué « simulé » (pas d'échec bloquant).
+   */
+  private async processDue(shopId: string): Promise<number> {
+    const due = await this.prisma.scheduledPost.findMany({
+      where: { shopId, status: 'SCHEDULED', scheduledAt: { lte: new Date() }, attempts: { lt: MAX_ATTEMPTS } },
+    });
+    if (due.length === 0) return 0;
+
+    const connections = await this.prisma.socialConnection.findMany({ where: { shopId, connected: true } });
+
     for (const post of due) {
+      const results: Record<string, PublishResult & { simulated?: boolean }> = {};
+
+      for (const network of post.networks) {
+        const publisher = this.registry.get(network);
+        const conn = connections.find((c) => c.network === network);
+
+        if (!conn) {
+          results[network] = { ok: false, error: 'Réseau non connecté.' };
+          continue;
+        }
+        // Pas de provider, app non configurée, ou connexion simulée → publication simulée
+        if (!publisher?.enabled || conn.simulated) {
+          results[network] = { ok: true, simulated: true };
+          continue;
+        }
+        results[network] = await publisher.publish(conn, { caption: post.caption, imageUrl: post.imageUrl });
+      }
+
+      const values = Object.values(results);
+      const okCount = values.filter((r) => r.ok).length;
+      const status = okCount === 0 ? 'FAILED' : okCount === values.length ? 'PUBLISHED' : 'PARTIAL';
+      const firstError = values.find((r) => !r.ok)?.error ?? null;
+
       await this.prisma.scheduledPost.update({
         where: { id: post.id },
-        data: { status: 'PUBLISHED', publishedAt: new Date() },
+        data: {
+          status,
+          publishedAt: okCount > 0 ? new Date() : null,
+          results: results as unknown as Prisma.InputJsonValue,
+          attempts: { increment: 1 },
+          lastError: firstError,
+        },
       });
     }
+    return due.length;
   }
 }
