@@ -468,6 +468,7 @@ model ScheduledPost {
   id          String    @id @default(cuid())
   caption     String
   imageUrl    String?
+  videoUrl    String?   // vidéo à publier (TikTok, Reels…) ; prioritaire sur l'image
   networks    String[]  @default([])
   scheduledAt DateTime
   status      String    @default("SCHEDULED") // SCHEDULED | PUBLISHED | PARTIAL | FAILED | CANCELLED

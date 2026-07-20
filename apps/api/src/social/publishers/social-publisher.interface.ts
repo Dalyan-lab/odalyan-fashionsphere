@@ -14,6 +14,8 @@ export interface OAuthResult {
 export interface PublishInput {
   caption: string;
   imageUrl?: string | null;
+  /** Vidéo à publier (TikTok, Reels…). Prioritaire sur l'image quand le réseau la gère. */
+  videoUrl?: string | null;
 }
 
 export interface PublishResult {

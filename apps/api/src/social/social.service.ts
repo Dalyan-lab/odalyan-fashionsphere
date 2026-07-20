@@ -166,6 +166,7 @@ export class SocialService {
         shopId: shop.id,
         caption: input.caption,
         imageUrl: input.imageUrl ?? null,
+        videoUrl: input.videoUrl ?? null,
         networks: input.networks,
         scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : new Date(),
         status: 'SCHEDULED',
@@ -188,6 +189,7 @@ export class SocialService {
       id: p.id,
       caption: p.caption,
       imageUrl: p.imageUrl,
+      videoUrl: p.videoUrl,
       networks: p.networks,
       scheduledAt: p.scheduledAt.toISOString(),
       status: p.status,
@@ -272,7 +274,11 @@ export class SocialService {
         }
         try {
           const fresh = await this.withFreshToken(publisher, conn);
-          results[network] = await publisher.publish(fresh, { caption: post.caption, imageUrl: post.imageUrl });
+          results[network] = await publisher.publish(fresh, {
+            caption: post.caption,
+            imageUrl: post.imageUrl,
+            videoUrl: post.videoUrl,
+          });
         } catch (err) {
           results[network] = { ok: false, error: err instanceof Error ? err.message : String(err) };
         }

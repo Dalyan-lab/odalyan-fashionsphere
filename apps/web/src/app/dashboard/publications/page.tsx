@@ -178,8 +178,13 @@ export default function PublicationsPage() {
                   {posts.map((p) => (
                     <div key={p.id} className="card flex items-center gap-4 p-4">
                       {p.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                        <span className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                          {p.videoUrl && (
+                            <span className="absolute -right-1 -top-1 rounded-full bg-black/70 px-1 text-[10px] leading-4">🎬</span>
+                          )}
+                        </span>
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-1 text-sm">{p.caption}</p>

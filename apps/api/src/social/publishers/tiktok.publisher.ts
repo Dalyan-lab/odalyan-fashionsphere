@@ -45,7 +45,7 @@ export class TikTokPublisher implements SocialPublisher {
   readonly network = 'TikTok';
   readonly label = 'TikTok';
   readonly requirement =
-    'App TikTok for Developers (Content Posting API) + domaine des images vérifié. ' +
+    'App TikTok for Developers (Content Posting API) + domaine des vidéos/images vérifié. ' +
     'Avant l’audit, les publications restent privées (SELF_ONLY).';
 
   get enabled(): boolean {
@@ -122,46 +122,60 @@ export class TikTokPublisher implements SocialPublisher {
   async publish(conn: SocialConnection, input: PublishInput): Promise<PublishResult> {
     try {
       if (!conn.accessToken) throw new Error('Connexion TikTok incomplète.');
-      // TikTok ne publie pas de texte seul : il faut au moins une image.
-      if (!input.imageUrl) throw new Error('TikTok exige une image pour publier.');
-
-      const res = await fetch(`${API}/post/publish/content/init/`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${conn.accessToken}`,
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: JSON.stringify({
-          media_type: 'PHOTO',
-          post_mode: 'DIRECT_POST',
-          post_info: {
-            // Le titre alimente le fil ; la description porte la légende complète.
-            title: input.caption.slice(0, 90),
-            description: input.caption.slice(0, 4000),
-            privacy_level: process.env.TIKTOK_PRIVACY_LEVEL ?? DEFAULT_PRIVACY,
-            disable_comment: false,
-            auto_add_music: true,
-          },
-          source_info: {
-            source: 'PULL_FROM_URL',
-            photo_cover_index: 0,
-            photo_images: [input.imageUrl],
-          },
-        }),
-      });
-
-      const body = (await res.json()) as TikTokEnvelope<{ publish_id?: string }>;
-      if (body.error?.code && body.error.code !== 'ok') {
-        throw new Error(body.error.message || body.error.code);
-      }
-      const publishId = body.data?.publish_id;
-      if (!publishId) throw new Error('TikTok n’a pas renvoyé d’identifiant de publication.');
-
-      return { ok: true, externalId: publishId };
+      // TikTok privilégie la vidéo (sa raison d'être) ; à défaut, carrousel photo.
+      if (input.videoUrl) return await this.publishVideo(conn.accessToken, input.videoUrl, input.caption);
+      if (input.imageUrl) return await this.publishPhoto(conn.accessToken, input.imageUrl, input.caption);
+      throw new Error('TikTok exige une vidéo ou une image pour publier.');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`TikTok — publication échouée : ${message}`);
       return { ok: false, error: message };
     }
+  }
+
+  /** Champs communs post_info aux deux types de contenu. */
+  private postInfo(caption: string) {
+    return {
+      // Le titre alimente le fil ; la description porte la légende complète.
+      title: caption.slice(0, 90),
+      description: caption.slice(0, 4000),
+      privacy_level: process.env.TIKTOK_PRIVACY_LEVEL ?? DEFAULT_PRIVACY,
+      disable_comment: false,
+    };
+  }
+
+  /** Appel d'un point /init/ et extraction du publish_id. */
+  private async initPublish(accessToken: string, endpoint: string, payload: unknown): Promise<PublishResult> {
+    const res = await fetch(`${API}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json()) as TikTokEnvelope<{ publish_id?: string }>;
+    if (body.error?.code && body.error.code !== 'ok') {
+      throw new Error(body.error.message || body.error.code);
+    }
+    const publishId = body.data?.publish_id;
+    if (!publishId) throw new Error('TikTok n’a pas renvoyé d’identifiant de publication.');
+    return { ok: true, externalId: publishId };
+  }
+
+  private publishVideo(accessToken: string, videoUrl: string, caption: string): Promise<PublishResult> {
+    return this.initPublish(accessToken, '/post/publish/video/init/', {
+      post_info: { ...this.postInfo(caption), auto_add_music: false },
+      source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
+    });
+  }
+
+  private publishPhoto(accessToken: string, imageUrl: string, caption: string): Promise<PublishResult> {
+    return this.initPublish(accessToken, '/post/publish/content/init/', {
+      media_type: 'PHOTO',
+      post_mode: 'DIRECT_POST',
+      post_info: { ...this.postInfo(caption), auto_add_music: true },
+      source_info: { source: 'PULL_FROM_URL', photo_cover_index: 0, photo_images: [imageUrl] },
+    });
   }
 }

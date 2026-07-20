@@ -215,6 +215,8 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
   const [scheduled, setScheduled] = useState<string | null>(null);
   const [pubError, setPubError] = useState('');
   const [publishing, setPublishing] = useState(false);
+  // Vidéo générée par le bloc « Animer » ci-dessous : jointe à la publication (TikTok, Reels…).
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const copy = (text: string) => navigator.clipboard?.writeText(text);
   const togglePub = (n: string) => setPubNets((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
@@ -230,6 +232,7 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
         body: JSON.stringify({
           caption,
           imageUrl: campaign.imageUrl ?? undefined,
+          videoUrl: videoUrl ?? undefined,
           networks: pubNets,
           scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
           campaignAssetId: campaign.id,
@@ -277,7 +280,7 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
       </div>
 
       {/* Animer le visuel en vidéo (image → vidéo) */}
-      <CampaignVideo campaign={campaign} />
+      <CampaignVideo campaign={campaign} onVideoReady={setVideoUrl} />
 
       {/* Légendes par réseau */}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -319,6 +322,9 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
             {publishing ? '…' : t('camp.schedule')}
           </button>
         </div>
+        {videoUrl && (
+          <p className="mt-2 text-[11px] text-brand-violet">🎬 {t('camp.videoAttached')}</p>
+        )}
         {pubError && (
           <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">
             {pubError} — <Link href="/dashboard/publications" className="underline">{t('camp.connectNets')}</Link>
@@ -341,7 +347,13 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
  * Anime le visuel d'une campagne en vidéo (image→vidéo) — réutilise le pipeline
  * vidéo existant en le seedant avec l'image de campagne. Poll jusqu'à READY.
  */
-function CampaignVideo({ campaign }: { campaign: CampaignResult }) {
+function CampaignVideo({
+  campaign,
+  onVideoReady,
+}: {
+  campaign: CampaignResult;
+  onVideoReady?: (url: string | null) => void;
+}) {
   const t = useT();
   const [asset, setAsset] = useState<VideoAsset | null>(null);
   const [loading, setLoading] = useState(false);
@@ -365,6 +377,11 @@ function CampaignVideo({ campaign }: { campaign: CampaignResult }) {
       if (poll.current) clearInterval(poll.current);
     };
   }, [asset?.status, asset?.id]);
+
+  // Remonte l'URL vers CampaignKit dès que la vidéo réelle est prête (ignore le mode simulé sans URL).
+  useEffect(() => {
+    onVideoReady?.(asset?.status === 'READY' && asset.url ? asset.url : null);
+  }, [asset?.status, asset?.url, onVideoReady]);
 
   const animate = async () => {
     if (!campaign.imageUrl) return;
