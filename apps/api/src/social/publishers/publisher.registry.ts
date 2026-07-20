@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { SocialNetwork } from '@odalyan/shared';
 import { FacebookPublisher, InstagramPublisher } from './meta.publisher';
+import { TikTokPublisher } from './tiktok.publisher';
 import type { SocialPublisher } from './social-publisher.interface';
 
 /** Ce qu'il faut obtenir pour les réseaux dont le provider n'est pas encore écrit. */
 const PENDING_REQUIREMENTS: Record<string, string> = {
-  [SocialNetwork.TIKTOK]:
-    'App TikTok for Developers + audit de l’API « Content Posting » (publication directe).',
   [SocialNetwork.YOUTUBE]:
     'Projet Google Cloud + YouTube Data API v3 (scope d’upload sensible → vérification Google).',
   [SocialNetwork.PINTEREST]: 'App Pinterest Developers approuvée (accès API standard).',
@@ -27,8 +26,8 @@ export interface NetworkStatus {
 export class PublisherRegistry {
   private readonly publishers: SocialPublisher[];
 
-  constructor(facebook: FacebookPublisher, instagram: InstagramPublisher) {
-    this.publishers = [facebook, instagram];
+  constructor(facebook: FacebookPublisher, instagram: InstagramPublisher, tiktok: TikTokPublisher) {
+    this.publishers = [facebook, instagram, tiktok];
   }
 
   get(network: string): SocialPublisher | undefined {

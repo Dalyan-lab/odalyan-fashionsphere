@@ -42,4 +42,11 @@ export interface SocialPublisher {
   exchangeCode(code: string, redirectUri: string): Promise<OAuthResult>;
   /** Publie réellement le contenu sur le compte connecté. */
   publish(connection: SocialConnection, input: PublishInput): Promise<PublishResult>;
+
+  /**
+   * Renouvelle un jeton expiré à partir du refreshToken.
+   * À implémenter par les réseaux à jetons courts (TikTok : 24 h, YouTube : 1 h).
+   * Absent = jeton longue durée, rien à faire (cas de Meta).
+   */
+  refresh?(connection: SocialConnection): Promise<OAuthResult>;
 }

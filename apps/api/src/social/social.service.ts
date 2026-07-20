@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Prisma } from '@prisma/client';
+import { Prisma, type SocialConnection } from '@prisma/client';
 import {
   SocialNetwork,
   type ScheduledPostDto,
@@ -11,7 +11,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
 import { PublisherRegistry } from './publishers/publisher.registry';
-import type { PublishResult } from './publishers/social-publisher.interface';
+import type { PublishResult, SocialPublisher } from './publishers/social-publisher.interface';
 
 const NETWORKS = Object.values(SocialNetwork) as string[];
 const MAX_ATTEMPTS = 3;
@@ -221,6 +221,27 @@ export class SocialService {
   }
 
   /**
+   * Renouvelle le jeton d'accès quand il est sur le point d'expirer.
+   * Les réseaux à jetons longue durée (Meta) n'implémentent pas `refresh` : on ne fait rien.
+   */
+  private async withFreshToken(publisher: SocialPublisher, conn: SocialConnection): Promise<SocialConnection> {
+    const expiry = conn.tokenExpiresAt?.getTime();
+    if (!publisher.refresh || !expiry || expiry - Date.now() > 60_000) return conn;
+
+    const renewed = await publisher.refresh(conn);
+    this.logger.log(`${conn.network} — jeton renouvelé (boutique ${conn.shopId})`);
+    return this.prisma.socialConnection.update({
+      where: { shopId_network: { shopId: conn.shopId, network: conn.network } },
+      data: {
+        accessToken: renewed.accessToken,
+        refreshToken: renewed.refreshToken ?? conn.refreshToken,
+        tokenExpiresAt: renewed.expiresAt ?? null,
+        scope: renewed.scope ?? conn.scope,
+      },
+    });
+  }
+
+  /**
    * Publie réellement les posts arrivés à échéance pour une boutique.
    * Chaque réseau est publié indépendamment ; le résultat est consigné par réseau.
    * Réseau simulé ou non configuré → marqué « simulé » (pas d'échec bloquant).
@@ -249,7 +270,12 @@ export class SocialService {
           results[network] = { ok: true, simulated: true };
           continue;
         }
-        results[network] = await publisher.publish(conn, { caption: post.caption, imageUrl: post.imageUrl });
+        try {
+          const fresh = await this.withFreshToken(publisher, conn);
+          results[network] = await publisher.publish(fresh, { caption: post.caption, imageUrl: post.imageUrl });
+        } catch (err) {
+          results[network] = { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
       }
 
       const values = Object.values(results);
