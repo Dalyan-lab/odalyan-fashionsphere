@@ -271,8 +271,14 @@ export default function HomePage() {
       </section>
 
       <footer className="border-t border-border py-10 text-center text-sm text-faint">
-        © {new Date().getFullYear()} Odalyan FashionSphere AI™ — Créez, animez, exposez et vendez avec
-        l’IA.
+        <p>
+          © {new Date().getFullYear()} Odalyan FashionSphere AI™ — Créez, animez, exposez et vendez avec
+          l’IA.
+        </p>
+        <p className="mt-3 flex justify-center gap-4">
+          <Link href="/conditions" className="hover:text-brand-violet hover:underline">Conditions d’utilisation</Link>
+          <Link href="/confidentialite" className="hover:text-brand-violet hover:underline">Politique de confidentialité</Link>
+        </p>
       </footer>
     </main>
   );
