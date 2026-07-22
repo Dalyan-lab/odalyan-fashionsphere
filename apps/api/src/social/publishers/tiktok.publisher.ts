@@ -15,6 +15,9 @@ const SCOPES = ['user.info.basic', 'video.publish'].join(',');
  */
 const DEFAULT_PRIVACY = 'SELF_ONLY';
 
+/** Taille max d'une vidéo envoyée en un seul chunk (TikTok autorise jusqu'à 64 Mo). */
+const MAX_SINGLE_CHUNK = 64 * 1024 * 1024;
+
 /** Enveloppe commune des réponses TikTok : error.code vaut 'ok' en cas de succès. */
 interface TikTokEnvelope<T> {
   data?: T;
@@ -45,7 +48,8 @@ export class TikTokPublisher implements SocialPublisher {
   readonly network = 'TikTok';
   readonly label = 'TikTok';
   readonly requirement =
-    'App TikTok for Developers (Content Posting API) + domaine des vidéos/images vérifié. ' +
+    'App TikTok for Developers (Content Posting API, Direct Post activé). ' +
+    'Vidéo : envoi direct des octets (FILE_UPLOAD), aucune vérification de domaine requise. ' +
     'Avant l’audit, les publications restent privées (SELF_ONLY).';
 
   get enabled(): boolean {
@@ -163,13 +167,60 @@ export class TikTokPublisher implements SocialPublisher {
     return { ok: true, externalId: publishId };
   }
 
-  private publishVideo(accessToken: string, videoUrl: string, caption: string): Promise<PublishResult> {
-    return this.initPublish(accessToken, '/post/publish/video/init/', {
-      post_info: { ...this.postInfo(caption), auto_add_music: false },
-      source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
+  /**
+   * Publie une vidéo par envoi direct des octets (FILE_UPLOAD / push_by_file).
+   * Contrairement à PULL_FROM_URL, cette méthode n'exige AUCUNE vérification de domaine :
+   * indispensable quand les vidéos sont hébergées sur un domaine non vérifiable (ex. *.r2.dev).
+   */
+  private async publishVideo(accessToken: string, videoUrl: string, caption: string): Promise<PublishResult> {
+    // 1) Récupère les octets de la vidéo depuis le stockage (R2)
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) throw new Error(`Vidéo inaccessible (HTTP ${videoRes.status}).`);
+    const bytes = Buffer.from(await videoRes.arrayBuffer());
+    const size = bytes.length;
+    if (size === 0) throw new Error('La vidéo est vide.');
+    if (size > MAX_SINGLE_CHUNK) {
+      throw new Error('Vidéo trop lourde pour TikTok (max 64 Mo). Raccourcissez-la.');
+    }
+
+    // 2) Initialise : un seul chunk (chunk_size = video_size, total_chunk_count = 1)
+    const initRes = await fetch(`${API}/post/publish/video/init/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify({
+        post_info: this.postInfo(caption),
+        source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: size, total_chunk_count: 1 },
+      }),
     });
+    const init = (await initRes.json()) as TikTokEnvelope<{ publish_id?: string; upload_url?: string }>;
+    if (init.error?.code && init.error.code !== 'ok') throw new Error(init.error.message || init.error.code);
+    const publishId = init.data?.publish_id;
+    const uploadUrl = init.data?.upload_url;
+    if (!publishId || !uploadUrl) throw new Error('TikTok n’a pas renvoyé d’URL d’upload.');
+
+    // 3) Téléverse les octets vers l'URL fournie par TikTok
+    const put = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Length': String(size),
+        'Content-Range': `bytes 0-${size - 1}/${size}`,
+      },
+      body: bytes,
+    });
+    if (!put.ok) throw new Error(`Envoi de la vidéo à TikTok échoué (HTTP ${put.status}).`);
+
+    return { ok: true, externalId: publishId };
   }
 
+  /**
+   * Carrousel photo via PULL_FROM_URL. Ce mode exige un domaine vérifié côté TikTok ;
+   * sur un domaine non vérifiable (*.r2.dev) il échouera. Le parcours TikTok privilégie
+   * de toute façon la vidéo (« Animer »), gérée en FILE_UPLOAD sans vérification.
+   */
   private publishPhoto(accessToken: string, imageUrl: string, caption: string): Promise<PublishResult> {
     return this.initPublish(accessToken, '/post/publish/content/init/', {
       media_type: 'PHOTO',
