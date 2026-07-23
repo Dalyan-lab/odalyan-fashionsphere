@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { ScheduledPostDto, SocialConnectionInfo, SocialNetworkStatus } from '@odalyan/shared';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, uploadFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
@@ -165,6 +165,9 @@ export default function PublicationsPage() {
               <p className="mt-2 text-[10px] text-faint">{t('pub.simNote')}</p>
             </section>
 
+            {/* Importer et publier une vidéo directement */}
+            <PublishVideoPanel connections={connections} onDone={load} />
+
             {/* Publications programmées */}
             <section>
               <h2 className="mb-3 text-lg font-bold">{t('dash.nav.publications')} ({posts.length})</h2>
@@ -234,5 +237,138 @@ export default function PublicationsPage() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Importe une vidéo (fichier .mp4/.mov) vers le stockage, puis la publie sur les
+ * réseaux connectés. Permet de publier une vraie vidéo sans passer par la génération IA.
+ */
+function PublishVideoPanel({
+  connections,
+  onDone,
+}: {
+  connections: SocialConnectionInfo[];
+  onDone: () => void;
+}) {
+  const t = useT();
+  const connected = connections.filter((c) => c.connected);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [caption, setCaption] = useState('');
+  const [nets, setNets] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+
+  const toggleNet = (n: string) => setNets((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setMsg(null);
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file);
+      setVideoUrl(url);
+      setFileName(file.name);
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('common.error') });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const publish = async () => {
+    if (!videoUrl || nets.length === 0) return;
+    setPublishing(true);
+    setMsg(null);
+    try {
+      await apiFetch('/social/schedule', {
+        method: 'POST',
+        body: JSON.stringify({ caption: caption || ' ', videoUrl, networks: nets }),
+      });
+      setMsg({ kind: 'ok', text: t('pub.videoPublished') });
+      setVideoUrl(null);
+      setFileName('');
+      setCaption('');
+      setNets([]);
+      onDone();
+    } catch (err) {
+      setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('common.error') });
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="mb-1 text-lg font-bold">🎬 {t('pub.videoTitle')}</h2>
+      <p className="mb-3 text-xs text-muted">{t('pub.videoDesc')}</p>
+      <div className="card space-y-4 p-5">
+        {/* Choix du fichier */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="btn-primary cursor-pointer">
+            {uploading ? t('pub.uploading') : t('pub.chooseVideo')}
+            <input
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => pick(e.target.files?.[0])}
+            />
+          </label>
+          {videoUrl && <span className="truncate text-xs text-emerald-500">✓ {fileName}</span>}
+        </div>
+
+        {videoUrl && (
+          <video src={videoUrl} controls className="max-h-64 w-full rounded-xl border border-border" />
+        )}
+
+        {/* Légende */}
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder={t('pub.captionPlaceholder')}
+          rows={2}
+          className="input w-full"
+        />
+
+        {/* Réseaux connectés */}
+        {connected.length === 0 ? (
+          <p className="text-xs text-faint">{t('pub.noConnected')}</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {connected.map((c) => (
+              <button
+                key={c.network}
+                onClick={() => toggleNet(c.network)}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
+                  nets.includes(c.network) ? 'border-brand-violet bg-surface-2' : 'border-border text-muted'
+                }`}
+              >
+                <NetBadge network={c.network} size={18} />
+                {c.network}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={publish}
+            disabled={!videoUrl || nets.length === 0 || publishing}
+            className="btn-primary disabled:opacity-40"
+          >
+            {publishing ? '…' : t('pub.publishNow')}
+          </button>
+          {msg && (
+            <span className={`text-sm ${msg.kind === 'ok' ? 'text-emerald-500' : 'text-red-400'}`}>
+              {msg.kind === 'ok' ? '✅ ' : '⚠️ '}
+              {msg.text}
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

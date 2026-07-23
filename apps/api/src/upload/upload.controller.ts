@@ -36,15 +36,16 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 25 * 1024 * 1024 }, // 25 Mo (modèles 3D)
+      limits: { fileSize: 64 * 1024 * 1024 }, // 64 Mo (vidéos TikTok / Reels)
       fileFilter: (_req, file, cb) => {
         const isImage = /^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype);
+        const isVideo = /^video\/(mp4|quicktime|webm)$/.test(file.mimetype);
         const isModel =
           /\.(glb|gltf)$/i.test(file.originalname) ||
           /^model\/(gltf-binary|gltf\+json)$/.test(file.mimetype) ||
           file.mimetype === 'application/octet-stream';
-        if (!isImage && !isModel) {
-          return cb(new BadRequestException('Fichier non autorisé (image ou modèle .glb/.gltf)'), false);
+        if (!isImage && !isVideo && !isModel) {
+          return cb(new BadRequestException('Fichier non autorisé (image, vidéo .mp4/.mov, ou modèle .glb/.gltf)'), false);
         }
         cb(null, true);
       },

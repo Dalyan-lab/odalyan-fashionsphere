@@ -155,6 +155,9 @@ export async function apiFetch<T>(
   return JSON.parse(text) as T;
 }
 
+/** Upload d'un fichier (image ou vidéo) vers /uploads. Renvoie l'URL publique. */
+export const uploadFile = uploadImage;
+
 /** Upload d'un fichier image vers /uploads. Renvoie l'URL publique. */
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('odalyan_access_token') : null;
