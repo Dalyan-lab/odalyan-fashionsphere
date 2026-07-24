@@ -20,6 +20,9 @@ function NetBadge({ network, size = 44 }: { network: string; size?: number }) {
   );
 }
 
+/** Clé de brouillon « Publier une vidéo » — survit à la redirection OAuth. */
+const VIDEO_DRAFT_KEY = 'odalyan_pub_video_draft';
+
 const STATUS_STYLE: Record<string, string> = {
   SCHEDULED: 'bg-yellow-500/15 text-yellow-500',
   PUBLISHED: 'bg-emerald-500/15 text-emerald-500',
@@ -261,6 +264,32 @@ function PublishVideoPanel({
   const [publishing, setPublishing] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
+  // Le brouillon survit à la redirection OAuth (connexion réseau) : la vidéo déjà
+  // uploadée, la légende et le réseau choisi sont restaurés au retour de TikTok.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(VIDEO_DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as { videoUrl?: string; fileName?: string; caption?: string; nets?: string[] };
+      if (d.videoUrl) setVideoUrl(d.videoUrl);
+      if (d.fileName) setFileName(d.fileName);
+      if (d.caption) setCaption(d.caption);
+      if (Array.isArray(d.nets)) setNets(d.nets);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (videoUrl || caption || nets.length) {
+        sessionStorage.setItem(VIDEO_DRAFT_KEY, JSON.stringify({ videoUrl, fileName, caption, nets }));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [videoUrl, fileName, caption, nets]);
+
   const toggleNet = (n: string) => setNets((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
 
   const pick = async (file: File | undefined) => {
@@ -292,6 +321,11 @@ function PublishVideoPanel({
       setFileName('');
       setCaption('');
       setNets([]);
+      try {
+        sessionStorage.removeItem(VIDEO_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
       onDone();
     } catch (err) {
       setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('common.error') });
