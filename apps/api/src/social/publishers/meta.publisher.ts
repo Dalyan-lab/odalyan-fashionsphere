@@ -117,6 +117,22 @@ export class FacebookPublisher extends MetaBasePublisher {
   async publish(conn: SocialConnection, input: PublishInput): Promise<PublishResult> {
     try {
       if (!conn.accessToken || !conn.externalId) throw new Error('Connexion Facebook incomplète.');
+
+      // Vidéo → /videos : Facebook récupère le fichier depuis l'URL (R2).
+      if (input.videoUrl) {
+        const res = await fetch(`${GRAPH}/${conn.externalId}/videos`, {
+          method: 'POST',
+          body: new URLSearchParams({
+            access_token: conn.accessToken,
+            file_url: input.videoUrl,
+            description: input.caption,
+          }),
+        });
+        const data = (await res.json()) as { id?: string; error?: { message: string } };
+        if (data.error) throw new Error(data.error.message);
+        return { ok: true, externalId: data.id };
+      }
+
       // Avec image → /photos (post photo légendé) ; sinon → /feed (texte seul)
       const endpoint = input.imageUrl ? `${GRAPH}/${conn.externalId}/photos` : `${GRAPH}/${conn.externalId}/feed`;
       const body = new URLSearchParams({ access_token: conn.accessToken });
@@ -172,22 +188,25 @@ export class InstagramPublisher extends MetaBasePublisher {
   async publish(conn: SocialConnection, input: PublishInput): Promise<PublishResult> {
     try {
       if (!conn.accessToken || !conn.externalId) throw new Error('Connexion Instagram incomplète.');
-      // Instagram exige une image : pas de publication texte seul
-      if (!input.imageUrl) throw new Error('Instagram exige une image pour publier.');
+      // Instagram exige un média : pas de publication texte seul
+      if (!input.videoUrl && !input.imageUrl) throw new Error('Instagram exige une vidéo ou une image.');
 
-      // 1) Conteneur média
-      const createRes = await fetch(`${GRAPH}/${conn.externalId}/media`, {
-        method: 'POST',
-        body: new URLSearchParams({
-          image_url: input.imageUrl,
-          caption: input.caption,
-          access_token: conn.accessToken,
-        }),
-      });
+      // 1) Conteneur média : REELS pour la vidéo, image sinon
+      const createBody = new URLSearchParams({ caption: input.caption, access_token: conn.accessToken });
+      if (input.videoUrl) {
+        createBody.set('media_type', 'REELS');
+        createBody.set('video_url', input.videoUrl);
+      } else {
+        createBody.set('image_url', input.imageUrl!);
+      }
+      const createRes = await fetch(`${GRAPH}/${conn.externalId}/media`, { method: 'POST', body: createBody });
       const created = (await createRes.json()) as { id?: string; error?: { message: string } };
       if (created.error || !created.id) throw new Error(created.error?.message ?? 'Conteneur Instagram refusé.');
 
-      // 2) Publication du conteneur
+      // 2) La vidéo est traitée de façon asynchrone : attendre que le conteneur soit prêt
+      if (input.videoUrl) await this.waitContainerReady(created.id, conn.accessToken);
+
+      // 3) Publication du conteneur
       const pubRes = await fetch(`${GRAPH}/${conn.externalId}/media_publish`, {
         method: 'POST',
         body: new URLSearchParams({ creation_id: created.id, access_token: conn.accessToken }),
@@ -199,5 +218,24 @@ export class InstagramPublisher extends MetaBasePublisher {
     } catch (err) {
       return this.fail(err);
     }
+  }
+
+  /**
+   * Attend que le conteneur vidéo soit encodé côté Instagram (status_code=FINISHED).
+   * Le média_publish échoue tant que le traitement n'est pas terminé.
+   */
+  private async waitContainerReady(containerId: string, accessToken: string): Promise<void> {
+    for (let i = 0; i < 20; i++) {
+      const res = await fetch(
+        `${GRAPH}/${containerId}?fields=status_code&access_token=${encodeURIComponent(accessToken)}`,
+      );
+      const body = (await res.json()) as { status_code?: string; error?: { message: string } };
+      if (body.status_code === 'FINISHED') return;
+      if (body.status_code === 'ERROR' || body.status_code === 'EXPIRED') {
+        throw new Error(`Traitement vidéo Instagram échoué (${body.status_code}).`);
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    throw new Error('Traitement de la vidéo Instagram trop long (réessayez).');
   }
 }
