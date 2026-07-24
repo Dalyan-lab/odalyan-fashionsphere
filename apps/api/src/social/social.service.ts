@@ -208,6 +208,19 @@ export class SocialService {
     return this.prisma.scheduledPost.update({ where: { id }, data: { status: 'CANCELLED' } });
   }
 
+  /**
+   * Retire une publication de la liste de la boutique (quel que soit son statut).
+   * N'affecte PAS le contenu déjà publié côté réseau : la vidéo reste sur le compte
+   * TikTok/etc. (l'API de publication ne permet pas de la supprimer là-bas).
+   */
+  async remove(userId: string, id: string) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const post = await this.prisma.scheduledPost.findUnique({ where: { id } });
+    if (!post || post.shopId !== shop.id) throw new NotFoundException('Publication introuvable');
+    await this.prisma.scheduledPost.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   /** Worker : publie toutes les boutiques (toutes les 5 minutes). */
   @Cron(CronExpression.EVERY_5_MINUTES)
   async processAllDue(): Promise<{ processed: number }> {

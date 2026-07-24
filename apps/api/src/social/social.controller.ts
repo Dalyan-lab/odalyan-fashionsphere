@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import { UserRole, schedulePostSchema, type SchedulePostInput } from '@odalyan/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -53,6 +53,11 @@ export class SocialController {
   @Post('scheduled/:id/cancel')
   cancel(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.socialService.cancel(userId, id);
+  }
+
+  @Delete('scheduled/:id')
+  remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.socialService.remove(userId, id);
   }
 
   /** Déclenche manuellement le worker de publication (admin). */

@@ -87,6 +87,11 @@ export default function PublicationsPage() {
     load();
   };
 
+  const remove = async (id: string) => {
+    await apiFetch(`/social/scheduled/${id}`, { method: 'DELETE' }).catch(() => undefined);
+    load();
+  };
+
   return (
     <>
       <Topbar />
@@ -183,7 +188,7 @@ export default function PublicationsPage() {
                 <div className="space-y-3">
                   {posts.map((p) => (
                     <div key={p.id} className="card flex items-center gap-4 p-4">
-                      {p.imageUrl && (
+                      {p.imageUrl ? (
                         <span className="relative">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={p.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
@@ -191,7 +196,13 @@ export default function PublicationsPage() {
                             <span className="absolute -right-1 -top-1 rounded-full bg-black/70 px-1 text-[10px] leading-4">🎬</span>
                           )}
                         </span>
-                      )}
+                      ) : p.videoUrl ? (
+                        <span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-black">
+                          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                          <video src={`${p.videoUrl}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                          <span className="absolute -right-1 -top-1 rounded-full bg-black/70 px-1 text-[10px] leading-4">🎬</span>
+                        </span>
+                      ) : null}
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-1 text-sm">{p.caption}</p>
                         <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-faint">
@@ -236,6 +247,13 @@ export default function PublicationsPage() {
                           {t('common.cancel')}
                         </button>
                       )}
+                      <button
+                        onClick={() => remove(p.id)}
+                        title={t('pub.deletePost')}
+                        className="text-faint transition hover:text-red-400"
+                      >
+                        🗑
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -297,6 +315,12 @@ function PublishVideoPanel({
 
   const toggleNet = (n: string) => setNets((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
 
+  const clearVideo = () => {
+    setVideoUrl(null);
+    setFileName('');
+    setMsg(null);
+  };
+
   const pick = async (file: File | undefined) => {
     if (!file) return;
     setMsg(null);
@@ -356,7 +380,18 @@ function PublishVideoPanel({
               onChange={(e) => pick(e.target.files?.[0])}
             />
           </label>
-          {videoUrl && <span className="truncate text-xs text-emerald-500">✓ {fileName}</span>}
+          {videoUrl && (
+            <>
+              <span className="truncate text-xs text-emerald-500">✓ {fileName}</span>
+              <button
+                onClick={clearVideo}
+                disabled={uploading || publishing}
+                className="text-xs text-red-400 hover:underline"
+              >
+                ✕ {t('pub.removeVideo')}
+              </button>
+            </>
+          )}
         </div>
 
         {videoUrl && (
