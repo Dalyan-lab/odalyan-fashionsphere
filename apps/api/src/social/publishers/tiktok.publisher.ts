@@ -24,6 +24,18 @@ interface TikTokEnvelope<T> {
   error?: { code?: string; message?: string };
 }
 
+/**
+ * Réponse de creator_info/query : options de confidentialité autorisées et
+ * réglages d'interaction du compte. À interroger AVANT tout Direct Post.
+ */
+interface CreatorInfo {
+  privacy_level_options?: string[];
+  comment_disabled?: boolean;
+  duet_disabled?: boolean;
+  stitch_disabled?: boolean;
+  max_video_post_duration_sec?: number;
+}
+
 interface TokenResponse {
   access_token?: string;
   refresh_token?: string;
@@ -137,10 +149,32 @@ export class TikTokPublisher implements SocialPublisher {
     }
   }
 
-  /** Champs communs post_info aux deux types de contenu. */
+  /** Message d'erreur lisible incluant le code TikTok (utile au diagnostic). */
+  private errMsg(e?: { code?: string; message?: string }): string {
+    const msg = e?.message?.trim();
+    const code = e?.code;
+    if (msg && code && code !== 'ok') return `${msg} (${code})`;
+    return msg || code || 'Erreur TikTok inconnue';
+  }
+
+  /**
+   * Interroge le compte avant un Direct Post : TikTok l'exige et renvoie les
+   * niveaux de confidentialité autorisés + les réglages d'interaction du compte.
+   * Sans cette étape, l'API répond « review our integration guidelines ».
+   */
+  private async creatorInfo(accessToken: string): Promise<CreatorInfo> {
+    const res = await fetch(`${API}/post/publish/creator_info/query/`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8' },
+    });
+    const body = (await res.json()) as TikTokEnvelope<CreatorInfo>;
+    if (body.error?.code && body.error.code !== 'ok') throw new Error(this.errMsg(body.error));
+    return body.data ?? {};
+  }
+
+  /** Champs communs post_info (carrousel photo). */
   private postInfo(caption: string) {
     return {
-      // Le titre alimente le fil ; la description porte la légende complète.
       title: caption.slice(0, 90),
       description: caption.slice(0, 4000),
       privacy_level: process.env.TIKTOK_PRIVACY_LEVEL ?? DEFAULT_PRIVACY,
@@ -159,9 +193,7 @@ export class TikTokPublisher implements SocialPublisher {
       body: JSON.stringify(payload),
     });
     const body = (await res.json()) as TikTokEnvelope<{ publish_id?: string }>;
-    if (body.error?.code && body.error.code !== 'ok') {
-      throw new Error(body.error.message || body.error.code);
-    }
+    if (body.error?.code && body.error.code !== 'ok') throw new Error(this.errMsg(body.error));
     const publishId = body.data?.publish_id;
     if (!publishId) throw new Error('TikTok n’a pas renvoyé d’identifiant de publication.');
     return { ok: true, externalId: publishId };
@@ -173,7 +205,21 @@ export class TikTokPublisher implements SocialPublisher {
    * indispensable quand les vidéos sont hébergées sur un domaine non vérifiable (ex. *.r2.dev).
    */
   private async publishVideo(accessToken: string, videoUrl: string, caption: string): Promise<PublishResult> {
-    // 1) Récupère les octets de la vidéo depuis le stockage (R2)
+    // 1) creator_info OBLIGATOIRE avant un Direct Post : donne les niveaux de
+    //    confidentialité autorisés et les réglages d'interaction du compte.
+    const info = await this.creatorInfo(accessToken);
+    const options = info.privacy_level_options ?? [];
+    const wanted = process.env.TIKTOK_PRIVACY_LEVEL ?? DEFAULT_PRIVACY;
+    const privacy = options.includes(wanted)
+      ? wanted
+      : options.includes('SELF_ONLY')
+        ? 'SELF_ONLY'
+        : options[0];
+    if (!privacy) {
+      throw new Error('Aucun niveau de confidentialité disponible (compte non éligible à la publication API).');
+    }
+
+    // 2) Récupère les octets de la vidéo depuis le stockage (R2)
     const videoRes = await fetch(videoUrl);
     if (!videoRes.ok) throw new Error(`Vidéo inaccessible (HTTP ${videoRes.status}).`);
     const bytes = Buffer.from(await videoRes.arrayBuffer());
@@ -183,7 +229,8 @@ export class TikTokPublisher implements SocialPublisher {
       throw new Error('Vidéo trop lourde pour TikTok (max 64 Mo). Raccourcissez-la.');
     }
 
-    // 2) Initialise : un seul chunk (chunk_size = video_size, total_chunk_count = 1)
+    // 3) Initialise : un seul chunk (chunk_size = video_size, total_chunk_count = 1).
+    //    Tous les champs d'interaction sont requis ; on respecte les réglages du compte.
     const initRes = await fetch(`${API}/post/publish/video/init/`, {
       method: 'POST',
       headers: {
@@ -191,12 +238,18 @@ export class TikTokPublisher implements SocialPublisher {
         'Content-Type': 'application/json; charset=UTF-8',
       },
       body: JSON.stringify({
-        post_info: this.postInfo(caption),
+        post_info: {
+          title: caption.slice(0, 2200),
+          privacy_level: privacy,
+          disable_comment: Boolean(info.comment_disabled),
+          disable_duet: Boolean(info.duet_disabled),
+          disable_stitch: Boolean(info.stitch_disabled),
+        },
         source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: size, total_chunk_count: 1 },
       }),
     });
     const init = (await initRes.json()) as TikTokEnvelope<{ publish_id?: string; upload_url?: string }>;
-    if (init.error?.code && init.error.code !== 'ok') throw new Error(init.error.message || init.error.code);
+    if (init.error?.code && init.error.code !== 'ok') throw new Error(this.errMsg(init.error));
     const publishId = init.data?.publish_id;
     const uploadUrl = init.data?.upload_url;
     if (!publishId || !uploadUrl) throw new Error('TikTok n’a pas renvoyé d’URL d’upload.');
