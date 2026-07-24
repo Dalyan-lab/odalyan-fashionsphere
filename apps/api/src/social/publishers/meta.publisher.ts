@@ -41,9 +41,16 @@ abstract class MetaBasePublisher implements SocialPublisher {
       client_id: process.env.META_APP_ID!,
       redirect_uri: redirectUri,
       state,
-      scope: SCOPES,
       response_type: 'code',
     });
+    // « Facebook Login for Business » : les permissions viennent d'une Configuration
+    // (config_id) et non du paramètre scope (sinon « Invalid Scopes »). L'ancien flux
+    // scope reste dispo pour une app « Facebook Login » classique (sans META_CONFIG_ID).
+    if (process.env.META_CONFIG_ID) {
+      params.set('config_id', process.env.META_CONFIG_ID);
+    } else {
+      params.set('scope', SCOPES);
+    }
     return `${DIALOG}?${params}`;
   }
 
