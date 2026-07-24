@@ -222,6 +222,11 @@ export default function PublicationsPage() {
                             ))}
                           </p>
                         )}
+                        {p.lastError && (
+                          <p className="mt-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
+                            ⚠️ {p.lastError}
+                          </p>
+                        )}
                       </div>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[p.status]}`}>
                         {t(`ps.${p.status}`)}
