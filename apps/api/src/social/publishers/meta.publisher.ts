@@ -83,13 +83,21 @@ abstract class MetaBasePublisher implements SocialPublisher {
 
   /** Première Page administrée par le vendeur (jeton de Page inclus). */
   protected async firstPage(userToken: string): Promise<MetaPage> {
-    const res = await fetch(`${GRAPH}/me/accounts?access_token=${encodeURIComponent(userToken)}`);
-    const data = (await res.json()) as { data?: MetaPage[]; error?: { message: string } };
+    const res = await fetch(
+      `${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`,
+    );
+    const raw = await res.text();
+    let data: { data?: MetaPage[]; error?: { message: string } } = {};
+    try {
+      data = JSON.parse(raw) as typeof data;
+    } catch {
+      /* réponse non-JSON */
+    }
     const page = data.data?.[0];
     if (!page) {
-      throw new Error(
-        data.error?.message ?? 'Aucune Page Facebook trouvée. Créez une Page et réessayez la connexion.',
-      );
+      // Diagnostic : on remonte ce que Meta a réellement renvoyé (aide à cerner le souci FBLB).
+      const detail = data.error?.message ?? `réponse /me/accounts: ${raw.slice(0, 220)}`;
+      throw new Error(`Aucune Page Facebook accessible. ${detail}`);
     }
     return page;
   }
