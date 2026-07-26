@@ -1,11 +1,14 @@
 'use client';
 
 import { use, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useCart } from '@/lib/store';
 import { convertAndFormat, useLocale } from '@/lib/i18n';
 import type { Product, Variant } from '@/lib/types';
+
+const FALLBACK = 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -15,19 +18,27 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [product, setProduct] = useState<Product | null>(null);
   const [variant, setVariant] = useState<Variant | null>(null);
   const [added, setAdded] = useState(false);
+  const [active, setActive] = useState(0);
 
   useEffect(() => {
     apiFetch<Product>(`/products/${id}`, { auth: false })
       .then((p) => {
         setProduct(p);
         setVariant(p.variants?.[0] ?? null);
+        setActive(0);
       })
       .catch(() => setProduct(null));
   }, [id]);
 
   if (!product) return <main className="mx-auto max-w-7xl px-6 py-20 text-muted">Chargement…</main>;
 
-  const image = product.images[0] ?? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800';
+  // Galerie : toutes les images (photos + rendus mannequin IA) puis les vidéos
+  const media: { type: 'image' | 'video'; url: string }[] = [
+    ...product.images.map((url) => ({ type: 'image' as const, url })),
+    ...product.videos.map((url) => ({ type: 'video' as const, url })),
+  ];
+  const current = media[active] ?? { type: 'image' as const, url: FALLBACK };
+  const coverImage = product.images[0] ?? FALLBACK;
   const price = variant?.priceOverride ? Number(variant.priceOverride) : Number(product.price);
 
   const handleAdd = () => {
@@ -36,7 +47,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       variantId: variant?.id,
       name: product.name,
       price,
-      image,
+      image: coverImage,
       quantity: 1,
     });
     setAdded(true);
@@ -45,14 +56,56 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
   return (
     <main className="mx-auto grid max-w-7xl gap-12 px-6 py-12 md:grid-cols-2">
-      <div className="card overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={product.name} className="aspect-[3/4] w-full object-cover" />
+      {/* Galerie média : visionneuse + miniatures */}
+      <div>
+        <div className="card overflow-hidden">
+          {current.type === 'video' ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video src={current.url} controls playsInline className="aspect-[3/4] w-full bg-black object-contain" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={current.url} alt={product.name} className="aspect-[3/4] w-full object-cover" />
+          )}
+        </div>
+
+        {media.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {media.map((m, i) => (
+              <button
+                key={`${m.type}-${i}`}
+                onClick={() => setActive(i)}
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                  i === active ? 'border-brand-violet' : 'border-transparent opacity-70 hover:opacity-100'
+                }`}
+              >
+                {m.type === 'video' ? (
+                  <>
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    <video src={`${m.url}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full bg-black object-cover" />
+                    <span className="absolute inset-0 grid place-items-center text-lg">▶️</span>
+                  </>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.url} alt="" className="h-full w-full object-cover" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>
         {product.shop && (
-          <p className="text-sm uppercase tracking-wide text-faint">{product.shop.name}</p>
+          <Link
+            href={`/shop/${product.shop.slug}`}
+            className="inline-flex items-center gap-2 text-sm uppercase tracking-wide text-faint hover:text-brand-violet"
+          >
+            {product.shop.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.shop.logoUrl} alt="" className="h-5 w-5 rounded-full object-cover" />
+            )}
+            {product.shop.name} · Voir la boutique →
+          </Link>
         )}
         <h1 className="mt-2 font-display text-4xl font-bold">{product.name}</h1>
         <p className="mt-4 font-display text-3xl font-bold text-brand-coral">
@@ -105,13 +158,17 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         )}
 
-        {/* Emplacements pour les modules IA des phases suivantes */}
-        <div className="mt-10 grid grid-cols-2 gap-3 text-sm text-faint">
-          <div className="card p-4 opacity-60">🧍 Essayer sur mon avatar — Phase 3</div>
-          <div className="card p-4 opacity-60">🌀 Voir en 3D 360° — Phase 3</div>
-          <div className="card p-4 opacity-60">🎭 Voir sur mannequin IA — Phase 2</div>
-          <div className="card p-4 opacity-60">🎬 Générer une vidéo — Phase 4</div>
-        </div>
+        {/* Indices de médias enrichis (mannequin IA / vidéo) attachés au produit */}
+        {(product.videos.length > 0 || product.images.length > 1) && (
+          <div className="mt-8 flex flex-wrap gap-2 text-xs">
+            {product.images.length > 1 && (
+              <span className="rounded-full bg-surface-2 px-3 py-1 text-brand-violet">🎭 Vues mannequin & détails</span>
+            )}
+            {product.videos.length > 0 && (
+              <span className="rounded-full bg-surface-2 px-3 py-1 text-brand-magenta">🎬 Vidéo du produit</span>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );

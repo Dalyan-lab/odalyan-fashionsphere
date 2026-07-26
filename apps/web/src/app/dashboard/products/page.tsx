@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { ProductForm } from '@/components/dashboard/product-form';
+import { ProductMediaEditor } from '@/components/dashboard/product-media-editor';
 
 export default function ProductsPage() {
   const t = useT();
@@ -74,6 +75,8 @@ export default function ProductsPage() {
 function ProductRow({ product, onChanged }: { product: Product; onChanged: () => void }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const mediaCount = (product.images?.length ?? 0) + (product.videos?.length ?? 0);
   const del = async () => {
     if (!confirm(t('prod.confirmDelete'))) return;
     setBusy(true);
@@ -81,24 +84,37 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
     onChanged();
   };
   return (
-    <div className="card flex items-center justify-between p-4">
-      <div className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.images[0] ?? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=200'}
-          alt=""
-          className="h-14 w-14 rounded-lg object-cover"
-        />
-        <div>
-          <p className="font-medium">{product.name}</p>
-          <p className="text-xs text-faint">
-            {product.category} · {Number(product.price).toFixed(2)} {product.currency} · {product.status}
-          </p>
+    <div className="card p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={product.images[0] ?? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=200'}
+            alt=""
+            className="h-14 w-14 rounded-lg object-cover"
+          />
+          <div>
+            <p className="font-medium">{product.name}</p>
+            <p className="text-xs text-faint">
+              {product.category} · {Number(product.price).toFixed(2)} {product.currency} · {product.status}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setEditing((v) => !v)}
+            className={`text-sm ${editing ? 'text-brand-violet' : 'text-muted hover:text-brand-violet'}`}
+          >
+            🖼 {t('prod.editMedia')} ({mediaCount})
+          </button>
+          <button onClick={del} disabled={busy} className="text-sm text-red-400 hover:text-red-300">
+            {t('common.delete')}
+          </button>
         </div>
       </div>
-      <button onClick={del} disabled={busy} className="text-sm text-red-400 hover:text-red-300">
-        {t('common.delete')}
-      </button>
+      {editing && (
+        <ProductMediaEditor product={product} onSaved={onChanged} />
+      )}
     </div>
   );
 }
