@@ -88,6 +88,7 @@ abstract class MetaBasePublisher implements SocialPublisher {
 
   /** Première Page administrée par le vendeur (jeton de Page inclus). */
   protected async firstPage(userToken: string): Promise<MetaPage> {
+    // 1) Voie classique : Pages directement gérées par le profil.
     const res = await fetch(
       `${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`,
     );
@@ -98,13 +99,37 @@ abstract class MetaBasePublisher implements SocialPublisher {
     } catch {
       /* réponse non-JSON */
     }
-    const page = data.data?.[0];
-    if (!page) {
-      // Diagnostic : on remonte ce que Meta a réellement renvoyé (aide à cerner le souci FBLB).
-      const detail = data.error?.message ?? `réponse /me/accounts: ${raw.slice(0, 220)}`;
-      throw new Error(`Aucune Page Facebook accessible. ${detail}`);
+    if (data.data?.[0]) return data.data[0];
+
+    // 2) Page détenue par un business (FBLB) : /me/accounts est vide. On découvre
+    //    l'id de la Page via les granular_scopes du jeton, puis on récupère la Page.
+    const pageId = await this.grantedPageId(userToken);
+    if (pageId) {
+      const pRes = await fetch(
+        `${GRAPH}/${pageId}?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`,
+      );
+      const page = (await pRes.json()) as MetaPage & { error?: { message: string } };
+      if (page.id && page.access_token) return page;
+      if (page.error) throw new Error(page.error.message);
     }
-    return page;
+
+    const detail = data.error?.message ?? `réponse /me/accounts: ${raw.slice(0, 180)}`;
+    throw new Error(`Aucune Page Facebook accessible. ${detail}`);
+  }
+
+  /** Id de la première Page accordée au jeton (via debug_token → granular_scopes). */
+  private async grantedPageId(userToken: string): Promise<string | null> {
+    const appToken = `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`;
+    const res = await fetch(
+      `${GRAPH}/debug_token?input_token=${encodeURIComponent(userToken)}&access_token=${encodeURIComponent(appToken)}`,
+    );
+    const body = (await res.json()) as {
+      data?: { granular_scopes?: { scope: string; target_ids?: string[] }[] };
+    };
+    for (const s of body.data?.granular_scopes ?? []) {
+      if (s.target_ids?.length) return s.target_ids[0];
+    }
+    return null;
   }
 
   abstract exchangeCode(code: string, redirectUri: string): Promise<OAuthResult>;
