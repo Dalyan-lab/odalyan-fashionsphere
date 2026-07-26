@@ -9,6 +9,7 @@ import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { MannequinForm, AdCopyForm } from '@/components/dashboard/ai-studio-modal';
+import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 
 interface GeneratedAsset {
   id: string;
@@ -112,10 +113,13 @@ export default function StudioPage() {
                           <div key={a.id} className="card overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
-                            <p className="px-2 py-1 text-[10px] text-faint">
-                              {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`} ·{' '}
-                              {new Date(a.createdAt).toLocaleDateString('fr-FR')}
-                            </p>
+                            <div className="space-y-1 p-2">
+                              <p className="text-[10px] text-faint">
+                                {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`} ·{' '}
+                                {new Date(a.createdAt).toLocaleDateString('fr-FR')}
+                              </p>
+                              <AttachToProduct url={a.url!} kind="image" />
+                            </div>
                           </div>
                         ))}
                       </div>

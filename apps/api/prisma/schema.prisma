@@ -147,6 +147,7 @@ model Shop {
   // Branding / Boutique Premium personnalisable
   logoUrl        String?
   bannerUrl      String?
+  videoUrl       String? // vidéo de présentation en tête de la vitrine
   primaryColor   String?
   secondaryColor String?
   // Affichage sur la vitrine : masquer si la bannière contient déjà le nom/slogan

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, uploadFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Shop } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
@@ -36,6 +36,7 @@ export default function ShopSettingsPage() {
     secondaryColor: '#e8527a',
     logoUrl: '',
     bannerUrl: '',
+    videoUrl: '',
     showNameOnBanner: true,
     showSloganOnBanner: true,
     logoPosition: 'top-left',
@@ -58,6 +59,7 @@ export default function ShopSettingsPage() {
             secondaryColor: s.secondaryColor ?? '#e8527a',
             logoUrl: s.logoUrl ?? '',
             bannerUrl: s.bannerUrl ?? '',
+            videoUrl: s.videoUrl ?? '',
             showNameOnBanner: s.showNameOnBanner !== false,
             showSloganOnBanner: s.showSloganOnBanner !== false,
             logoPosition: s.logoPosition ?? 'top-left',
@@ -80,6 +82,7 @@ export default function ShopSettingsPage() {
       if (form.description) payload.description = form.description;
       if (form.logoUrl) payload.logoUrl = form.logoUrl;
       if (form.bannerUrl) payload.bannerUrl = form.bannerUrl;
+      payload.videoUrl = form.videoUrl; // '' = retirer la vidéo
       payload.primaryColor = form.primaryColor;
       payload.secondaryColor = form.secondaryColor;
       payload.showNameOnBanner = form.showNameOnBanner;
@@ -163,6 +166,7 @@ export default function ShopSettingsPage() {
             <h2 className="font-bold">{t('shop.visuals')}</h2>
             <ImageUploadInput label={t('shop.logo')} value={form.logoUrl} onChange={(url) => setForm({ ...form, logoUrl: url })} />
             <ImageUploadInput label={t('shop.banner')} value={form.bannerUrl} onChange={(url) => setForm({ ...form, bannerUrl: url })} />
+            <ShopVideoInput value={form.videoUrl} onChange={(url) => setForm({ ...form, videoUrl: url })} />
 
             {/* Interrupteurs d'affichage (évite le doublon avec une bannière déjà brandée) */}
             <div className="rounded-xl border border-border p-3">
@@ -260,5 +264,48 @@ export default function ShopSettingsPage() {
         </form>
       </div>
     </>
+  );
+}
+
+/** Champ vidéo de présentation de la boutique : upload (.mp4/.mov), URL, ou retrait. */
+function ShopVideoInput({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { url } = await uploadFile(file);
+      onChange(url);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div>
+      <label className="label">{t('shop.video')}</label>
+      {value ? (
+        <div className="space-y-2">
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={value} controls className="max-h-48 w-full rounded-lg border border-border bg-black" />
+          <button type="button" onClick={() => onChange('')} className="text-xs text-red-400 hover:underline">
+            ✕ {t('shop.removeVideo')}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <label className="btn-ghost cursor-pointer text-sm">
+            {busy ? t('pub.uploading') : `🎬 ${t('shop.addVideo')}`}
+            <input type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" disabled={busy} onChange={(e) => pick(e.target.files?.[0])} />
+          </label>
+          <input
+            className="input flex-1 text-xs"
+            placeholder={t('prod.orPasteUrl')}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )}
+      <p className="mt-1 text-[11px] text-faint">{t('shop.videoHint')}</p>
+    </div>
   );
 }

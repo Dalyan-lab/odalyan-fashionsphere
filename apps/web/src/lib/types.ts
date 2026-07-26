@@ -40,6 +40,7 @@ export interface Shop {
   description?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  videoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
   showNameOnBanner?: boolean;

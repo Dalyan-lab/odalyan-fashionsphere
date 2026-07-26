@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
+import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 
 interface AvatarAsset {
   id: string;
@@ -88,6 +89,7 @@ export default function AvatarsPage() {
                         <p className="mt-0.5 text-[10px] text-faint">
                           {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`}
                         </p>
+                        {a.url && <div className="mt-1"><AttachToProduct url={a.url} kind="image" /></div>}
                       </div>
                     </div>
                   ))}

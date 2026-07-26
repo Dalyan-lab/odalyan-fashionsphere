@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
+import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 
 const LANGS = ['fr', 'en', 'ar', 'es'];
 
@@ -282,8 +283,13 @@ export default function VideoStudioPage() {
                         </div>
                       )}
                     </div>
-                    <div className="p-3 text-xs text-faint">
-                      {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
+                    <div className="space-y-2 p-3">
+                      <p className="text-xs text-faint">
+                        {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
+                      </p>
+                      {asset.status === 'READY' && asset.url && (
+                        <AttachToProduct url={asset.url} kind="video" />
+                      )}
                     </div>
                   </div>
 

@@ -15,6 +15,8 @@ export const createShopSchema = z.object({
   description: z.string().max(2000).optional(),
   logoUrl: z.string().url().optional(),
   bannerUrl: z.string().url().optional(),
+  // '' permet de retirer la vidéo de présentation
+  videoUrl: z.string().url().or(z.literal('')).optional(),
   primaryColor: hexColor.optional(),
   secondaryColor: hexColor.optional(),
   showNameOnBanner: z.boolean().optional(),

@@ -89,6 +89,21 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
         </div>
       </section>
 
+      {/* Vidéo de présentation de la boutique */}
+      {shop.videoUrl && (
+        <section className="mx-auto max-w-4xl px-6 pt-10">
+          <div className="overflow-hidden rounded-2xl border border-border bg-black shadow-lg">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              src={shop.videoUrl}
+              controls
+              playsInline
+              className="max-h-[70vh] w-full bg-black object-contain"
+            />
+          </div>
+        </section>
+      )}
+
       <section className="mx-auto max-w-7xl px-6 py-12">
         <h2 className="font-display text-2xl font-bold">Collection</h2>
         {shop.products && shop.products.length > 0 ? (
