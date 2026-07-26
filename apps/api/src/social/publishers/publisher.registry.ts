@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SocialNetwork } from '@odalyan/shared';
-import { FacebookPublisher, InstagramPublisher } from './meta.publisher';
+import { FacebookPublisher } from './meta.publisher';
+import { InstagramPublisher } from './instagram.publisher';
 import { TikTokPublisher } from './tiktok.publisher';
 import type { SocialPublisher } from './social-publisher.interface';
 
