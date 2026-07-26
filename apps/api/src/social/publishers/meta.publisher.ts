@@ -68,6 +68,11 @@ abstract class MetaBasePublisher implements SocialPublisher {
     const short = (await shortRes.json()) as { access_token?: string; error?: { message: string } };
     if (!short.access_token) throw new Error(short.error?.message ?? 'Échec de l’échange du code Meta');
 
+    // Facebook Login for Business : le jeton est DÉJÀ longue durée. L'échange
+    // fb_exchange_token lui fait perdre l'accès aux Pages gérées via un business
+    // (→ /me/accounts vide). On garde donc le jeton tel quel avec config_id.
+    if (process.env.META_CONFIG_ID) return short.access_token;
+
     const longRes = await fetch(
       `${GRAPH}/oauth/access_token?` +
         new URLSearchParams({
