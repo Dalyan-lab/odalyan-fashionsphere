@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import type { Shop } from '@/lib/types';
+import type { Product, Shop } from '@/lib/types';
 import { ProductCard } from '@/components/product-card';
 
 const LOGO_POS: Record<string, string> = {
@@ -19,6 +19,7 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
   const [shop, setShop] = useState<Shop | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [cat, setCat] = useState<string>('ALL');
+  const [sort, setSort] = useState<'new' | 'price-asc' | 'price-desc'>('new');
 
   useEffect(() => {
     apiFetch<Shop>(`/shops/public/${slug}`, { auth: false })
@@ -36,9 +37,15 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
   const logoPos = LOGO_POS[shop.logoPosition ?? 'top-left'];
   const bannerVPos = shop.bannerPosition ?? 'center';
 
-  // Produits regroupés en collections par catégorie (ordre d'apparition)
+  // Produits regroupés en collections par catégorie (déjà triés par date desc côté API)
   const products = shop.products ?? [];
   const categories = Array.from(new Set(products.map((p) => p.category)));
+  const newest = products.slice(0, 4); // « Nouveautés »
+  const sortProducts = (list: Product[]) => {
+    if (sort === 'new') return list; // ordre API = plus récents d'abord
+    const dir = sort === 'price-asc' ? 1 : -1;
+    return [...list].sort((a, b) => (Number(a.price) - Number(b.price)) * dir);
+  };
 
   return (
     <main>
@@ -119,8 +126,24 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
           </>
         ) : (
           <>
-            {/* Filtres : vue d'ensemble + une collection par catégorie */}
-            <div className="flex flex-wrap gap-2">
+            {/* Bannière Nouveautés : les produits les plus récents (déjà triés par date) */}
+            {cat === 'ALL' && newest.length > 0 && (
+              <div className="mb-10">
+                <div className="mb-4 flex items-center gap-2">
+                  <span className="rounded-full bg-brand-magenta/15 px-3 py-1 text-sm font-bold text-brand-magenta">
+                    ✨ {t('shopfront.new')}
+                  </span>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  {newest.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Filtres + tri */}
+            <div className="flex flex-wrap items-center gap-2">
               <FilterChip label={t('shopfront.overview')} active={cat === 'ALL'} onClick={() => setCat('ALL')} />
               {categories.map((c) => (
                 <FilterChip
@@ -131,6 +154,15 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
                   accent={accent}
                 />
               ))}
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as typeof sort)}
+                className="ml-auto rounded-full border border-border bg-transparent px-3 py-1.5 text-sm text-muted"
+              >
+                <option value="new">{t('shopfront.sortNew')}</option>
+                <option value="price-asc">{t('shopfront.sortPriceAsc')}</option>
+                <option value="price-desc">{t('shopfront.sortPriceDesc')}</option>
+              </select>
             </div>
 
             {cat === 'ALL' ? (
@@ -142,11 +174,9 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
                       {t(`cat.${c}`)}
                     </h2>
                     <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                      {products
-                        .filter((p) => p.category === c)
-                        .map((p) => (
-                          <ProductCard key={p.id} product={p} />
-                        ))}
+                      {sortProducts(products.filter((p) => p.category === c)).map((p) => (
+                        <ProductCard key={p.id} product={p} />
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -154,9 +184,7 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
             ) : (
               // Filtré sur une seule catégorie
               <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {products
-                  .filter((p) => p.category === cat)
-                  .map((p) => (
+                {sortProducts(products.filter((p) => p.category === cat)).map((p) => (
                     <ProductCard key={p.id} product={p} />
                   ))}
               </div>

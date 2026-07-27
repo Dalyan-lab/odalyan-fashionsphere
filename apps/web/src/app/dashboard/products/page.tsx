@@ -8,6 +8,7 @@ import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { ProductForm } from '@/components/dashboard/product-form';
 import { ProductMediaEditor } from '@/components/dashboard/product-media-editor';
+import { ProductEditor } from '@/components/dashboard/product-editor';
 
 export default function ProductsPage() {
   const t = useT();
@@ -76,6 +77,7 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
   const mediaCount = (product.images?.length ?? 0) + (product.videos?.length ?? 0);
   const del = async () => {
     if (!confirm(t('prod.confirmDelete'))) return;
@@ -102,6 +104,12 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
         </div>
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setEditingInfo((v) => !v)}
+            className={`text-sm ${editingInfo ? 'text-brand-violet' : 'text-muted hover:text-brand-violet'}`}
+          >
+            ✏️ {t('common.edit')}
+          </button>
+          <button
             onClick={() => setEditing((v) => !v)}
             className={`text-sm ${editing ? 'text-brand-violet' : 'text-muted hover:text-brand-violet'}`}
           >
@@ -112,9 +120,8 @@ function ProductRow({ product, onChanged }: { product: Product; onChanged: () =>
           </button>
         </div>
       </div>
-      {editing && (
-        <ProductMediaEditor product={product} onSaved={onChanged} />
-      )}
+      {editingInfo && <ProductEditor product={product} onSaved={onChanged} />}
+      {editing && <ProductMediaEditor product={product} onSaved={onChanged} />}
     </div>
   );
 }
