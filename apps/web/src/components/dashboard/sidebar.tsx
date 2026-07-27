@@ -15,25 +15,84 @@ interface NavItem {
   phase?: string;
 }
 
-const NAV: NavItem[] = [
+interface NavSection {
+  titleKey: string;
+  items: NavItem[];
+}
+
+/** Menu vendeur, groupé par intention (gérer / créer / diffuser / compte). */
+const SELLER_SECTIONS: NavSection[] = [
+  {
+    titleKey: 'nav.sec.shop',
+    items: [
+      { key: 'dash.nav.dashboard', href: '/dashboard', icon: 'dashboard' },
+      { key: 'dash.nav.products', href: '/dashboard/products', icon: 'products' },
+      { key: 'dash.nav.orders', href: '/dashboard/orders', icon: 'orders' },
+      { key: 'dash.nav.clients', href: '/dashboard/clients', icon: 'clients' },
+      { key: 'dash.nav.stats', href: '/dashboard/stats', icon: 'stats' },
+      { key: 'dash.nav.shop', href: '/dashboard/shop', icon: 'shop' },
+    ],
+  },
+  {
+    // Pipeline de création, dans l'ordre du workflow : avatar → studio → essayage → défilé → vidéo
+    titleKey: 'nav.sec.studio',
+    items: [
+      { key: 'dash.nav.avatars', href: '/dashboard/avatars', icon: 'avatars' },
+      { key: 'dash.nav.studio', href: '/dashboard/studio', icon: 'sparkles' },
+      { key: 'dash.nav.tryon', href: '/dashboard/tryon', icon: 'shirt' },
+      { key: 'dash.nav.defile', href: '/dashboard/defile', icon: 'play' },
+      { key: 'dash.nav.video', href: '/dashboard/video', icon: 'video' },
+    ],
+  },
+  {
+    titleKey: 'nav.sec.growth',
+    items: [
+      { key: 'dash.nav.campaigns', href: '/dashboard/campaigns', icon: 'marketing' },
+      { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
+      { key: 'dash.nav.publications', href: '/dashboard/publications', icon: 'publications' },
+    ],
+  },
+  {
+    titleKey: 'nav.sec.account',
+    items: [
+      { key: 'dash.nav.credits', href: '/dashboard/credits', icon: 'credits' },
+      { key: 'dash.nav.subscriptions', href: '/dashboard/subscriptions', icon: 'subscriptions' },
+      { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
+    ],
+  },
+];
+
+/** Menu allégé pour un compte client (rôle CUSTOMER). */
+const CLIENT_ITEMS: NavItem[] = [
   { key: 'dash.nav.dashboard', href: '/dashboard', icon: 'dashboard' },
-  { key: 'dash.nav.products', href: '/dashboard/products', icon: 'products' },
-  { key: 'dash.nav.orders', href: '/dashboard/orders', icon: 'orders' },
-  { key: 'dash.nav.clients', href: '/dashboard/clients', icon: 'clients' },
-  { key: 'dash.nav.shop', href: '/dashboard/shop', icon: 'shop' },
-  { key: 'dash.nav.studio', href: '/dashboard/studio', icon: 'sparkles' },
-  { key: 'dash.nav.campaigns', href: '/dashboard/campaigns', icon: 'marketing' },
-  { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
-  { key: 'dash.nav.avatars', href: '/dashboard/avatars', icon: 'avatars' },
-  { key: 'dash.nav.tryon', href: '/dashboard/tryon', icon: 'shirt' },
-  { key: 'dash.nav.defile', href: '/dashboard/defile', icon: 'play' },
-  { key: 'dash.nav.video', href: '/dashboard/video', icon: 'video' },
-  { key: 'dash.nav.publications', href: '/dashboard/publications', icon: 'publications', phase: 'P5' },
-  { key: 'dash.nav.stats', href: '/dashboard/stats', icon: 'stats' },
-  { key: 'dash.nav.credits', href: '/dashboard/credits', icon: 'credits' },
-  { key: 'dash.nav.subscriptions', href: '/dashboard/subscriptions', icon: 'subscriptions' },
+  { key: 'nav.browse', href: '/marketplace', icon: 'shop' },
   { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
 ];
+
+function NavRow({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {
+  const t = useT();
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        active ? 'bg-brand-violet-magenta text-white shadow-lg' : 'text-muted hover:bg-surface-hover hover:text-content'
+      }`}
+    >
+      <span className={active ? 'text-white' : 'text-faint group-hover:text-content'}>{Icon[item.icon]({})}</span>
+      <span className="flex-1">{t(item.key)}</span>
+      {item.phase && (
+        <span
+          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+            active ? 'bg-white/20 text-white' : 'bg-surface-2 text-faint'
+          }`}
+        >
+          {item.phase}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: string }) {
   const pathname = usePathname();
@@ -42,6 +101,8 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
   const clearAuth = useAuth((s) => s.clear);
   const user = useAuth((s) => s.user);
   const t = useT();
+
+  const isClient = user?.role === 'CUSTOMER';
 
   const logout = () => {
     clearAuth();
@@ -53,11 +114,7 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
     <>
       {/* Backdrop mobile */}
       {open && (
-        <div
-          onClick={close}
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-          aria-hidden
-        />
+        <div onClick={close} className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden" aria-hidden />
       )}
 
       <aside
@@ -68,8 +125,7 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
         <Link href="/" onClick={close} className="mb-6 flex items-center gap-2.5 px-2">
           <Image src="/logo.png" alt="Odalyan" width={36} height={36} className="h-9 w-9 object-contain" />
           <span className="font-display text-lg font-bold leading-none">
-            Fashion<span className="brand-gradient-text">Sphere</span>{' '}
-            <span className="text-brand-blue">AI</span>
+            Fashion<span className="brand-gradient-text">Sphere</span> <span className="text-brand-blue">AI</span>
           </span>
         </Link>
 
@@ -88,75 +144,83 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
               <span className="flex-1">Administration</span>
             </Link>
           )}
-          {NAV.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={close}
-                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  active
-                    ? 'bg-brand-violet-magenta text-white shadow-lg'
-                    : 'text-muted hover:bg-surface-hover hover:text-content'
-                }`}
-              >
-              <span className={active ? 'text-white' : 'text-faint group-hover:text-content'}>
-                {Icon[item.icon]({})}
-              </span>
-              <span className="flex-1">{t(item.key)}</span>
-              {item.phase && (
-                <span
-                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                    active ? 'bg-white/20 text-white' : 'bg-surface-2 text-faint'
-                  }`}
-                >
-                  {item.phase}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
 
-      {/* Crédits IA */}
-      <AiCreditsCard />
-
-      {/* Carte upgrade Pro */}
-      <div className="mt-4 rounded-2xl bg-brand-violet-magenta p-4 text-white">
-        <p className="text-sm font-semibold">{t('dash.upgrade.title')}</p>
-        <p className="mt-1 text-xs text-white/80">{t('dash.upgrade.desc')}</p>
-        <Link
-          href="/dashboard/subscriptions"
-          className="mt-3 block rounded-lg bg-white/15 py-2 text-center text-xs font-semibold backdrop-blur transition hover:bg-white/25"
-        >
-          {t('dash.upgrade.cta')}
-        </Link>
-      </div>
-
-      {/* Profil */}
-      <div className="mt-4 rounded-xl px-2 py-2">
-        <div className="flex items-center gap-3">
-          {shopLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={shopLogo} alt="" className="h-9 w-9 shrink-0 rounded-full border border-border object-cover" />
+          {isClient ? (
+            // Compte client : menu dédié minimal
+            CLIENT_ITEMS.map((item) => (
+              <NavRow key={item.href} item={item} active={pathname === item.href} onClick={close} />
+            ))
           ) : (
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
-              {(shopName ?? 'O').charAt(0).toUpperCase()}
-            </span>
+            // Vendeur / admin : menu groupé par sections
+            SELLER_SECTIONS.map((section) => (
+              <div key={section.titleKey} className="pt-3 first:pt-0">
+                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-faint">
+                  {t(section.titleKey)}
+                </p>
+                {section.items.map((item) => (
+                  <NavRow key={item.href} item={item} active={pathname === item.href} onClick={close} />
+                ))}
+              </div>
+            ))
           )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{shopName ?? t('dash.profile.myStore')}</p>
-            <p className="text-xs text-faint">{t('dash.profile.store')}</p>
+        </nav>
+
+        {isClient ? (
+          /* Incitation à devenir vendeur */
+          <div className="mt-4 rounded-2xl bg-brand-violet-magenta p-4 text-white">
+            <p className="text-sm font-semibold">✨ {t('dh.becomeSeller')}</p>
+            <p className="mt-1 text-xs text-white/80">{t('dh.becomeSellerDesc')}</p>
+            <Link
+              href="/dashboard"
+              onClick={close}
+              className="mt-3 block rounded-lg bg-white/15 py-2 text-center text-xs font-semibold backdrop-blur transition hover:bg-white/25"
+            >
+              {t('dh.becomeSellerCta')}
+            </Link>
           </div>
+        ) : (
+          <>
+            {/* Crédits IA (vendeur) */}
+            <AiCreditsCard />
+
+            {/* Carte upgrade Pro */}
+            <div className="mt-4 rounded-2xl bg-brand-violet-magenta p-4 text-white">
+              <p className="text-sm font-semibold">{t('dash.upgrade.title')}</p>
+              <p className="mt-1 text-xs text-white/80">{t('dash.upgrade.desc')}</p>
+              <Link
+                href="/dashboard/subscriptions"
+                onClick={close}
+                className="mt-3 block rounded-lg bg-white/15 py-2 text-center text-xs font-semibold backdrop-blur transition hover:bg-white/25"
+              >
+                {t('dash.upgrade.cta')}
+              </Link>
+            </div>
+          </>
+        )}
+
+        {/* Profil */}
+        <div className="mt-4 rounded-xl px-2 py-2">
+          <div className="flex items-center gap-3">
+            {shopLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={shopLogo} alt="" className="h-9 w-9 shrink-0 rounded-full border border-border object-cover" />
+            ) : (
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-gradient text-sm font-bold text-white">
+                {(shopName ?? 'O').charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{shopName ?? t('dash.profile.myStore')}</p>
+              <p className="text-xs text-faint">{isClient ? t('dash.profile.client') : t('dash.profile.store')}</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-muted transition hover:bg-surface-hover hover:text-content"
+          >
+            <span aria-hidden>⏻</span> {t('nav.logout')}
+          </button>
         </div>
-        <button
-          onClick={logout}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm text-muted transition hover:bg-surface-hover hover:text-content"
-        >
-          <span aria-hidden>⏻</span> {t('nav.logout')}
-        </button>
-      </div>
       </aside>
     </>
   );

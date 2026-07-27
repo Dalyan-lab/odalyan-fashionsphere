@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
+import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
@@ -81,6 +82,7 @@ export default function DefilePage() {
     <>
       <Topbar />
       <div className="p-6">
+        <WorkflowSteps />
         <div className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-violet-magenta text-white">🎬</span>
           <div>
