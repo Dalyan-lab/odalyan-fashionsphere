@@ -118,6 +118,7 @@ model User {
   cart          Cart?
   refreshTokens RefreshToken[]
   generatedAssets GeneratedAsset[]
+  reviews       Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +182,7 @@ model Shop {
   orders       Order[]
   generatedAssets GeneratedAsset[]
   socialConnections SocialConnection[]
+  reviews      Review[]
   scheduledPosts    ScheduledPost[]
   creditPurchases   CreditPurchase[]
   viralScripts      ViralScript[]
@@ -307,6 +309,7 @@ model Product {
   orderItems OrderItem[]
   cartItems  CartItem[]
   generatedAssets GeneratedAsset[]
+  reviews    Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -605,5 +608,29 @@ model RewardEvent {
   createdAt DateTime @default(now())
 
   @@unique([shopId, key])
+  @@index([shopId])
+}
+
+/// Avis client sur un produit (note 1–5 + commentaire).
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int // 1 à 5
+  comment   String?  @db.Text
+  author    String // nom affiché de l'auteur
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  // Auteur connecté (un avis par utilisateur et par produit). Null = invité éventuel.
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
+  @@index([productId])
   @@index([shopId])
 }

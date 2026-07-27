@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ShopModule } from './shop/shop.module';
 import { ProductModule } from './product/product.module';
+import { ReviewModule } from './review/review.module';
 import { OrderModule } from './order/order.module';
 import { PaymentModule } from './payment/payment.module';
 import { AiModule } from './ai/ai.module';
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     AuthModule,
     ShopModule,
     ProductModule,
+    ReviewModule,
     OrderModule,
     PaymentModule,
     AiModule,

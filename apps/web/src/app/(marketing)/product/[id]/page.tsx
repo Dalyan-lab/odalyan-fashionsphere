@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useCart } from '@/lib/store';
 import { convertAndFormat, useLocale } from '@/lib/i18n';
+import { ProductReviews } from '@/components/product-reviews';
 import type { Product, Variant } from '@/lib/types';
 
 const FALLBACK = 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800';
@@ -55,6 +56,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   };
 
   return (
+    <>
     <main className="mx-auto grid max-w-7xl gap-12 px-6 py-12 md:grid-cols-2">
       {/* Galerie média : visionneuse + miniatures */}
       <div>
@@ -171,5 +173,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         )}
       </div>
     </main>
+    <ProductReviews productId={product.id} />
+    </>
   );
 }
