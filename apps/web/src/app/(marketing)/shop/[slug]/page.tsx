@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import type { Shop } from '@/lib/types';
 import { ProductCard } from '@/components/product-card';
 
@@ -14,8 +15,10 @@ const LOGO_POS: Record<string, string> = {
 
 export default function ShopPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
+  const t = useT();
   const [shop, setShop] = useState<Shop | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [cat, setCat] = useState<string>('ALL');
 
   useEffect(() => {
     apiFetch<Shop>(`/shops/public/${slug}`, { auth: false })
@@ -32,6 +35,10 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
   const hasBanner = Boolean(shop.bannerUrl);
   const logoPos = LOGO_POS[shop.logoPosition ?? 'top-left'];
   const bannerVPos = shop.bannerPosition ?? 'center';
+
+  // Produits regroupés en collections par catégorie (ordre d'apparition)
+  const products = shop.products ?? [];
+  const categories = Array.from(new Set(products.map((p) => p.category)));
 
   return (
     <main>
@@ -105,17 +112,83 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
       )}
 
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <h2 className="font-display text-2xl font-bold">Collection</h2>
-        {shop.products && shop.products.length > 0 ? (
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {shop.products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+        {products.length === 0 ? (
+          <>
+            <h2 className="font-display text-2xl font-bold">{t('shopfront.collection')}</h2>
+            <p className="mt-8 text-faint">{t('shopfront.empty')}</p>
+          </>
         ) : (
-          <p className="mt-8 text-faint">Cette boutique n’a pas encore de produits.</p>
+          <>
+            {/* Filtres : vue d'ensemble + une collection par catégorie */}
+            <div className="flex flex-wrap gap-2">
+              <FilterChip label={t('shopfront.overview')} active={cat === 'ALL'} onClick={() => setCat('ALL')} />
+              {categories.map((c) => (
+                <FilterChip
+                  key={c}
+                  label={`${t(`cat.${c}`)} (${products.filter((p) => p.category === c).length})`}
+                  active={cat === c}
+                  onClick={() => setCat(c)}
+                  accent={accent}
+                />
+              ))}
+            </div>
+
+            {cat === 'ALL' ? (
+              // Vue d'ensemble : une section « collection » par catégorie
+              <div className="mt-8 space-y-12">
+                {categories.map((c) => (
+                  <div key={c}>
+                    <h2 className="font-display text-2xl font-bold" style={{ color: accent }}>
+                      {t(`cat.${c}`)}
+                    </h2>
+                    <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                      {products
+                        .filter((p) => p.category === c)
+                        .map((p) => (
+                          <ProductCard key={p.id} product={p} />
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Filtré sur une seule catégorie
+              <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                {products
+                  .filter((p) => p.category === cat)
+                  .map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
+  );
+}
+
+/** Puce de filtre de collection (vue d'ensemble / catégorie). */
+function FilterChip({
+  label,
+  active,
+  onClick,
+  accent,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  accent?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
+        active ? 'border-transparent text-white' : 'border-border text-muted hover:bg-surface-hover'
+      }`}
+      style={active ? { background: accent ?? 'var(--brand-violet, #7c3aed)' } : undefined}
+    >
+      {label}
+    </button>
   );
 }

@@ -27,6 +27,7 @@ const SELLER_SECTIONS: NavSection[] = [
     items: [
       { key: 'dash.nav.dashboard', href: '/dashboard', icon: 'dashboard' },
       { key: 'dash.nav.products', href: '/dashboard/products', icon: 'products' },
+      { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
       { key: 'dash.nav.orders', href: '/dashboard/orders', icon: 'orders' },
       { key: 'dash.nav.clients', href: '/dashboard/clients', icon: 'clients' },
       { key: 'dash.nav.stats', href: '/dashboard/stats', icon: 'stats' },
@@ -48,7 +49,6 @@ const SELLER_SECTIONS: NavSection[] = [
     titleKey: 'nav.sec.growth',
     items: [
       { key: 'dash.nav.campaigns', href: '/dashboard/campaigns', icon: 'marketing' },
-      { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
       { key: 'dash.nav.publications', href: '/dashboard/publications', icon: 'publications' },
     ],
   },

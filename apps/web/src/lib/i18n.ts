@@ -165,6 +165,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'wf.defile': 'Défilé',
     'wf.video': 'Vidéo',
     'wf.publish': 'Publier',
+    'shopfront.collection': 'Collection',
+    'shopfront.overview': "Vue d'ensemble",
+    'shopfront.empty': "Cette boutique n'a pas encore de produits.",
     'dash.profile.myStore': 'Ma boutique',
     // Commun
     'common.loading': 'Chargement…',
@@ -683,6 +686,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'wf.defile': 'Runway',
     'wf.video': 'Video',
     'wf.publish': 'Publish',
+    'shopfront.collection': 'Collection',
+    'shopfront.overview': 'Overview',
+    'shopfront.empty': 'This shop has no products yet.',
     'dash.profile.myStore': 'My store',
     // Common
     'common.loading': 'Loading…',
