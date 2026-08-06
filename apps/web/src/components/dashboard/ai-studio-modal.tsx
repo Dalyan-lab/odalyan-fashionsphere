@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AdTone,
   MannequinType,
@@ -69,6 +69,14 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [avatars, setAvatars] = useState<{ id: string; url: string | null }[]>([]);
+  const [avatarAssetId, setAvatarAssetId] = useState('');
+
+  useEffect(() => {
+    apiFetch<{ id: string; url: string | null }[]>('/ai/assets?type=AVATAR')
+      .then((list) => setAvatars(list.filter((a) => a.url)))
+      .catch(() => setAvatars([]));
+  }, []);
 
   const generate = async () => {
     setLoading(true);
@@ -79,6 +87,7 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
         body: JSON.stringify({
           productId: productId || undefined,
           sourceImageUrl: sourceImageUrl || undefined,
+          avatarAssetId: avatarAssetId || undefined,
           mannequinType,
           style,
           prompt: prompt || undefined,
@@ -127,6 +136,37 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
             setProductId(p.id);
           }}
         />
+        {avatars.length > 0 && (
+          <div className="mt-3">
+            <label className="label">{t('aim.dressAvatar')}</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setAvatarAssetId('')}
+                className={`grid h-16 w-16 place-items-center rounded-lg border text-[10px] ${
+                  avatarAssetId === '' ? 'border-brand-violet text-brand-violet' : 'border-border text-faint'
+                }`}
+              >
+                {t('aim.noAvatar')}
+              </button>
+              {avatars.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setAvatarAssetId(a.id)}
+                  className={`h-16 w-16 overflow-hidden rounded-lg border-2 transition ${
+                    avatarAssetId === a.id ? 'border-brand-violet' : 'border-transparent opacity-75 hover:opacity-100'
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.url ?? ''} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+            {avatarAssetId && <p className="mt-1 text-[10px] text-brand-violet">✨ {t('aim.avatarDressed')}</p>}
+          </div>
+        )}
+
         {sourceImageUrl && (
           <p className="mt-1 flex items-center gap-2 text-[10px] text-brand-violet">
             ✨ {t('aim.willUsePhoto')}
