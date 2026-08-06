@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ShopModule } from '../shop/shop.module';
 import { AiController } from './ai.controller';
+import { DiagTempController } from './diag-temp.controller';
 import { AiService } from './ai.service';
 import { ImageProvider } from './providers/image.provider';
 import { TextProvider } from './providers/text.provider';
@@ -12,7 +13,7 @@ import { VideoRegistry } from './providers/video/video.registry';
 
 @Module({
   imports: [ShopModule],
-  controllers: [AiController],
+  controllers: [AiController, DiagTempController],
   providers: [
     AiService,
     ImageProvider,
