@@ -233,6 +233,32 @@ export class ImageProvider {
     } catch (err) {
       out.predictionError = String(err);
     }
+    // Teste aussi le modèle d'ÉDITION (image→image) — celui de l'avatar/mannequin depuis photo.
+    try {
+      const res = await fetch(`https://api.replicate.com/v1/models/${REPLICATE_EDIT_MODEL()}/predictions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+          Prefer: 'wait',
+        },
+        body: JSON.stringify({
+          input: {
+            prompt: 'studio background, professional lighting',
+            input_image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800',
+            output_format: 'webp',
+            aspect_ratio: 'match_input_image',
+          },
+        }),
+      });
+      out.editStatus = res.status;
+      const body = (await res.json().catch(() => ({}))) as { status?: string; error?: string; output?: unknown };
+      out.editState = body.status ?? null;
+      out.editError = body.error ?? null;
+      out.editHasOutput = Boolean(body.output);
+    } catch (err) {
+      out.editError = String(err);
+    }
     return out;
   }
 
