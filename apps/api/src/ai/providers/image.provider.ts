@@ -252,10 +252,8 @@ export class ImageProvider {
         }),
       });
       out.editStatus = res.status;
-      const body = (await res.json().catch(() => ({}))) as { status?: string; error?: string; output?: unknown };
-      out.editState = body.status ?? null;
-      out.editError = body.error ?? null;
-      out.editHasOutput = Boolean(body.output);
+      const raw = await res.text().catch(() => '');
+      out.editBody = raw.slice(0, 400);
     } catch (err) {
       out.editError = String(err);
     }
