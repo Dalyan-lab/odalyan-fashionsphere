@@ -5,6 +5,8 @@ import { StorageService } from '../../storage/storage.service';
 export interface ImageResult {
   url: string; // URL R2 permanente (ou distante/data URI en repli)
   provider: 'replicate' | 'openai' | 'mock';
+  /** Renseigné quand le vrai fournisseur a échoué (diagnostic, ex. essayage). */
+  error?: string;
 }
 
 /** Modèles Replicate (surchageables par variable d'env). */
@@ -53,14 +55,20 @@ export class ImageProvider {
   /** Texte → image. Replicate (flux) en priorité, puis OpenAI, puis mock. */
   async generate(prompt: string, hint = 'Femme'): Promise<ImageResult> {
     if (this.replicateEnabled) {
-      const url = await this.replicateRun(REPLICATE_IMAGE_MODEL(), {
+      // PNG (pas webp) : les images servent de base à idm-vton / flux-kontext, qui refusent le webp.
+      const { url, error } = await this.replicateRun(REPLICATE_IMAGE_MODEL(), {
         prompt,
         aspect_ratio: '3:4',
-        output_format: 'webp',
+        output_format: 'png',
         output_quality: 90,
         num_outputs: 1,
       });
       if (url) return { url, provider: 'replicate' };
+      if (this.openaiEnabled) {
+        const r = await this.openaiGenerate(prompt);
+        if (r) return r;
+      }
+      return { ...this.mock(hint), error: error ?? undefined };
     }
     if (this.openaiEnabled) {
       const r = await this.openaiGenerate(prompt);
@@ -72,7 +80,7 @@ export class ImageProvider {
   /** Image → image (avatar depuis photo, essayage sur une personne). */
   async generateFromImage(prompt: string, sourceImageUrl: string, hint = 'Femme'): Promise<ImageResult> {
     if (this.replicateEnabled) {
-      const url = await this.replicateRun(REPLICATE_EDIT_MODEL(), {
+      const { url, error } = await this.replicateRun(REPLICATE_EDIT_MODEL(), {
         prompt,
         input_image: sourceImageUrl,
         // flux-kontext-pro n'accepte que jpg/png (pas webp) — sinon 422.
@@ -80,6 +88,11 @@ export class ImageProvider {
         aspect_ratio: 'match_input_image',
       });
       if (url) return { url, provider: 'replicate' };
+      if (this.openaiEnabled) {
+        const r = await this.openaiEdit(prompt, sourceImageUrl, hint);
+        if (r) return r;
+      }
+      return { ...this.mock(hint), error: error ?? undefined };
     }
     if (this.openaiEnabled) {
       const r = await this.openaiEdit(prompt, sourceImageUrl, hint);
@@ -99,13 +112,14 @@ export class ImageProvider {
     category = 'upper_body',
   ): Promise<ImageResult> {
     if (this.replicateEnabled) {
-      const url = await this.replicateRun(REPLICATE_TRYON_MODEL(), {
+      const { url, error } = await this.replicateRun(REPLICATE_TRYON_MODEL(), {
         human_img: humanUrl,
         garm_img: garmentUrl,
         garment_des: description,
         category,
       });
       if (url) return { url, provider: 'replicate' };
+      return { ...this.mock('Femme'), error: error ?? undefined };
     }
     return this.mock('Femme');
   }
@@ -118,7 +132,10 @@ export class ImageProvider {
    * la prédiction (polling) jusqu'à ~150 s. Récupère la 1ʳᵉ image de sortie et la
    * copie sur R2 (les URLs Replicate expirent). Renvoie l'URL permanente, ou null.
    */
-  private async replicateRun(model: string, input: Record<string, unknown>): Promise<string | null> {
+  private async replicateRun(
+    model: string,
+    input: Record<string, unknown>,
+  ): Promise<{ url: string | null; error: string | null }> {
     try {
       const res = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
         method: 'POST',
@@ -130,8 +147,9 @@ export class ImageProvider {
         body: JSON.stringify({ input }),
       });
       if (!res.ok) {
-        this.logger.error(`Replicate ${model} a échoué (${res.status}): ${await res.text().catch(() => '')}`);
-        return null;
+        const body = (await res.text().catch(() => '')).slice(0, 300);
+        this.logger.error(`Replicate ${model} a échoué (${res.status}): ${body}`);
+        return { url: null, error: `HTTP ${res.status}: ${body}` };
       }
       let data = (await res.json()) as {
         id?: string;
@@ -154,18 +172,19 @@ export class ImageProvider {
       }
 
       if (data.error || data.status === 'failed' || data.status === 'canceled') {
-        this.logger.error(`Replicate ${model}: ${data.error ?? data.status}`);
-        return null;
+        const msg = String(data.error ?? data.status);
+        this.logger.error(`Replicate ${model}: ${msg}`);
+        return { url: null, error: msg };
       }
       const out = Array.isArray(data.output) ? data.output[0] : data.output;
       if (typeof out !== 'string') {
         this.logger.warn(`Replicate ${model}: sortie inattendue (status=${data.status}) — repli`);
-        return null;
+        return { url: null, error: `sortie vide (status=${data.status})` };
       }
-      return await this.persistFromUrl(out);
+      return { url: await this.persistFromUrl(out), error: null };
     } catch (err) {
       this.logger.error(`Erreur Replicate ${model}: ${String(err)} — repli`);
-      return null;
+      return { url: null, error: String(err) };
     }
   }
 

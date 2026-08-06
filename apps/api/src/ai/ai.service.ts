@@ -190,6 +190,7 @@ export class AiService {
     let prompt: string;
 
     let tryOnMode: string | null = null;
+    let tryOnError: string | null = null;
     if (avatarImage && garmentImage) {
       // Essayage 2-images : le VRAI vêtement composé sur l'avatar (idm-vton).
       prompt = `Essayage virtuel : ${productName} sur l'avatar`;
@@ -204,10 +205,13 @@ export class AiService {
         tryOnMode = '2img';
       } else {
         // Repli si le modèle try-on échoue : on habille l'avatar via flux-kontext.
+        tryOnError = tryon.error ?? null;
         prompt =
           `Habille cette personne avec ${productName}, en conservant fidèlement son visage, sa morphologie ` +
           `et sa coiffure. Photo mode, style ${input.style}, plein cadre, éclairage ${lighting}, rendu professionnel, haute qualité, 8k`;
-        ({ url, provider } = await this.imageProvider.generateFromImage(prompt, avatarImage, input.mannequinType));
+        const fb = await this.imageProvider.generateFromImage(prompt, avatarImage, input.mannequinType);
+        ({ url, provider } = fb);
+        if (fb.error) tryOnError = `${tryOnError ?? ''} | kontext: ${fb.error}`.trim();
         tryOnMode = 'fallback-kontext';
       }
     } else if (avatarImage) {
@@ -244,6 +248,7 @@ export class AiService {
           sourceImageUrl: sourceImageUrl ?? null,
           avatarAssetId: input.avatarAssetId ?? null,
           tryOnMode,
+          tryOnError,
         } as Prisma.InputJsonValue,
         ownerId: userId,
         shopId: shop.id,
