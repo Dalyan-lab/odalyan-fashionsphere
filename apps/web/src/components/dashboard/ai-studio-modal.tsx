@@ -71,6 +71,7 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
   const [error, setError] = useState('');
   const [avatars, setAvatars] = useState<{ id: string; url: string | null }[]>([]);
   const [avatarAssetId, setAvatarAssetId] = useState('');
+  const [garmentCategory, setGarmentCategory] = useState<'upper_body' | 'lower_body' | 'dresses'>('upper_body');
 
   useEffect(() => {
     apiFetch<{ id: string; url: string | null }[]>('/ai/assets?type=AVATAR')
@@ -88,6 +89,7 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
           productId: productId || undefined,
           sourceImageUrl: sourceImageUrl || undefined,
           avatarAssetId: avatarAssetId || undefined,
+          garmentCategory: avatarAssetId ? garmentCategory : undefined,
           mannequinType,
           style,
           prompt: prompt || undefined,
@@ -163,7 +165,22 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
                 </button>
               ))}
             </div>
-            {avatarAssetId && <p className="mt-1 text-[10px] text-brand-violet">✨ {t('aim.avatarDressed')}</p>}
+            {avatarAssetId && (
+              <div className="mt-2">
+                <label className="label">{t('aim.garmentType')}</label>
+                <select
+                  className="input"
+                  value={garmentCategory}
+                  onChange={(e) => setGarmentCategory(e.target.value as typeof garmentCategory)}
+                >
+                  <option value="upper_body">{t('aim.garmentUpper')}</option>
+                  <option value="lower_body">{t('aim.garmentLower')}</option>
+                  <option value="dresses">{t('aim.garmentDress')}</option>
+                </select>
+                <p className="mt-1 text-[10px] text-brand-violet">✨ {t('aim.avatarDressed')}</p>
+                <p className="mt-0.5 text-[10px] text-faint">{t('aim.tryOnHint')}</p>
+              </div>
+            )}
           </div>
         )}
 

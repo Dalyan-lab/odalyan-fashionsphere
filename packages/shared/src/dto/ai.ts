@@ -65,6 +65,8 @@ export const generateMannequinSchema = z.object({
   sourceImageUrl: z.string().url().optional(),
   /** Avatar à habiller : quand présent, l'avatar devient la base et est habillé du produit. */
   avatarAssetId: z.string().optional(),
+  /** Type de vêtement pour l'essayage 2-images (idm-vton) : haut / bas / robe. */
+  garmentCategory: z.enum(['upper_body', 'lower_body', 'dresses']).optional(),
 });
 
 export const TRYON_ANGLES = ['Face', '45° gauche', 'Profil', '45° droite', 'Dos'] as const;
