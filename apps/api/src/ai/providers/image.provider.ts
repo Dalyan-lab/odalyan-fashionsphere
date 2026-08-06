@@ -113,9 +113,10 @@ export class ImageProvider {
   // ---------------------------------------------------------------- Replicate
 
   /**
-   * Exécute un modèle Replicate de façon synchrone (`Prefer: wait`, jusqu'à 60 s).
-   * Récupère la 1ʳᵉ image de sortie et la copie sur R2 (les URLs Replicate expirent).
-   * Renvoie l'URL permanente, ou null pour laisser le repli agir.
+   * Exécute un modèle Replicate. On lance avec `Prefer: wait` (jusqu'à 60 s) puis,
+   * si le modèle n'a pas fini (cas des modèles lourds comme idm-vton), on interroge
+   * la prédiction (polling) jusqu'à ~150 s. Récupère la 1ʳᵉ image de sortie et la
+   * copie sur R2 (les URLs Replicate expirent). Renvoie l'URL permanente, ou null.
    */
   private async replicateRun(model: string, input: Record<string, unknown>): Promise<string | null> {
     try {
@@ -132,7 +133,26 @@ export class ImageProvider {
         this.logger.error(`Replicate ${model} a échoué (${res.status}): ${await res.text().catch(() => '')}`);
         return null;
       }
-      const data = (await res.json()) as { status?: string; output?: unknown; error?: string | null };
+      let data = (await res.json()) as {
+        id?: string;
+        status?: string;
+        output?: unknown;
+        error?: string | null;
+        urls?: { get?: string };
+      };
+
+      // Modèle pas encore terminé (starting/processing) : on interroge jusqu'à ~150 s.
+      const pollUrl = data.urls?.get ?? (data.id ? `https://api.replicate.com/v1/predictions/${data.id}` : null);
+      const deadline = Date.now() + 150_000;
+      while ((data.status === 'starting' || data.status === 'processing') && pollUrl && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 2500));
+        const poll = await fetch(pollUrl, {
+          headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+        });
+        if (!poll.ok) break;
+        data = (await poll.json()) as typeof data;
+      }
+
       if (data.error || data.status === 'failed' || data.status === 'canceled') {
         this.logger.error(`Replicate ${model}: ${data.error ?? data.status}`);
         return null;
