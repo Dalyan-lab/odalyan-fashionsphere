@@ -174,34 +174,53 @@ export class AiService {
         productImage = product.images[0];
       }
     }
-    // Avatar à habiller : l'avatar devient la base (on garde son visage/morphologie),
-    // et on l'habille du produit décrit. Sinon, base = photo produit (import/catalogue).
+    // Avatar à habiller : l'avatar sert de base. Avec une photo produit → vrai essayage
+    // 2-images (fidélité maximale du vêtement). Sinon, produit décrit dans le prompt.
     let avatarImage: string | undefined;
     if (input.avatarAssetId) {
       const avatar = await this.prisma.generatedAsset.findUnique({ where: { id: input.avatarAssetId } });
       if (avatar && avatar.shopId === shop.id && avatar.url) avatarImage = avatar.url;
     }
-    const sourceImageUrl = avatarImage ?? input.sourceImageUrl ?? productImage;
+    const garmentImage = input.sourceImageUrl ?? productImage;
+    const sourceImageUrl = avatarImage ?? garmentImage; // base réellement utilisée (pour la meta)
 
     const lighting = input.style === PhotoStyle.STUDIO ? 'studio' : 'naturel';
-    const prompt = avatarImage
-      ? input.prompt?.trim() ||
-        `Habille cette personne avec ${productName}, en conservant fidèlement son visage, sa morphologie ` +
-          `et sa coiffure. Photo mode, style ${input.style}, plein cadre, éclairage ${lighting}, ` +
-          `rendu professionnel, haute qualité, 8k`
-      : sourceImageUrl
-        ? input.prompt?.trim() ||
-          `Photo marketing mode : fais porter ce vêtement/produit par un mannequin ${input.mannequinType}, ` +
-            `style ${input.style}, plein cadre, rendu professionnel, éclairage ${lighting}, haute qualité, 8k, ` +
-            `en conservant fidèlement le produit`
-        : input.prompt?.trim() ||
-          `Photo marketing mode, mannequin ${input.mannequinType}, portant ${productName}, ` +
-            `style ${input.style}, rendu professionnel, éclairage ${lighting}, haute qualité, 8k`;
+    let url: string;
+    let provider: string;
+    let prompt: string;
 
-    // image→image si on a une photo source (vêtement réel porté ou avatar), sinon texte→image
-    const { url, provider } = sourceImageUrl
-      ? await this.imageProvider.generateFromImage(prompt, sourceImageUrl, input.mannequinType)
-      : await this.imageProvider.generate(prompt, input.mannequinType);
+    if (avatarImage && garmentImage) {
+      // Essayage 2-images : le VRAI vêtement composé sur l'avatar (idm-vton).
+      prompt = `Essayage virtuel : ${productName} sur l'avatar`;
+      const tryon = await this.imageProvider.virtualTryOn(avatarImage, garmentImage, productName);
+      if (tryon.provider !== 'mock') {
+        ({ url, provider } = tryon);
+      } else {
+        // Repli si le modèle try-on échoue : on habille l'avatar via flux-kontext.
+        prompt =
+          `Habille cette personne avec ${productName}, en conservant fidèlement son visage, sa morphologie ` +
+          `et sa coiffure. Photo mode, style ${input.style}, plein cadre, éclairage ${lighting}, rendu professionnel, haute qualité, 8k`;
+        ({ url, provider } = await this.imageProvider.generateFromImage(prompt, avatarImage, input.mannequinType));
+      }
+    } else if (avatarImage) {
+      prompt =
+        input.prompt?.trim() ||
+        `Habille cette personne avec ${productName}, en conservant fidèlement son visage, sa morphologie ` +
+          `et sa coiffure. Photo mode, style ${input.style}, plein cadre, éclairage ${lighting}, rendu professionnel, haute qualité, 8k`;
+      ({ url, provider } = await this.imageProvider.generateFromImage(prompt, avatarImage, input.mannequinType));
+    } else if (garmentImage) {
+      prompt =
+        input.prompt?.trim() ||
+        `Photo marketing mode : fais porter ce vêtement/produit par un mannequin ${input.mannequinType}, ` +
+          `style ${input.style}, plein cadre, rendu professionnel, éclairage ${lighting}, haute qualité, 8k, en conservant fidèlement le produit`;
+      ({ url, provider } = await this.imageProvider.generateFromImage(prompt, garmentImage, input.mannequinType));
+    } else {
+      prompt =
+        input.prompt?.trim() ||
+        `Photo marketing mode, mannequin ${input.mannequinType}, portant ${productName}, ` +
+          `style ${input.style}, rendu professionnel, éclairage ${lighting}, haute qualité, 8k`;
+      ({ url, provider } = await this.imageProvider.generate(prompt, input.mannequinType));
+    }
     if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.image);
 
     const asset = await this.prisma.generatedAsset.create({
@@ -236,14 +255,34 @@ export class AiService {
     }
     if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.tryon);
 
+    // Personnalisation par l'avatar choisi (sexe, teint, morphologie, coiffure)
+    let sex: string = input.avatarSex;
+    let skinTone: string = input.skinTone;
+    let bodyType = '';
+    let hairstyle = '';
+    if (input.avatarAssetId) {
+      const avatar = await this.prisma.generatedAsset.findUnique({ where: { id: input.avatarAssetId } });
+      const meta = (avatar?.meta ?? {}) as Record<string, string | null>;
+      if (avatar && avatar.shopId === shop.id) {
+        sex = meta.sex ?? sex;
+        skinTone = meta.skinTone ?? skinTone;
+        bodyType = meta.bodyType ? `, morphologie ${meta.bodyType}` : '';
+        hairstyle = meta.hairstyle ? `, coiffure ${meta.hairstyle}` : '';
+      }
+    }
     const extra = input.prompt?.trim() ? `, ${input.prompt.trim()}` : '';
+    // Photo produit → image→image (vrai produit) ; sinon texte→image (repli)
+    const productImage = product.images[0];
 
     const views = await Promise.all(
       TRYON_ANGLES.map(async (angle) => {
         const prompt =
-          `Essayage virtuel : mannequin ${input.avatarSex}, teint ${input.skinTone}, ` +
-          `portant "${product.name}", vue ${angle}${extra}, rendu studio réaliste, plein corps, 8k`;
-        const { url, provider } = await this.imageProvider.generate(prompt, input.avatarSex);
+          `Essayage virtuel : mannequin ${sex}, teint ${skinTone}${bodyType}${hairstyle}, ` +
+          `portant "${product.name}", vue ${angle}${extra}, rendu studio réaliste, plein corps, 8k` +
+          (productImage ? ', en conservant fidèlement le produit' : '');
+        const { url, provider } = productImage
+          ? await this.imageProvider.generateFromImage(prompt, productImage, sex)
+          : await this.imageProvider.generate(prompt, sex);
 
         await this.prisma.generatedAsset.create({
           data: {

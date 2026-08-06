@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
+import { AvatarPicker } from '@/components/dashboard/avatar-picker';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
@@ -23,6 +24,7 @@ export default function DefilePage() {
   const [productId, setProductId] = useState('');
   const [avatarSex, setAvatarSex] = useState<AvatarSex>(AvatarSex.FEMME);
   const [skinTone, setSkinTone] = useState<SkinTone>(SkinTone.METISSE);
+  const [avatarAssetId, setAvatarAssetId] = useState('');
 
   const [views, setViews] = useState<TryOnView[]>([]);
   const [productName, setProductName] = useState('');
@@ -65,7 +67,7 @@ export default function DefilePage() {
     try {
       const res = await apiFetch<TryOnResult>('/ai/tryon', {
         method: 'POST',
-        body: JSON.stringify({ productId, avatarSex, skinTone }),
+        body: JSON.stringify({ productId, avatarSex, skinTone, avatarAssetId: avatarAssetId || undefined }),
       });
       setViews(res.views);
       setProductName(res.productName);
@@ -175,6 +177,10 @@ export default function DefilePage() {
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+
+                <div className="mt-3">
+                  <AvatarPicker value={avatarAssetId} onChange={setAvatarAssetId} />
+                </div>
 
                 {error && <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 

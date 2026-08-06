@@ -8,6 +8,7 @@ import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
+import { AvatarPicker } from '@/components/dashboard/avatar-picker';
 import { Icon } from '@/components/dashboard/icons';
 
 export default function TryOnPage() {
@@ -17,6 +18,7 @@ export default function TryOnPage() {
   const [productId, setProductId] = useState('');
   const [avatarSex, setAvatarSex] = useState<AvatarSex>(AvatarSex.FEMME);
   const [skinTone, setSkinTone] = useState<SkinTone>(SkinTone.METISSE);
+  const [avatarAssetId, setAvatarAssetId] = useState('');
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -40,7 +42,7 @@ export default function TryOnPage() {
     try {
       const res = await apiFetch<TryOnResult>('/ai/tryon', {
         method: 'POST',
-        body: JSON.stringify({ productId, avatarSex, skinTone }),
+        body: JSON.stringify({ productId, avatarSex, skinTone, avatarAssetId: avatarAssetId || undefined }),
       });
       setResult(res);
     } catch (err) {
@@ -105,6 +107,8 @@ export default function TryOnPage() {
                   ))}
                 </select>
               </div>
+
+              <AvatarPicker value={avatarAssetId} onChange={setAvatarAssetId} />
 
               {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 

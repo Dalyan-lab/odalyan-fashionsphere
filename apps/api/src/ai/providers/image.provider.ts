@@ -10,6 +10,8 @@ export interface ImageResult {
 /** Modèles Replicate (surchageables par variable d'env). */
 const REPLICATE_IMAGE_MODEL = () => process.env.REPLICATE_IMAGE_MODEL || 'black-forest-labs/flux-schnell';
 const REPLICATE_EDIT_MODEL = () => process.env.REPLICATE_EDIT_MODEL || 'black-forest-labs/flux-kontext-pro';
+/** Essayage virtuel 2-images (personne + vêtement) : fidélité maximale du produit. */
+const REPLICATE_TRYON_MODEL = () => process.env.REPLICATE_TRYON_MODEL || 'cuuupid/idm-vton';
 
 /** Pool d'images de démonstration (mode mock) par type de mannequin. */
 const MOCK_POOL: Record<string, string[]> = {
@@ -84,6 +86,28 @@ export class ImageProvider {
       if (r) return r;
     }
     return this.mock(hint);
+  }
+
+  /**
+   * Essayage virtuel 2-images : compose le VRAI vêtement sur la VRAIE personne
+   * (avatar). Modèle idm-vton (human_img + garm_img). Fidélité maximale du produit.
+   */
+  async virtualTryOn(
+    humanUrl: string,
+    garmentUrl: string,
+    description: string,
+    category = 'upper_body',
+  ): Promise<ImageResult> {
+    if (this.replicateEnabled) {
+      const url = await this.replicateRun(REPLICATE_TRYON_MODEL(), {
+        human_img: humanUrl,
+        garm_img: garmentUrl,
+        garment_des: description,
+        category,
+      });
+      if (url) return { url, provider: 'replicate' };
+    }
+    return this.mock('Femme');
   }
 
   // ---------------------------------------------------------------- Replicate

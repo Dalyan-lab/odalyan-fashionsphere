@@ -74,6 +74,8 @@ export const generateTryOnSchema = z.object({
   avatarSex: z.nativeEnum(AvatarSex).default(AvatarSex.FEMME),
   skinTone: z.nativeEnum(SkinTone).default(SkinTone.METISSE),
   prompt: z.string().max(300).optional(),
+  /** Avatar du vendeur : le défilé prend son sexe/teint/coiffure. */
+  avatarAssetId: z.string().optional(),
 });
 
 export type GenerateTryOnInput = z.infer<typeof generateTryOnSchema>;
