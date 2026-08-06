@@ -73,7 +73,8 @@ export class ImageProvider {
       const url = await this.replicateRun(REPLICATE_EDIT_MODEL(), {
         prompt,
         input_image: sourceImageUrl,
-        output_format: 'webp',
+        // flux-kontext-pro n'accepte que jpg/png (pas webp) — sinon 422.
+        output_format: 'png',
         aspect_ratio: 'match_input_image',
       });
       if (url) return { url, provider: 'replicate' };
@@ -232,30 +233,6 @@ export class ImageProvider {
       out.hasOutput = Boolean(body.output);
     } catch (err) {
       out.predictionError = String(err);
-    }
-    // Teste aussi le modèle d'ÉDITION (image→image) — celui de l'avatar/mannequin depuis photo.
-    try {
-      const res = await fetch(`https://api.replicate.com/v1/models/${REPLICATE_EDIT_MODEL()}/predictions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-          Prefer: 'wait',
-        },
-        body: JSON.stringify({
-          input: {
-            prompt: 'studio background, professional lighting',
-            input_image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800',
-            output_format: 'webp',
-            aspect_ratio: 'match_input_image',
-          },
-        }),
-      });
-      out.editStatus = res.status;
-      const raw = await res.text().catch(() => '');
-      out.editBody = raw.slice(0, 400);
-    } catch (err) {
-      out.editError = String(err);
     }
     return out;
   }
