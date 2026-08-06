@@ -158,6 +158,14 @@ export default function StudioPage() {
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
                             <div className="space-y-1 p-2">
+                              {(() => {
+                                const mode = (a.meta as { tryOnMode?: string } | null)?.tryOnMode;
+                                if (mode === '2img')
+                                  return <p className="text-[10px] font-medium text-emerald-400">👗 {t('stu.mode2img')}</p>;
+                                if (mode === 'fallback-kontext')
+                                  return <p className="text-[10px] font-medium text-amber-400">🎨 {t('stu.modeFallback')}</p>;
+                                return null;
+                              })()}
                               <p className="text-[10px] text-faint">
                                 {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`} ·{' '}
                                 {new Date(a.createdAt).toLocaleDateString('fr-FR')}
