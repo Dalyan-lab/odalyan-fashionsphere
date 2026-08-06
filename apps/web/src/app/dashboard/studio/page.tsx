@@ -48,8 +48,31 @@ export default function StudioPage() {
     loadAssets();
   }, [loadAssets]);
 
+  const deleteAsset = useCallback(
+    async (id: string) => {
+      if (!window.confirm(t('stu.deleteConfirm'))) return;
+      setAssets((prev) => prev.filter((a) => a.id !== id)); // optimiste
+      try {
+        await apiFetch(`/ai/assets/${id}`, { method: 'DELETE' });
+      } catch {
+        loadAssets(); // rollback en cas d'échec
+      }
+    },
+    [t, loadAssets],
+  );
+
+  const purgeSimulated = useCallback(async () => {
+    if (!window.confirm(t('stu.purgeConfirm'))) return;
+    try {
+      await apiFetch('/ai/assets/simulated', { method: 'DELETE' });
+    } finally {
+      loadAssets();
+    }
+  }, [t, loadAssets]);
+
   const images = assets.filter((a) => a.url);
   const copies = assets.filter((a) => a.type === 'AD_COPY');
+  const simulatedCount = assets.filter((a) => a.provider === 'mock').length;
 
   return (
     <>
@@ -98,7 +121,18 @@ export default function StudioPage() {
 
             {/* Galerie */}
             <div>
-              <h2 className="mb-3 text-lg font-bold">{t('stu.gallery')} ({assets.length})</h2>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-bold">{t('stu.gallery')} ({assets.length})</h2>
+                {simulatedCount > 0 && (
+                  <button
+                    onClick={purgeSimulated}
+                    className="rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+                    title={t('stu.purgeHint')}
+                  >
+                    🧹 {t('stu.purgeSimulated')} ({simulatedCount})
+                  </button>
+                )}
+              </div>
               {loading ? (
                 <p className="text-muted">{t('common.loading')}</p>
               ) : assets.length === 0 ? (
@@ -112,7 +146,15 @@ export default function StudioPage() {
                       <p className="label">{t('stu.images')}</p>
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                         {images.map((a) => (
-                          <div key={a.id} className="card overflow-hidden">
+                          <div key={a.id} className="card group relative overflow-hidden">
+                            <button
+                              onClick={() => deleteAsset(a.id)}
+                              className="absolute right-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
+                              title={t('stu.delete')}
+                              aria-label={t('stu.delete')}
+                            >
+                              ✕
+                            </button>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
                             <div className="space-y-1 p-2">
@@ -135,7 +177,15 @@ export default function StudioPage() {
                         {copies.map((a) => {
                           const m = a.meta as AdCopyResult | null;
                           return (
-                            <div key={a.id} className="card p-4">
+                            <div key={a.id} className="card group relative p-4">
+                              <button
+                                onClick={() => deleteAsset(a.id)}
+                                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-surface-2 text-faint opacity-0 transition hover:bg-red-600 hover:text-white group-hover:opacity-100"
+                                title={t('stu.delete')}
+                                aria-label={t('stu.delete')}
+                              >
+                                ✕
+                              </button>
                               <p className="text-xs font-semibold text-brand-violet">{a.prompt}</p>
                               {m?.description && <p className="mt-1.5 text-sm">{m.description}</p>}
                               {m?.hashtags && (

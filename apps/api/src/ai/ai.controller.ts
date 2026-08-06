@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   UserRole,
   generateAdCopySchema,
@@ -109,5 +109,16 @@ export class AiController {
   @Get('assets')
   listAssets(@CurrentUser('id') userId: string, @Query('type') type?: string) {
     return this.aiService.listAssets(userId, type);
+  }
+
+  /** Purge tous les contenus simulés (démo). Route statique AVANT :id. */
+  @Delete('assets/simulated')
+  deleteSimulated(@CurrentUser('id') userId: string) {
+    return this.aiService.deleteSimulatedAssets(userId);
+  }
+
+  @Delete('assets/:id')
+  deleteAsset(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.aiService.deleteAsset(userId, id);
   }
 }

@@ -420,6 +420,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.empty': 'Aucun contenu généré pour l’instant. Lancez une génération à gauche.',
     'stu.images': 'Images',
     'stu.adTexts': 'Textes publicitaires',
+    'stu.delete': 'Supprimer',
+    'stu.deleteConfirm': 'Supprimer ce contenu ? Cette action est définitive.',
+    'stu.purgeSimulated': 'Nettoyer les images de démo',
+    'stu.purgeHint': 'Supprime toutes les images « simulé » (démo) pour partir sur une galerie propre.',
+    'stu.purgeConfirm': 'Supprimer toutes les images de démo (simulé) ? Les vraies générations (Replicate) sont conservées.',
     // Publications
     'pub.subtitle': 'Connectez vos réseaux et programmez vos publications.',
     'pub.connected': 'Comptes connectés',
@@ -964,6 +969,11 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.empty': 'No generated content yet. Start a generation on the left.',
     'stu.images': 'Images',
     'stu.adTexts': 'Ad copy',
+    'stu.delete': 'Delete',
+    'stu.deleteConfirm': 'Delete this content? This action is permanent.',
+    'stu.purgeSimulated': 'Clean demo images',
+    'stu.purgeHint': 'Removes all "simulated" (demo) images to start with a clean gallery.',
+    'stu.purgeConfirm': 'Delete all demo (simulated) images? Real generations (Replicate) are kept.',
     // Publications
     'pub.subtitle': 'Connect your networks and schedule your posts.',
     'pub.connected': 'Connected accounts',

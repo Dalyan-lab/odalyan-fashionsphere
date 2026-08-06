@@ -496,4 +496,24 @@ export class AiService {
       take: 60,
     });
   }
+
+  /** Supprime un contenu généré (uniquement s'il appartient à la boutique du vendeur). */
+  async deleteAsset(userId: string, assetId: string) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const asset = await this.prisma.generatedAsset.findFirst({
+      where: { id: assetId, shopId: shop.id },
+    });
+    if (!asset) throw new NotFoundException('Contenu introuvable');
+    await this.prisma.generatedAsset.delete({ where: { id: asset.id } });
+    return { ok: true };
+  }
+
+  /** Purge tous les contenus simulés (provider « mock ») de la boutique — nettoyage des images de démo. */
+  async deleteSimulatedAssets(userId: string) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const { count } = await this.prisma.generatedAsset.deleteMany({
+      where: { shopId: shop.id, provider: 'mock' },
+    });
+    return { ok: true, deleted: count };
+  }
 }
