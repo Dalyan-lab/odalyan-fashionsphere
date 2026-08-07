@@ -12,6 +12,7 @@ import {
   type GenerateTryOnInput,
   type GenerateVideoInput,
   type TryOnResult,
+  type TryOnView,
 } from '@odalyan/shared';
 import { NotFoundException } from '@nestjs/common';
 import { VideoRegistry } from './providers/video/video.registry';
@@ -269,21 +270,24 @@ export class AiService {
     }
     if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.tryon);
 
-    // Personnalisation par l'avatar choisi (sexe, teint, morphologie, coiffure)
+    // Caractéristiques du MANNEQUIN : type (sexe), forme/morphologie, taille du vêtement.
+    // Le teint n'est plus mis en avant (facultatif). Un avatar choisi reprend sexe/teint/coiffure.
     let sex: string = input.avatarSex;
-    let skinTone: string = input.skinTone;
-    let bodyType = '';
+    let bodyType = `, morphologie ${input.bodyType}`;
+    let sizeStr = input.size ? `, taille ${input.size} (corpulence cohérente)` : '';
+    let skinTone = input.skinTone ? `, teint ${input.skinTone}` : '';
     let hairstyle = '';
     if (input.avatarAssetId) {
       const avatar = await this.prisma.generatedAsset.findUnique({ where: { id: input.avatarAssetId } });
       const meta = (avatar?.meta ?? {}) as Record<string, string | null>;
       if (avatar && avatar.shopId === shop.id) {
         sex = meta.sex ?? sex;
-        skinTone = meta.skinTone ?? skinTone;
-        bodyType = meta.bodyType ? `, morphologie ${meta.bodyType}` : '';
+        if (meta.skinTone) skinTone = `, teint ${meta.skinTone}`;
+        if (meta.bodyType) bodyType = `, morphologie ${meta.bodyType}`;
         hairstyle = meta.hairstyle ? `, coiffure ${meta.hairstyle}` : '';
       }
     }
+    const morpho = `${bodyType}${sizeStr}${skinTone}${hairstyle}`;
     const extra = input.prompt?.trim() ? `, ${input.prompt.trim()}` : '';
     // Photo produit → image→image (vrai produit) ; sinon texte→image (repli)
     const productImage = product.images[0];
@@ -310,17 +314,17 @@ export class AiService {
     for (const [i, angle] of TRYON_ANGLES.entries()) {
       const isFace = i === 0;
       const base =
-        `Photo mode studio, plein corps, femme réaliste et photoréaliste (PAS un mannequin de vitrine en plastique), ` +
-        `teint ${skinTone}${bodyType}${hairstyle}, vue ${ANGLE_PROMPT[angle] ?? angle}${extra}, fond neutre clair, 8k. `;
+        `Photo mode studio, plein corps, mannequin ${sex} réaliste et photoréaliste (PAS un mannequin de vitrine en plastique)` +
+        `${morpho}, vue ${ANGLE_PROMPT[angle] ?? angle}${extra}, fond neutre clair, 8k. `;
       const prompt = isFace
         ? base +
           (productImage
-            ? 'Une femme porte EXACTEMENT le vêtement de la photo : même TYPE (si c’est une robe, garder une robe — ' +
+            ? `Le mannequin ${sex} porte EXACTEMENT le vêtement de la photo : même TYPE (si c’est une robe, garder une robe — ` +
               'jamais un pantalon/combinaison), même coupe, mêmes couleurs et mêmes motifs.'
-            : `Une femme ${sex} porte "${product.name}".`)
+            : `Un mannequin ${sex} porte "${product.name}".`)
         : base +
-          'IMPORTANT : reprends EXACTEMENT la même femme et le même vêtement que sur l’image de référence ' +
-          '(même visage, même coiffure, même peau, même robe, mêmes motifs et couleurs), en la faisant simplement ' +
+          'IMPORTANT : reprends EXACTEMENT la même personne et le même vêtement que sur l’image de référence ' +
+          '(même visage, même coiffure, même peau, même tenue, mêmes motifs et couleurs), en la faisant simplement ' +
           `pivoter pour être vue ${ANGLE_PROMPT[angle] ?? angle}. Ne change ni la personne ni la tenue.`;
 
       const res: ImageResult = refImage
@@ -356,6 +360,40 @@ export class AiService {
       await this.credits.consume(userId, AI_CREDIT_COSTS.tryon);
     }
 
+    return { productName: product.name, views };
+  }
+
+  /**
+   * Renvoie le DERNIER essayage généré pour un produit (persistance : les vues
+   * restent visibles même après avoir quitté la page). null si aucun.
+   */
+  async getLastTryOn(userId: string, productId: string): Promise<TryOnResult | null> {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const product = await this.prisma.product.findFirst({ where: { id: productId, shopId: shop.id } });
+    if (!product) return null;
+    const assets = await this.prisma.generatedAsset.findMany({
+      where: {
+        shopId: shop.id,
+        productId,
+        meta: { path: ['kind'], equals: 'tryon' },
+        url: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: TRYON_ANGLES.length,
+    });
+    if (assets.length === 0) return null;
+    // Réordonne selon TRYON_ANGLES et garde la vue la plus récente par angle.
+    const byAngle = new Map<string, (typeof assets)[number]>();
+    for (const a of assets) {
+      const angle = (a.meta as { angle?: string } | null)?.angle;
+      if (angle && !byAngle.has(angle)) byAngle.set(angle, a);
+    }
+    const views: TryOnView[] = [];
+    for (const angle of TRYON_ANGLES) {
+      const a = byAngle.get(angle);
+      if (a?.url) views.push({ angle, url: a.url, provider: a.provider });
+    }
+    if (views.length === 0) return null;
     return { productName: product.name, views };
   }
 

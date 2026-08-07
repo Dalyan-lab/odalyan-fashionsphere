@@ -71,12 +71,20 @@ export const generateMannequinSchema = z.object({
 
 export const TRYON_ANGLES = ['Face', 'Côté gauche', 'Dos', 'Côté droit'] as const;
 
+export const TRYON_SIZES = ['S', 'M', 'L', 'XL', 'XXL'] as const;
+
 export const generateTryOnSchema = z.object({
   productId: z.string().min(1, 'Produit requis'),
+  /** Type de mannequin : Femme / Homme / Enfant. */
   avatarSex: z.nativeEnum(AvatarSex).default(AvatarSex.FEMME),
-  skinTone: z.nativeEnum(SkinTone).default(SkinTone.METISSE),
+  /** Forme / morphologie du mannequin (mince, normale, athlétique, grande taille). */
+  bodyType: z.nativeEnum(BodyType).default(BodyType.NORMALE),
+  /** Taille du vêtement (S→XXL) : influence la corpulence rendue. */
+  size: z.enum(TRYON_SIZES).optional(),
+  /** Teint (optionnel, plus mis en avant dans l'UI d'essayage). */
+  skinTone: z.nativeEnum(SkinTone).optional(),
   prompt: z.string().max(300).optional(),
-  /** Avatar du vendeur : le défilé prend son sexe/teint/coiffure. */
+  /** Avatar du vendeur (optionnel) : reprend son sexe/teint/coiffure. */
   avatarAssetId: z.string().optional(),
 });
 

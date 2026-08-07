@@ -67,6 +67,12 @@ export class AiController {
     return this.aiService.generateTryOn(userId, input);
   }
 
+  /** Dernier essayage sauvegardé pour un produit (persistance de la vue). */
+  @Get('tryon/last')
+  getLastTryOn(@CurrentUser('id') userId: string, @Query('productId') productId: string) {
+    return this.aiService.getLastTryOn(userId, productId);
+  }
+
   @Post('ad-copy')
   generateAdCopy(
     @CurrentUser('id') userId: string,

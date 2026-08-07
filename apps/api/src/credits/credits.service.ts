@@ -5,7 +5,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma, SubscriptionPlan } from '@prisma/client';
+import { Prisma, SubscriptionPlan, UserRole } from '@prisma/client';
 import { CREDIT_PACKS, PLAN_AI_CREDITS, getCreditPack } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupon/coupons.service';
@@ -43,6 +43,12 @@ export class CreditsService {
     return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
   }
 
+  /** L'administrateur n'est pas limité par les crédits (tests libres de la plateforme). */
+  private async isAdmin(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    return user?.role === UserRole.ADMIN;
+  }
+
   /** Renvoie le solde à jour (renouvelle le quota mensuel si un nouveau mois a commencé). */
   async getBalance(userId: string): Promise<CreditBalance> {
     const shop = await this.prisma.shop.findUnique({
@@ -52,6 +58,19 @@ export class CreditsService {
     if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
 
     const plan = shop.subscription?.plan ?? SubscriptionPlan.STARTER;
+
+    // Administrateur : crédits illimités pour tester librement la plateforme.
+    if (await this.isAdmin(userId)) {
+      return {
+        credits: 999_999,
+        monthly: 999_999,
+        extra: shop.aiCreditsExtra,
+        plan,
+        monthlyAllowance: 999_999,
+        renewedAt: shop.creditsRenewedAt,
+      };
+    }
+
     const allowance = PLAN_AI_CREDITS[plan] ?? PLAN_AI_CREDITS[SubscriptionPlan.STARTER];
     const now = new Date();
 
@@ -75,6 +94,7 @@ export class CreditsService {
   /** Vérifie que le solde couvre `amount` (403 sinon), SANS débiter. À appeler avant une génération payante. */
   async ensure(userId: string, amount: number): Promise<void> {
     if (amount <= 0) return;
+    if (await this.isAdmin(userId)) return; // admin non limité
     const balance = await this.getBalance(userId);
     if (balance.credits < amount) throw this.depletedError(balance);
   }
@@ -82,6 +102,7 @@ export class CreditsService {
   /** Débite `amount` crédits (mensuel d'abord, puis achetés), ou lève une 403 si insuffisant. */
   async consume(userId: string, amount: number): Promise<number> {
     if (amount <= 0) return (await this.getBalance(userId)).credits;
+    if (await this.isAdmin(userId)) return 999_999; // admin : aucun débit
     const balance = await this.getBalance(userId);
     if (balance.credits < amount) throw this.depletedError(balance);
 

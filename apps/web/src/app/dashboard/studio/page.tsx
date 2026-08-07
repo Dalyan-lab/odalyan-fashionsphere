@@ -72,7 +72,9 @@ export default function StudioPage() {
   }, [t, loadAssets]);
 
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
-  const images = assets.filter((a) => a.url);
+  // Les vues d'essayage (kind='tryon') restent sur la page Essayage et ne
+  // surchargent pas la galerie Studio — elles arrivent ici via « Attacher au produit ».
+  const images = assets.filter((a) => a.url && (a.meta as { kind?: string } | null)?.kind !== 'tryon');
   const copies = assets.filter((a) => a.type === 'AD_COPY');
   const simulatedCount = assets.filter((a) => a.provider === 'mock').length;
 

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AvatarSex, SkinTone, TRYON_ANGLES, type TryOnResult } from '@odalyan/shared';
+import { AvatarSex, BodyType, TRYON_ANGLES, TRYON_SIZES, type TryOnResult } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { AvatarPicker } from '@/components/dashboard/avatar-picker';
+import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 import { Icon } from '@/components/dashboard/icons';
 
@@ -18,7 +19,8 @@ export default function TryOnPage() {
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
   const [avatarSex, setAvatarSex] = useState<AvatarSex>(AvatarSex.FEMME);
-  const [skinTone, setSkinTone] = useState<SkinTone>(SkinTone.METISSE);
+  const [bodyType, setBodyType] = useState<BodyType>(BodyType.NORMALE);
+  const [size, setSize] = useState<(typeof TRYON_SIZES)[number]>('M');
   const [avatarAssetId, setAvatarAssetId] = useState('');
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,20 @@ export default function TryOnPage() {
       .catch(() => setNoShop(true));
   }, []);
 
+  // Persistance : recharge le dernier essayage sauvegardé quand on (re)vient sur un produit.
+  useEffect(() => {
+    if (!productId) return;
+    let cancelled = false;
+    apiFetch<TryOnResult | null>(`/ai/tryon/last?productId=${productId}`)
+      .then((r) => {
+        if (!cancelled) setResult(r ?? null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
   const tryOn = async () => {
     if (!productId) {
       setError(t('tryon.selectProduct'));
@@ -44,7 +60,7 @@ export default function TryOnPage() {
     try {
       const res = await apiFetch<TryOnResult>('/ai/tryon', {
         method: 'POST',
-        body: JSON.stringify({ productId, avatarSex, skinTone, avatarAssetId: avatarAssetId || undefined }),
+        body: JSON.stringify({ productId, avatarSex, bodyType, size, avatarAssetId: avatarAssetId || undefined }),
       });
       setResult(res);
     } catch (err) {
@@ -101,16 +117,30 @@ export default function TryOnPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="label">{t('tryon.skinTone')}</label>
-                <select className="input" value={skinTone} onChange={(e) => setSkinTone(e.target.value as SkinTone)}>
-                  {Object.values(SkinTone).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">{t('tryon.shape')}</label>
+                  <select className="input" value={bodyType} onChange={(e) => setBodyType(e.target.value as BodyType)}>
+                    {Object.values(BodyType).map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">{t('tryon.size')}</label>
+                  <select className="input" value={size} onChange={(e) => setSize(e.target.value as (typeof TRYON_SIZES)[number])}>
+                    {TRYON_SIZES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
+              <p className="text-[10px] text-faint">{t('tryon.shapeHint')}</p>
 
-              <AvatarPicker value={avatarAssetId} onChange={setAvatarAssetId} />
+              <div>
+                <p className="label">{t('tryon.avatarOptional')}</p>
+                <AvatarPicker value={avatarAssetId} onChange={setAvatarAssetId} />
+              </div>
 
               {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
@@ -129,9 +159,10 @@ export default function TryOnPage() {
                 </div>
               ) : result ? (
                 <>
-                  <p className="mb-3 text-sm text-muted">
+                  <p className="mb-1 text-sm text-muted">
                     {t('tryon.renderOf')} <span className="font-semibold text-content">{result.productName}</span> — {result.views.length} {t('tryon.angles')}
                   </p>
+                  <p className="mb-3 text-xs text-brand-violet">💡 {t('tryon.validateHint')}</p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {result.views.map((v) => (
                       <div key={v.angle} className="card overflow-hidden">
@@ -144,6 +175,9 @@ export default function TryOnPage() {
                           title={t('stu.zoomHint')}
                         />
                         <p className="bg-surface-2 py-1 text-center text-[11px] font-medium">{v.angle}</p>
+                        <div className="p-1.5">
+                          <AttachToProduct url={v.url} kind="image" />
+                        </div>
                       </div>
                     ))}
                   </div>
