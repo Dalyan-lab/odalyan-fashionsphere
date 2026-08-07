@@ -479,6 +479,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'defile.videoWait': 'Cela peut prendre 1 à 3 minutes. Laisse cette page ouverte.',
     'defile.videoTag': 'Vidéo défilé',
     'defile.videoFailed': 'La génération vidéo a échoué. Réessaie dans un instant.',
+    'defile.regenViews': 'Régénérer les vues (diaporama)',
+    'defile.regenHint': 'Optionnel : recrée les 4 angles. La vidéo, elle, réutilise directement le produit.',
+    'defile.reuseEssayage': 'Réutilise ton essayage déjà généré pour ce produit.',
+    'defile.reuseProduct': 'Anime directement la photo du produit sélectionné.',
     'defile.see3d': '🧊 Voir aussi en 3D interactif (option secondaire) →',
     // Avatars
     'common.generating': 'Génération…',
@@ -1044,6 +1048,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'defile.videoWait': 'This can take 1–3 minutes. Keep this page open.',
     'defile.videoTag': 'Runway video',
     'defile.videoFailed': 'Video generation failed. Please try again shortly.',
+    'defile.regenViews': 'Regenerate views (slideshow)',
+    'defile.regenHint': 'Optional: recreates the 4 angles. The video reuses the product directly.',
+    'defile.reuseEssayage': 'Reuses your existing try-on for this product.',
+    'defile.reuseProduct': 'Animates the selected product photo directly.',
     'defile.see3d': '🧊 Also view in interactive 3D (secondary option) →',
     // Avatars
     'common.generating': 'Generating…',

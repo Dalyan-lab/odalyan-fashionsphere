@@ -54,6 +54,25 @@ export default function DefilePage() {
       .catch(() => setNoShop(true));
   }, []);
 
+  // Réutilise directement l'essayage déjà généré pour ce produit (pas de re-génération).
+  useEffect(() => {
+    if (!productId) return;
+    let cancelled = false;
+    apiFetch<TryOnResult | null>(`/ai/tryon/last?productId=${productId}`)
+      .then((r) => {
+        if (cancelled) return;
+        setViews(r?.views ?? []);
+        setProductName(r?.productName ?? '');
+        setIdx(0);
+        setVideo(null);
+        setVideoError('');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
   // Boucle d'animation du défilé
   useEffect(() => {
     if (timer.current) clearInterval(timer.current);
@@ -90,7 +109,9 @@ export default function DefilePage() {
   };
 
   type VideoAsset = { id: string; status: string; url?: string | null };
-  const faceUrl = views[0]?.url;
+  // On anime la vue Face de l'essayage si elle existe, sinon directement la photo produit.
+  const productImg = products.find((p) => p.id === productId)?.images[0];
+  const faceUrl = views[0]?.url ?? productImg;
 
   const pollVideo = (id: string) => {
     pollRef.current = setTimeout(async () => {
@@ -250,15 +271,24 @@ export default function DefilePage() {
 
                 {error && <p className="mt-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
-                <button onClick={generate} disabled={loading || products.length === 0} className="btn-primary mt-4 w-full">
-                  {loading ? t('defile.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('dh.runway.launch')}</>}
+                <button
+                  onClick={generate}
+                  disabled={loading || products.length === 0}
+                  className="mt-4 w-full rounded-xl border border-border py-2.5 text-sm font-medium text-muted transition hover:border-brand-violet disabled:opacity-50"
+                >
+                  {loading ? t('defile.generating') : <>🔄 {t('defile.regenViews')}</>}
                 </button>
+                <p className="mt-1 text-[10px] text-faint">{t('defile.regenHint')}</p>
               </div>
 
-              {views.length > 0 && (
-                <div className="card p-5">
+              {/* Génération vidéo : action principale — réutilise l'essayage/le produit, pas de re-habillage. */}
+              {faceUrl && (
+                <div className="card border-brand-violet/40 p-5">
                   <h2 className="mb-1 font-bold">🎥 {t('defile.videoTitle')}</h2>
-                  <p className="mb-3 text-xs text-muted">{t('defile.videoDesc')}</p>
+                  <p className="mb-2 text-xs text-muted">{t('defile.videoDesc')}</p>
+                  <p className="mb-3 text-[11px] text-brand-violet">
+                    {views.length > 0 ? `♻️ ${t('defile.reuseEssayage')}` : `♻️ ${t('defile.reuseProduct')}`}
+                  </p>
                   <button
                     onClick={generateVideo}
                     disabled={videoLoading || !faceUrl}
