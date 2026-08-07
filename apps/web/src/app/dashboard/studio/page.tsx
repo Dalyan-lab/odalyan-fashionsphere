@@ -11,6 +11,7 @@ import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
 import { MannequinForm, AdCopyForm } from '@/components/dashboard/ai-studio-modal';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
+import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 
 interface GeneratedAsset {
   id: string;
@@ -70,6 +71,7 @@ export default function StudioPage() {
     }
   }, [t, loadAssets]);
 
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
   const images = assets.filter((a) => a.url);
   const copies = assets.filter((a) => a.type === 'AD_COPY');
   const simulatedCount = assets.filter((a) => a.provider === 'mock').length;
@@ -148,7 +150,10 @@ export default function StudioPage() {
                         {images.map((a) => (
                           <div key={a.id} className="card group relative overflow-hidden">
                             <button
-                              onClick={() => deleteAsset(a.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteAsset(a.id);
+                              }}
                               className="absolute right-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
                               title={t('stu.delete')}
                               aria-label={t('stu.delete')}
@@ -156,7 +161,13 @@ export default function StudioPage() {
                               ✕
                             </button>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
+                            <img
+                              src={a.url!}
+                              alt=""
+                              className="aspect-[3/4] w-full cursor-zoom-in object-cover transition hover:opacity-90"
+                              onClick={() => setZoomUrl(a.url!)}
+                              title={t('stu.zoomHint')}
+                            />
                             <div className="space-y-1 p-2">
                               {(() => {
                                 const m = a.meta as { tryOnMode?: string; tryOnError?: string | null } | null;
@@ -232,6 +243,7 @@ export default function StudioPage() {
           </div>
         )}
       </div>
+      {zoomUrl && <ImageLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} />}
     </>
   );
 }

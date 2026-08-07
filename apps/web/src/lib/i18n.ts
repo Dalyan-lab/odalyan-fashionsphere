@@ -427,6 +427,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.purgeConfirm': 'Supprimer toutes les images de démo (simulé) ? Les vraies générations (Replicate) sont conservées.',
     'stu.mode2img': 'Essayage 2-images',
     'stu.modeFallback': 'Avatar rhabillé',
+    'stu.zoomHint': 'Cliquer pour agrandir',
     // Publications
     'pub.subtitle': 'Connectez vos réseaux et programmez vos publications.',
     'pub.connected': 'Comptes connectés',
@@ -978,6 +979,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.purgeConfirm': 'Delete all demo (simulated) images? Real generations (Replicate) are kept.',
     'stu.mode2img': '2-image try-on',
     'stu.modeFallback': 'Avatar re-dressed',
+    'stu.zoomHint': 'Click to enlarge',
     // Publications
     'pub.subtitle': 'Connect your networks and schedule your posts.',
     'pub.connected': 'Connected accounts',
