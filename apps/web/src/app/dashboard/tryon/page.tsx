@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AvatarSex, SkinTone, type TryOnResult } from '@odalyan/shared';
+import { AvatarSex, SkinTone, TRYON_ANGLES, type TryOnResult } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
@@ -122,9 +122,9 @@ export default function TryOnPage() {
             {/* Résultat */}
             <div>
               {loading ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div key={i} className="aspect-[3/5] animate-pulse rounded-xl bg-surface-2" />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {TRYON_ANGLES.map((a) => (
+                    <div key={a} className="aspect-[3/5] animate-pulse rounded-xl bg-surface-2" />
                   ))}
                 </div>
               ) : result ? (
@@ -132,7 +132,7 @@ export default function TryOnPage() {
                   <p className="mb-3 text-sm text-muted">
                     {t('tryon.renderOf')} <span className="font-semibold text-content">{result.productName}</span> — {result.views.length} {t('tryon.angles')}
                   </p>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {result.views.map((v) => (
                       <div key={v.angle} className="card overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}

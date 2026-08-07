@@ -291,13 +291,25 @@ export class AiService {
     // Génération SÉQUENTIELLE (et non Promise.all) : 5 requêtes simultanées font
     // saturer le débit Replicate (429) → repli sur des images sans rapport. En série,
     // chaque angle aboutit vraiment.
+    // Formulation d'angle claire pour le modèle (le libellé sert aussi de tag UI).
+    const ANGLE_PROMPT: Record<string, string> = {
+      Face: 'de face',
+      'Côté gauche': 'de profil, côté gauche',
+      Dos: 'de dos',
+      'Côté droit': 'de profil, côté droit',
+    };
+
     const views: { angle: string; url: string; provider: string }[] = [];
     let realCount = 0;
     for (const angle of TRYON_ANGLES) {
       const prompt =
         `Essayage virtuel : mannequin ${sex}, teint ${skinTone}${bodyType}${hairstyle}, ` +
-        `portant "${product.name}", vue ${angle}${extra}, rendu studio réaliste, plein corps, 8k` +
-        (productImage ? ', en conservant fidèlement le produit' : '');
+        `portant "${product.name}", vue ${ANGLE_PROMPT[angle] ?? angle}${extra}, rendu studio réaliste, plein corps, 8k` +
+        (productImage
+          ? ', en reproduisant EXACTEMENT le vêtement de la photo : même TYPE de vêtement ' +
+            '(si c’est une robe, garder une robe — ne pas la transformer en pantalon/combinaison), ' +
+            'même coupe, mêmes couleurs et mêmes motifs'
+          : '');
       const res = productImage
         ? await this.imageProvider.generateFromImage(prompt, productImage, sex)
         : await this.imageProvider.generate(prompt, sex);

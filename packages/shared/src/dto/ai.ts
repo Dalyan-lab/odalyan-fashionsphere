@@ -69,7 +69,7 @@ export const generateMannequinSchema = z.object({
   garmentCategory: z.enum(['upper_body', 'lower_body', 'dresses']).optional(),
 });
 
-export const TRYON_ANGLES = ['Face', '45° gauche', 'Profil', '45° droite', 'Dos'] as const;
+export const TRYON_ANGLES = ['Face', 'Côté gauche', 'Dos', 'Côté droit'] as const;
 
 export const generateTryOnSchema = z.object({
   productId: z.string().min(1, 'Produit requis'),
