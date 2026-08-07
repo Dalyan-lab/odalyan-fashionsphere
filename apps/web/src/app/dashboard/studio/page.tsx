@@ -159,12 +159,26 @@ export default function StudioPage() {
                             <img src={a.url!} alt="" className="aspect-[3/4] w-full object-cover" />
                             <div className="space-y-1 p-2">
                               {(() => {
-                                const mode = (a.meta as { tryOnMode?: string } | null)?.tryOnMode;
-                                if (mode === '2img')
-                                  return <p className="text-[10px] font-medium text-emerald-400">👗 {t('stu.mode2img')}</p>;
-                                if (mode === 'fallback-kontext')
-                                  return <p className="text-[10px] font-medium text-amber-400">🎨 {t('stu.modeFallback')}</p>;
-                                return null;
+                                const m = a.meta as { tryOnMode?: string; tryOnError?: string | null } | null;
+                                const mode = m?.tryOnMode;
+                                return (
+                                  <>
+                                    {mode === '2img' && (
+                                      <p className="text-[10px] font-medium text-emerald-400">👗 {t('stu.mode2img')}</p>
+                                    )}
+                                    {mode === 'fallback-kontext' && (
+                                      <p className="text-[10px] font-medium text-amber-400">🎨 {t('stu.modeFallback')}</p>
+                                    )}
+                                    {m?.tryOnError && (
+                                      <p
+                                        className="break-words text-[9px] leading-tight text-red-400"
+                                        title={m.tryOnError}
+                                      >
+                                        ⚠ {m.tryOnError.slice(0, 140)}
+                                      </p>
+                                    )}
+                                  </>
+                                );
                               })()}
                               <p className="text-[10px] text-faint">
                                 {a.provider === 'mock' ? t('common.simulated') : `✨ ${a.provider}`} ·{' '}
