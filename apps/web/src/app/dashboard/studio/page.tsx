@@ -87,11 +87,20 @@ export default function StudioPage() {
   }, [t, loadAssets]);
 
   const [zoomUrl, setZoomUrl] = useState<string | null>(null);
-  // Les vues d'essayage (kind='tryon') restent sur la page Essayage et ne
-  // surchargent pas la galerie Studio — elles arrivent ici via « Attacher au produit ».
-  const images = assets.filter((a) => a.url && (a.meta as { kind?: string } | null)?.kind !== 'tryon');
+  // La galerie Studio n'affiche QUE des images :
+  //  - pas les vidéos (kind='video' / .mp4…) — sinon elles s'affichent « cassées » et
+  //    risqueraient d'être supprimées par erreur (elles vivent dans « Mes vidéos générées ») ;
+  //  - pas les vues d'essayage (kind='tryon') — elles restent sur la page Essayage.
+  const isVideoAsset = (a: GeneratedAsset) => {
+    const kind = (a.meta as { kind?: string } | null)?.kind;
+    return kind === 'video' || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(a.url ?? '');
+  };
+  const images = assets.filter((a) => {
+    const kind = (a.meta as { kind?: string } | null)?.kind;
+    return a.url && kind !== 'tryon' && !isVideoAsset(a);
+  });
   const copies = assets.filter((a) => a.type === 'AD_COPY');
-  const simulatedCount = assets.filter((a) => a.provider === 'mock').length;
+  const simulatedCount = assets.filter((a) => a.provider === 'mock' && !isVideoAsset(a)).length;
 
   return (
     <>
