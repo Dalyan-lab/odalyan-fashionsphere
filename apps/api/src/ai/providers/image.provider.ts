@@ -112,12 +112,13 @@ export class ImageProvider {
     category = 'upper_body',
   ): Promise<ImageResult> {
     if (this.replicateEnabled) {
-      const { url, error } = await this.replicateRun(REPLICATE_TRYON_MODEL(), {
-        human_img: humanUrl,
-        garm_img: garmentUrl,
-        garment_des: description,
-        category,
-      });
+      // idm-vton est un modèle COMMUNAUTAIRE → appel via /v1/predictions + hash de version
+      // (l'endpoint models/{owner}/{name}/predictions ne marche que pour les modèles officiels → 404).
+      const { url, error } = await this.replicateRun(
+        REPLICATE_TRYON_MODEL(),
+        { human_img: humanUrl, garm_img: garmentUrl, garment_des: description, category },
+        { versioned: true },
+      );
       if (url) return { url, provider: 'replicate' };
       return { ...this.mock('Femme'), error: error ?? undefined };
     }
@@ -125,6 +126,29 @@ export class ImageProvider {
   }
 
   // ---------------------------------------------------------------- Replicate
+
+  /** Résout le hash de la dernière version d'un modèle communautaire (mis en cache). */
+  private versionCache = new Map<string, string>();
+  private async resolveLatestVersion(model: string): Promise<string | null> {
+    const cached = this.versionCache.get(model);
+    if (cached) return cached;
+    try {
+      const res = await fetch(`https://api.replicate.com/v1/models/${model}`, {
+        headers: { Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+      });
+      if (!res.ok) {
+        this.logger.error(`Replicate resolveVersion ${model} (${res.status})`);
+        return null;
+      }
+      const data = (await res.json()) as { latest_version?: { id?: string } };
+      const id = data.latest_version?.id ?? null;
+      if (id) this.versionCache.set(model, id);
+      return id;
+    } catch (err) {
+      this.logger.error(`Replicate resolveVersion ${model}: ${String(err)}`);
+      return null;
+    }
+  }
 
   /**
    * Exécute un modèle Replicate. On lance avec `Prefer: wait` (jusqu'à 60 s) puis,
@@ -135,21 +159,38 @@ export class ImageProvider {
   private async replicateRun(
     model: string,
     input: Record<string, unknown>,
+    opts: { versioned?: boolean } = {},
   ): Promise<{ url: string | null; error: string | null }> {
     try {
-      const res = await fetch(`https://api.replicate.com/v1/models/${model}/predictions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-          'Content-Type': 'application/json',
-          Prefer: 'wait',
-        },
-        body: JSON.stringify({ input }),
-      });
-      if (!res.ok) {
-        const body = (await res.text().catch(() => '')).slice(0, 300);
-        this.logger.error(`Replicate ${model} a échoué (${res.status}): ${body}`);
-        return { url: null, error: `HTTP ${res.status}: ${body}` };
+      // Endpoint : officiel = /models/{owner}/{name}/predictions ; communautaire = /predictions + version.
+      let endpoint = `https://api.replicate.com/v1/models/${model}/predictions`;
+      let payload: Record<string, unknown> = { input };
+      if (opts.versioned) {
+        const version = await this.resolveLatestVersion(model);
+        if (!version) return { url: null, error: `version introuvable pour ${model}` };
+        endpoint = 'https://api.replicate.com/v1/predictions';
+        payload = { version, input };
+      }
+
+      // POST avec petit retry sur le 429 (débit Replicate).
+      let res: Response | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+            'Content-Type': 'application/json',
+            Prefer: 'wait',
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.status !== 429) break;
+        await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)));
+      }
+      if (!res || !res.ok) {
+        const body = res ? (await res.text().catch(() => '')).slice(0, 300) : 'no response';
+        this.logger.error(`Replicate ${model} a échoué (${res?.status}): ${body}`);
+        return { url: null, error: `HTTP ${res?.status}: ${body}` };
       }
       let data = (await res.json()) as {
         id?: string;
