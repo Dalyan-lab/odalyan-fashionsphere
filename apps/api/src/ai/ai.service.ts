@@ -292,11 +292,13 @@ export class AiService {
     // saturer le débit Replicate (429) → repli sur des images sans rapport. En série,
     // chaque angle aboutit vraiment.
     // Formulation d'angle claire pour le modèle (le libellé sert aussi de tag UI).
+    // Directions explicites et OPPOSÉES pour les deux profils (sinon le modèle
+    // produit deux vues identiques).
     const ANGLE_PROMPT: Record<string, string> = {
-      Face: 'de face',
-      'Côté gauche': 'de profil, côté gauche',
-      Dos: 'de dos',
-      'Côté droit': 'de profil, côté droit',
+      Face: 'de face, regardant l’objectif',
+      'Côté gauche': 'de profil gauche : la femme est tournée vers la GAUCHE de l’image (on voit le côté gauche de son corps)',
+      Dos: 'de dos, tournant complètement le dos à l’objectif',
+      'Côté droit': 'de profil droit : la femme est tournée vers la DROITE de l’image (on voit le côté droit de son corps)',
     };
 
     const views: { angle: string; url: string; provider: string }[] = [];
