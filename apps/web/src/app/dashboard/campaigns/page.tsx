@@ -11,6 +11,7 @@ import { Icon } from '@/components/dashboard/icons';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
 import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
 import { VoiceoverButton } from '@/components/dashboard/voiceover-button';
+import { VideoGallery } from '@/components/dashboard/video-gallery';
 
 const ALL_NETWORKS = Object.values(SocialNetwork);
 
@@ -172,7 +173,7 @@ export default function CampaignsPage() {
             {/* Résultat */}
             <div className="space-y-6">
               {campaign ? (
-                <CampaignKit campaign={campaign} />
+                <CampaignKit campaign={campaign} productId={productId} />
               ) : (
                 <div className="card grid min-h-[300px] place-items-center p-10 text-center text-muted">
                   <div>
@@ -209,7 +210,7 @@ export default function CampaignsPage() {
   );
 }
 
-function CampaignKit({ campaign }: { campaign: CampaignResult }) {
+function CampaignKit({ campaign, productId }: { campaign: CampaignResult; productId?: string }) {
   const t = useT();
   const [scheduledAt, setScheduledAt] = useState('');
   const [pubNets, setPubNets] = useState<string[]>(campaign.posts.map((p) => p.network));
@@ -218,6 +219,7 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
   const [publishing, setPublishing] = useState(false);
   // Vidéo générée par le bloc « Animer » ci-dessous : jointe à la publication (TikTok, Reels…).
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videosRefresh, setVideosRefresh] = useState(0);
 
   const copy = (text: string) => navigator.clipboard?.writeText(text);
   const togglePub = (n: string) => setPubNets((prev) => (prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n]));
@@ -281,7 +283,15 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
       </div>
 
       {/* Animer le visuel en vidéo (image → vidéo) */}
-      <CampaignVideo campaign={campaign} onVideoReady={setVideoUrl} />
+      <CampaignVideo
+        campaign={campaign}
+        productId={productId}
+        onVideoReady={setVideoUrl}
+        onSaved={() => setVideosRefresh((n) => n + 1)}
+      />
+
+      {/* Vidéos déjà générées (persistées) : la vidéo ne se perd plus en changeant de page */}
+      <VideoGallery refreshKey={videosRefresh} />
 
       {/* Légendes par réseau */}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -350,16 +360,38 @@ function CampaignKit({ campaign }: { campaign: CampaignResult }) {
  */
 function CampaignVideo({
   campaign,
+  productId,
   onVideoReady,
+  onSaved,
 }: {
   campaign: CampaignResult;
+  productId?: string;
   onVideoReady?: (url: string | null) => void;
+  onSaved?: () => void;
 }) {
   const t = useT();
   const [asset, setAsset] = useState<VideoAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Restaure la dernière vidéo générée pour cette campagne (même visuel) → elle ne
+  // « disparaît » plus en changeant de page.
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<VideoAsset[]>('/ai/videos')
+      .then((list) => {
+        if (cancelled) return;
+        const match = list.find(
+          (v) => v.status === 'READY' && v.url && v.meta?.imageUrl && v.meta.imageUrl === campaign.imageUrl,
+        );
+        if (match) setAsset(match);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign.id, campaign.imageUrl]);
 
   useEffect(() => {
     if (poll.current) clearInterval(poll.current);
@@ -368,7 +400,10 @@ function CampaignVideo({
         try {
           const up = await apiFetch<VideoAsset>(`/ai/video/${asset.id}`);
           setAsset(up);
-          if (up.status !== 'PENDING' && poll.current) clearInterval(poll.current);
+          if (up.status !== 'PENDING' && poll.current) {
+            clearInterval(poll.current);
+            if (up.status === 'READY') onSaved?.();
+          }
         } catch {
           /* ignore */
         }
@@ -377,7 +412,7 @@ function CampaignVideo({
     return () => {
       if (poll.current) clearInterval(poll.current);
     };
-  }, [asset?.status, asset?.id]);
+  }, [asset?.status, asset?.id, onSaved]);
 
   // Remonte l'URL vers CampaignKit dès que la vidéo réelle est prête (ignore le mode simulé sans URL).
   useEffect(() => {
@@ -396,6 +431,7 @@ function CampaignVideo({
         method: 'POST',
         body: JSON.stringify({
           providerId,
+          productId: productId || undefined,
           productName: campaign.productName,
           imageUrl: campaign.imageUrl,
           prompt: t('camp.videoPrompt'),
@@ -462,6 +498,7 @@ function CampaignVideo({
                 productName={campaign.productName}
                 onDone={(created) => {
                   if (created) setAsset(created);
+                  onSaved?.();
                 }}
               />
             )}
