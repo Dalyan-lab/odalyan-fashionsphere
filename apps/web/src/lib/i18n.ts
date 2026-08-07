@@ -434,6 +434,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.mode2img': 'Essayage 2-images',
     'stu.modeFallback': 'Avatar rhabillé',
     'stu.zoomHint': 'Cliquer pour agrandir',
+    'stu.imgUnavailable': 'Image indisponible (lien expiré)',
+    'stu.brokenClean': 'Supprimer les images indisponibles',
+    'stu.brokenHint': 'Supprime uniquement les vignettes cassées (lien expiré). Ne touche ni vos vidéos ni vos campagnes.',
+    'stu.brokenConfirm': 'Supprimer {n} image(s) indisponible(s) ? Cela ne supprime que ces vignettes cassées.',
     // Publications
     'pub.subtitle': 'Connectez vos réseaux et programmez vos publications.',
     'pub.connected': 'Comptes connectés',
@@ -1022,6 +1026,10 @@ const DICT: Record<Lang, Record<string, string>> = {
     'stu.mode2img': '2-image try-on',
     'stu.modeFallback': 'Avatar re-dressed',
     'stu.zoomHint': 'Click to enlarge',
+    'stu.imgUnavailable': 'Image unavailable (expired link)',
+    'stu.brokenClean': 'Delete unavailable images',
+    'stu.brokenHint': 'Removes only the broken thumbnails (expired link). Does not touch your videos or campaigns.',
+    'stu.brokenConfirm': 'Delete {n} unavailable image(s)? This only removes these broken thumbnails.',
     // Publications
     'pub.subtitle': 'Connect your networks and schedule your posts.',
     'pub.connected': 'Connected accounts',

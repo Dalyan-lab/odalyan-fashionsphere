@@ -49,10 +49,16 @@ export default function StudioPage() {
     loadAssets();
   }, [loadAssets]);
 
+  // Images dont l'URL ne charge plus (lien expiré) : marquées puis supprimables en lot.
+  const [broken, setBroken] = useState<Set<string>>(new Set());
+  const markBroken = useCallback((id: string) => {
+    setBroken((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
   const deleteAsset = useCallback(
-    async (id: string) => {
-      if (!window.confirm(t('stu.deleteConfirm'))) return;
-      setAssets((prev) => prev.filter((a) => a.id !== id)); // optimiste
+    async (id: string, skipConfirm = false) => {
+      if (!skipConfirm && !window.confirm(t('stu.deleteConfirm'))) return;
+      setAssets((prev) => prev.filter((a) => a.id !== id)); // optimiste (ne touche QUE cet élément)
       try {
         await apiFetch(`/ai/assets/${id}`, { method: 'DELETE' });
       } catch {
@@ -61,6 +67,15 @@ export default function StudioPage() {
     },
     [t, loadAssets],
   );
+
+  const deleteBroken = useCallback(async () => {
+    const ids = [...broken];
+    if (ids.length === 0) return;
+    if (!window.confirm(t('stu.brokenConfirm').replace('{n}', String(ids.length)))) return;
+    setAssets((prev) => prev.filter((a) => !broken.has(a.id)));
+    setBroken(new Set());
+    await Promise.all(ids.map((id) => apiFetch(`/ai/assets/${id}`, { method: 'DELETE' }).catch(() => undefined)));
+  }, [broken, t]);
 
   const purgeSimulated = useCallback(async () => {
     if (!window.confirm(t('stu.purgeConfirm'))) return;
@@ -127,15 +142,26 @@ export default function StudioPage() {
             <div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-bold">{t('stu.gallery')} ({assets.length})</h2>
-                {simulatedCount > 0 && (
-                  <button
-                    onClick={purgeSimulated}
-                    className="rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
-                    title={t('stu.purgeHint')}
-                  >
-                    🧹 {t('stu.purgeSimulated')} ({simulatedCount})
-                  </button>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {broken.size > 0 && (
+                    <button
+                      onClick={deleteBroken}
+                      className="rounded-lg border border-amber-400/50 px-3 py-1.5 text-xs font-medium text-amber-400 transition hover:bg-amber-500/10"
+                      title={t('stu.brokenHint')}
+                    >
+                      🧹 {t('stu.brokenClean')} ({broken.size})
+                    </button>
+                  )}
+                  {simulatedCount > 0 && (
+                    <button
+                      onClick={purgeSimulated}
+                      className="rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10"
+                      title={t('stu.purgeHint')}
+                    >
+                      🧹 {t('stu.purgeSimulated')} ({simulatedCount})
+                    </button>
+                  )}
+                </div>
               </div>
               {loading ? (
                 <p className="text-muted">{t('common.loading')}</p>
@@ -149,27 +175,45 @@ export default function StudioPage() {
                     <div>
                       <p className="label">{t('stu.images')}</p>
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                        {images.map((a) => (
+                        {images.map((a) => {
+                          const isBroken = broken.has(a.id);
+                          return (
                           <div key={a.id} className="card group relative overflow-hidden">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deleteAsset(a.id);
                               }}
-                              className="absolute right-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
+                              className={`absolute right-1.5 top-1.5 z-10 grid h-7 w-7 place-items-center rounded-full bg-black/60 text-white transition hover:bg-red-600 ${isBroken ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                               title={t('stu.delete')}
                               aria-label={t('stu.delete')}
                             >
                               ✕
                             </button>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={a.url!}
-                              alt=""
-                              className="aspect-[3/4] w-full cursor-zoom-in object-cover transition hover:opacity-90"
-                              onClick={() => setZoomUrl(a.url!)}
-                              title={t('stu.zoomHint')}
-                            />
+                            {isBroken ? (
+                              <div className="grid aspect-[3/4] w-full place-items-center bg-surface-2 p-3 text-center">
+                                <div>
+                                  <p className="text-2xl">🖼️</p>
+                                  <p className="mt-1 text-[11px] text-amber-400">{t('stu.imgUnavailable')}</p>
+                                  <button
+                                    onClick={() => deleteAsset(a.id, true)}
+                                    className="mt-2 rounded-lg border border-red-400/50 px-2 py-1 text-[10px] text-red-400 hover:bg-red-500/10"
+                                  >
+                                    ✕ {t('stu.delete')}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={a.url!}
+                                alt=""
+                                className="aspect-[3/4] w-full cursor-zoom-in object-cover transition hover:opacity-90"
+                                onClick={() => setZoomUrl(a.url!)}
+                                onError={() => markBroken(a.id)}
+                                title={t('stu.zoomHint')}
+                              />
+                            )}
                             <div className="space-y-1 p-2">
                               {(() => {
                                 const m = a.meta as { tryOnMode?: string; tryOnError?: string | null } | null;
@@ -200,7 +244,8 @@ export default function StudioPage() {
                               <AttachToProduct url={a.url!} kind="image" />
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
