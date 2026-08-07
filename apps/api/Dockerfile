@@ -4,10 +4,10 @@
 FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-# openssl requis par le moteur Prisma
+# openssl requis par Prisma ; ffmpeg requis pour le montage audio (voix off sur vidéo)
 RUN corepack enable \
  && apt-get update -y \
- && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && apt-get install -y --no-install-recommends openssl ca-certificates ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 

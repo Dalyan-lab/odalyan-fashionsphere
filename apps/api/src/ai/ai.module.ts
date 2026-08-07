@@ -3,6 +3,7 @@ import { ShopModule } from '../shop/shop.module';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { ImageProvider } from './providers/image.provider';
+import { AudioProvider } from './providers/audio.provider';
 import { TextProvider } from './providers/text.provider';
 import { HeyGenProvider } from './providers/video/heygen.provider';
 import { RunwayProvider } from './providers/video/runway.provider';
@@ -16,6 +17,7 @@ import { VideoRegistry } from './providers/video/video.registry';
   providers: [
     AiService,
     ImageProvider,
+    AudioProvider,
     TextProvider,
     HeyGenProvider,
     RunwayProvider,

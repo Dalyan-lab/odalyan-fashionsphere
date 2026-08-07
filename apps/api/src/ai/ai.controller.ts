@@ -1,12 +1,14 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   UserRole,
+  addVoiceoverSchema,
   generateAdCopySchema,
   generateAvatarSchema,
   generateCampaignSchema,
   generateMannequinSchema,
   generateTryOnSchema,
   generateVideoSchema,
+  type AddVoiceoverInput,
   type GenerateAdCopyInput,
   type GenerateAvatarInput,
   type GenerateCampaignInput,
@@ -103,6 +105,16 @@ export class AiController {
   @Get('video/:id')
   getVideoStatus(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.aiService.getVideoStatus(userId, id);
+  }
+
+  /** Ajoute une voix off publicitaire (TTS + montage) sur une vidéo → nouvelle vidéo. */
+  @Post('video/:id/voiceover')
+  addVoiceover(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(addVoiceoverSchema)) input: AddVoiceoverInput,
+  ) {
+    return this.aiService.addVoiceover(userId, id, input);
   }
 
   @Post('campaign')

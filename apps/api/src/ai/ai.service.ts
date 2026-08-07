@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { GeneratedAssetStatus, GeneratedAssetType, Prisma } from '@prisma/client';
 import {
@@ -14,13 +15,16 @@ import {
   type TryOnResult,
   type TryOnView,
 } from '@odalyan/shared';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { VideoRegistry } from './providers/video/video.registry';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
 import { CreditsService } from '../credits/credits.service';
 import { ImageProvider, type ImageResult } from './providers/image.provider';
 import { TextProvider } from './providers/text.provider';
+import { AudioProvider } from './providers/audio.provider';
+import { muxAudioOnVideo } from './providers/media.util';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class AiService {
@@ -30,6 +34,8 @@ export class AiService {
     private readonly credits: CreditsService,
     private readonly imageProvider: ImageProvider,
     private readonly textProvider: TextProvider,
+    private readonly audioProvider: AudioProvider,
+    private readonly storage: StorageService,
     private readonly videoRegistry: VideoRegistry,
   ) {}
 
@@ -185,6 +191,74 @@ export class AiService {
           : a,
       ),
     );
+  }
+
+  /**
+   * Ajoute une VOIX OFF publicitaire sur une vidéo existante : TTS du script
+   * (généré si absent) puis montage audio (ffmpeg). Crée une NOUVELLE vidéo
+   * (l'originale reste intacte). Renvoie la nouvelle vidéo.
+   */
+  async addVoiceover(
+    userId: string,
+    videoId: string,
+    opts: { script?: string; language?: string; voice?: string },
+  ) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const source = await this.prisma.generatedAsset.findFirst({ where: { id: videoId, shopId: shop.id } });
+    if (!source || !source.url) throw new NotFoundException('Vidéo introuvable');
+    if (!this.audioProvider.enabled) {
+      throw new BadRequestException('La voix off nécessite Replicate (REPLICATE_API_TOKEN).');
+    }
+    await this.credits.ensure(userId, AI_CREDIT_COSTS.video);
+
+    const meta = (source.meta ?? {}) as { productName?: string | null };
+    const language = opts.language ?? 'fr';
+
+    // Script : fourni, sinon généré à partir du produit (texte publicitaire parlé).
+    let script = opts.script?.trim();
+    if (!script) {
+      const gen = await this.textProvider.generateScript(meta.productName ?? 'ce produit', 'Luxe', language);
+      script = gen.script;
+    }
+    if (!script) throw new BadRequestException('Script de voix off vide.');
+
+    // 1) Synthèse vocale
+    const tts = await this.audioProvider.tts(script, language, opts.voice);
+    if (!tts.url) throw new BadRequestException(`Échec de la voix off : ${tts.error ?? 'inconnu'}`);
+
+    // 2) Montage audio sur la vidéo (ffmpeg) puis stockage R2
+    let finalUrl: string;
+    try {
+      const buffer = await muxAudioOnVideo(source.url, tts.url);
+      finalUrl = this.storage.enabled
+        ? await this.storage.save(buffer, `${randomUUID()}.mp4`, 'video/mp4', 'ai')
+        : source.url;
+    } catch (err) {
+      throw new BadRequestException(`Montage audio échoué : ${String(err).slice(0, 200)}`);
+    }
+
+    await this.credits.consume(userId, AI_CREDIT_COSTS.video);
+
+    return this.prisma.generatedAsset.create({
+      data: {
+        type: GeneratedAssetType.AD_VISUAL,
+        provider: source.provider,
+        prompt: source.prompt,
+        url: finalUrl,
+        status: GeneratedAssetStatus.READY,
+        meta: {
+          kind: 'video',
+          hasVoiceover: true,
+          voiceoverScript: script,
+          language,
+          sourceVideoId: source.id,
+          productName: meta.productName ?? null,
+        } as Prisma.InputJsonValue,
+        ownerId: userId,
+        shopId: shop.id,
+        productId: source.productId,
+      },
+    });
   }
 
   /** Génère des photos mannequin / studio à partir d'un produit ou d'un prompt. */

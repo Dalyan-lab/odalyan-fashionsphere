@@ -11,6 +11,7 @@ import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { AvatarPicker } from '@/components/dashboard/avatar-picker';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { VideoGallery, GenTimer } from '@/components/dashboard/video-gallery';
+import { VoiceoverButton } from '@/components/dashboard/voiceover-button';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
@@ -317,8 +318,13 @@ export default function DefilePage() {
                     <p className="mt-2 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{t('defile.videoFailed')}</p>
                   )}
                   {video?.status === 'READY' && video.url && (
-                    <div className="mt-3 border-t border-border pt-3">
+                    <div className="mt-3 space-y-2 border-t border-border pt-3">
                       <AttachToProduct url={video.url} kind="video" />
+                      <VoiceoverButton
+                        videoId={video.id}
+                        productName={productName}
+                        onDone={() => setVideosRefresh((n) => n + 1)}
+                      />
                     </div>
                   )}
                 </div>

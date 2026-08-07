@@ -117,6 +117,15 @@ export const generateVideoSchema = z.object({
 
 export type GenerateVideoInput = z.infer<typeof generateVideoSchema>;
 
+/** Ajout d'une voix off publicitaire (TTS) sur une vidéo existante. */
+export const addVoiceoverSchema = z.object({
+  script: z.string().max(800).optional(),
+  language: z.string().min(2).max(10).default('fr'),
+  voice: z.string().max(60).optional(),
+});
+
+export type AddVoiceoverInput = z.infer<typeof addVoiceoverSchema>;
+
 /** Option configurable d'un fournisseur vidéo (modèle, durée, ratio…). */
 export interface VideoProviderOption {
   key: string;

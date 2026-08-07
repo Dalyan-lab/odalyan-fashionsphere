@@ -11,6 +11,7 @@ import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { VideoGallery, GenTimer } from '@/components/dashboard/video-gallery';
+import { VoiceoverButton } from '@/components/dashboard/voiceover-button';
 
 const LANGS = ['fr', 'en', 'ar', 'es'];
 
@@ -299,7 +300,14 @@ export default function VideoStudioPage() {
                         {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
                       </p>
                       {asset.status === 'READY' && asset.url && (
-                        <AttachToProduct url={asset.url} kind="video" />
+                        <>
+                          <AttachToProduct url={asset.url} kind="video" />
+                          <VoiceoverButton
+                            videoId={asset.id}
+                            productName={selectedProduct?.name}
+                            onDone={() => setVideosRefresh((n) => n + 1)}
+                          />
+                        </>
                       )}
                     </div>
                   </div>

@@ -5,6 +5,7 @@ import type { VideoAsset } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { AttachToProduct } from './attach-to-product';
+import { VoiceoverButton } from './voiceover-button';
 
 /** Compteur écoulé (mm:ss) affiché pendant une génération longue (vidéo). */
 export function GenTimer() {
@@ -58,7 +59,11 @@ export function VideoGallery({ productId, refreshKey }: { productId?: string; re
                 {v.provider === 'mock' ? t('common.simulated') : `✨ ${v.provider}`} ·{' '}
                 {new Date(v.createdAt).toLocaleDateString('fr-FR')}
               </p>
+              {(v.meta as { hasVoiceover?: boolean } | null)?.hasVoiceover && (
+                <p className="text-center text-[10px] font-medium text-emerald-400">🎙️ {t('vo.badge')}</p>
+              )}
               <AttachToProduct url={v.url!} kind="video" />
+              <VoiceoverButton videoId={v.id} onDone={load} />
               <a
                 href={v.url!}
                 download
