@@ -18,7 +18,7 @@ import { VideoRegistry } from './providers/video/video.registry';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
 import { CreditsService } from '../credits/credits.service';
-import { ImageProvider } from './providers/image.provider';
+import { ImageProvider, type ImageResult } from './providers/image.provider';
 import { TextProvider } from './providers/text.provider';
 
 @Injectable()
@@ -301,17 +301,28 @@ export class AiService {
 
     const views: { angle: string; url: string; provider: string }[] = [];
     let realCount = 0;
-    for (const angle of TRYON_ANGLES) {
-      const prompt =
-        `Essayage virtuel : mannequin ${sex}, teint ${skinTone}${bodyType}${hairstyle}, ` +
-        `portant "${product.name}", vue ${ANGLE_PROMPT[angle] ?? angle}${extra}, rendu studio réaliste, plein corps, 8k` +
-        (productImage
-          ? ', en reproduisant EXACTEMENT le vêtement de la photo : même TYPE de vêtement ' +
-            '(si c’est une robe, garder une robe — ne pas la transformer en pantalon/combinaison), ' +
-            'même coupe, mêmes couleurs et mêmes motifs'
-          : '');
-      const res = productImage
-        ? await this.imageProvider.generateFromImage(prompt, productImage, sex)
+    // Image de RÉFÉRENCE : la 1ʳᵉ vue (Face) sert de base aux autres angles, pour
+    // garder la MÊME personne et la MÊME tenue (sinon chaque angle recrée un
+    // mannequin différent). On repart de la photo produit seulement pour la Face.
+    let refImage: string | undefined = productImage;
+    for (const [i, angle] of TRYON_ANGLES.entries()) {
+      const isFace = i === 0;
+      const base =
+        `Photo mode studio, plein corps, femme réaliste et photoréaliste (PAS un mannequin de vitrine en plastique), ` +
+        `teint ${skinTone}${bodyType}${hairstyle}, vue ${ANGLE_PROMPT[angle] ?? angle}${extra}, fond neutre clair, 8k. `;
+      const prompt = isFace
+        ? base +
+          (productImage
+            ? 'Une femme porte EXACTEMENT le vêtement de la photo : même TYPE (si c’est une robe, garder une robe — ' +
+              'jamais un pantalon/combinaison), même coupe, mêmes couleurs et mêmes motifs.'
+            : `Une femme ${sex} porte "${product.name}".`)
+        : base +
+          'IMPORTANT : reprends EXACTEMENT la même femme et le même vêtement que sur l’image de référence ' +
+          '(même visage, même coiffure, même peau, même robe, mêmes motifs et couleurs), en la faisant simplement ' +
+          `pivoter pour être vue ${ANGLE_PROMPT[angle] ?? angle}. Ne change ni la personne ni la tenue.`;
+
+      const res: ImageResult = refImage
+        ? await this.imageProvider.generateFromImage(prompt, refImage, sex)
         : await this.imageProvider.generate(prompt, sex);
 
       // Si l'IA est branchée mais que CET angle a échoué (débit), on garde la VRAIE
@@ -320,6 +331,8 @@ export class AiService {
       const url = failedButAiOn ? productImage! : res.url;
       const provider = failedButAiOn ? 'product' : res.provider;
       if (res.provider !== 'mock') realCount++;
+      // La Face réussie devient la référence identité/tenue pour les 3 autres angles.
+      if (isFace && res.provider !== 'mock' && res.url) refImage = res.url;
 
       await this.prisma.generatedAsset.create({
         data: {
