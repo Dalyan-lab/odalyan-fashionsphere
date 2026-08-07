@@ -412,6 +412,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'tryon.renderOf': 'Rendu de',
     'tryon.angles': 'angles :',
     'tryon.emptyHint': 'Choisissez un produit et cliquez sur « Essayer » pour générer les 5 vues.',
+    'tryon.someAnglesProduct': 'certains angles affichent la photo produit (débit IA)',
     // Studio IA
     'common.simulated': '⚙️ simulé',
     'common.cancel': 'Annuler',
@@ -964,6 +965,7 @@ const DICT: Record<Lang, Record<string, string>> = {
     'tryon.renderOf': 'Render of',
     'tryon.angles': 'angles:',
     'tryon.emptyHint': 'Pick a product and click "Try on" to generate the 5 views.',
+    'tryon.someAnglesProduct': 'some angles show the product photo (AI rate limit)',
     // AI Studio
     'common.simulated': '⚙️ simulated',
     'common.cancel': 'Cancel',

@@ -288,34 +288,44 @@ export class AiService {
     // Photo produit → image→image (vrai produit) ; sinon texte→image (repli)
     const productImage = product.images[0];
 
-    const views = await Promise.all(
-      TRYON_ANGLES.map(async (angle) => {
-        const prompt =
-          `Essayage virtuel : mannequin ${sex}, teint ${skinTone}${bodyType}${hairstyle}, ` +
-          `portant "${product.name}", vue ${angle}${extra}, rendu studio réaliste, plein corps, 8k` +
-          (productImage ? ', en conservant fidèlement le produit' : '');
-        const { url, provider } = productImage
-          ? await this.imageProvider.generateFromImage(prompt, productImage, sex)
-          : await this.imageProvider.generate(prompt, sex);
+    // Génération SÉQUENTIELLE (et non Promise.all) : 5 requêtes simultanées font
+    // saturer le débit Replicate (429) → repli sur des images sans rapport. En série,
+    // chaque angle aboutit vraiment.
+    const views: { angle: string; url: string; provider: string }[] = [];
+    let realCount = 0;
+    for (const angle of TRYON_ANGLES) {
+      const prompt =
+        `Essayage virtuel : mannequin ${sex}, teint ${skinTone}${bodyType}${hairstyle}, ` +
+        `portant "${product.name}", vue ${angle}${extra}, rendu studio réaliste, plein corps, 8k` +
+        (productImage ? ', en conservant fidèlement le produit' : '');
+      const res = productImage
+        ? await this.imageProvider.generateFromImage(prompt, productImage, sex)
+        : await this.imageProvider.generate(prompt, sex);
 
-        await this.prisma.generatedAsset.create({
-          data: {
-            type: GeneratedAssetType.MANNEQUIN,
-            provider,
-            prompt,
-            url,
-            meta: { kind: 'tryon', angle, productId: product.id } as Prisma.InputJsonValue,
-            ownerId: userId,
-            shopId: shop.id,
-            productId: product.id,
-          },
-        });
+      // Si l'IA est branchée mais que CET angle a échoué (débit), on garde la VRAIE
+      // photo produit plutôt qu'une image de démo aléatoire sans rapport.
+      const failedButAiOn = res.provider === 'mock' && this.imageProvider.enabled && Boolean(productImage);
+      const url = failedButAiOn ? productImage! : res.url;
+      const provider = failedButAiOn ? 'product' : res.provider;
+      if (res.provider !== 'mock') realCount++;
 
-        return { angle, url, provider };
-      }),
-    );
+      await this.prisma.generatedAsset.create({
+        data: {
+          type: GeneratedAssetType.MANNEQUIN,
+          provider,
+          prompt,
+          url,
+          meta: { kind: 'tryon', angle, productId: product.id } as Prisma.InputJsonValue,
+          ownerId: userId,
+          shopId: shop.id,
+          productId: product.id,
+        },
+      });
 
-    if (views.some((v) => v.provider !== 'mock')) {
+      views.push({ angle, url, provider });
+    }
+
+    if (realCount > 0) {
       await this.credits.consume(userId, AI_CREDIT_COSTS.tryon);
     }
 

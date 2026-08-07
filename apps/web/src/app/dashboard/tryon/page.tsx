@@ -147,9 +147,16 @@ export default function TryOnPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="mt-3 text-[10px] text-faint">
-                    {result.views[0]?.provider === 'mock' ? t('common.mockNote') : `${t('common.generatedVia')} ${result.views[0]?.provider}`}
-                  </p>
+                  {(() => {
+                    const real = result.views.find((v) => v.provider !== 'mock' && v.provider !== 'product');
+                    const someProductFallback = result.views.some((v) => v.provider === 'product');
+                    return (
+                      <p className="mt-3 text-[10px] text-faint">
+                        {real ? `${t('common.generatedVia')} ${real.provider}` : t('common.mockNote')}
+                        {someProductFallback && ` · ${t('tryon.someAnglesProduct')}`}
+                      </p>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="card grid h-full min-h-[300px] place-items-center p-10 text-center text-muted">
