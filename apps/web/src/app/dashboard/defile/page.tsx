@@ -9,6 +9,8 @@ import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { AvatarPicker } from '@/components/dashboard/avatar-picker';
+import { AttachToProduct } from '@/components/dashboard/attach-to-product';
+import { VideoGallery, GenTimer } from '@/components/dashboard/video-gallery';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
@@ -41,6 +43,7 @@ export default function DefilePage() {
   const [video, setVideo] = useState<{ id: string; status: string; url?: string | null } | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState('');
+  const [videosRefresh, setVideosRefresh] = useState(0);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
 
@@ -119,7 +122,10 @@ export default function DefilePage() {
         const a = await apiFetch<VideoAsset>(`/ai/video/${id}`);
         setVideo(a);
         if (a.status === 'PENDING') pollVideo(id);
-        else setVideoLoading(false);
+        else {
+          setVideoLoading(false);
+          if (a.status === 'READY') setVideosRefresh((n) => n + 1);
+        }
       } catch {
         setVideoLoading(false);
       }
@@ -136,6 +142,7 @@ export default function DefilePage() {
         method: 'POST',
         body: JSON.stringify({
           providerId: 'replicate',
+          productId: productId || undefined,
           imageUrl: faceUrl,
           productName,
           prompt: `${productName} : mannequin qui défile sur un podium et tourne à 360°, démarche fluide, mouvement cinématique réaliste, la tenue reste identique`,
@@ -300,13 +307,25 @@ export default function DefilePage() {
                       <>{Icon.sparkles({ width: 16, height: 16 })} {t('defile.videoGenerate')}</>
                     )}
                   </button>
-                  {videoLoading && <p className="mt-2 text-[10px] text-faint">{t('defile.videoWait')}</p>}
+                  {videoLoading && (
+                    <p className="mt-2 text-center text-xs text-brand-violet">
+                      ⏱️ <GenTimer /> · {t('defile.videoWait')}
+                    </p>
+                  )}
                   {videoError && <p className="mt-2 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{videoError}</p>}
                   {video?.status === 'FAILED' && (
                     <p className="mt-2 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{t('defile.videoFailed')}</p>
                   )}
+                  {video?.status === 'READY' && video.url && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <AttachToProduct url={video.url} kind="video" />
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Vidéos défilé déjà créées pour ce produit (persistées) */}
+              <VideoGallery productId={productId} refreshKey={videosRefresh} />
 
               {views.length > 0 && (
                 <div className="card p-5">

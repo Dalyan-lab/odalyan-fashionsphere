@@ -10,6 +10,7 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
+import { VideoGallery, GenTimer } from '@/components/dashboard/video-gallery';
 
 const LANGS = ['fr', 'en', 'ar', 'es'];
 
@@ -30,6 +31,7 @@ export default function VideoStudioPage() {
   const [asset, setAsset] = useState<VideoAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [videosRefresh, setVideosRefresh] = useState(0);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -68,7 +70,10 @@ export default function VideoStudioPage() {
         try {
           const updated = await apiFetch<VideoAsset>(`/ai/video/${asset.id}`);
           setAsset(updated);
-          if (updated.status !== 'PENDING' && poll.current) clearInterval(poll.current);
+          if (updated.status !== 'PENDING' && poll.current) {
+            clearInterval(poll.current);
+            if (updated.status === 'READY') setVideosRefresh((n) => n + 1); // rafraîchit la galerie persistée
+          }
         } catch {
           /* ignore */
         }
@@ -247,9 +252,9 @@ export default function VideoStudioPage() {
             </div>
 
             {/* Résultat */}
-            <div>
+            <div className="space-y-6">
               {!asset ? (
-                <div className="card grid h-full min-h-[340px] place-items-center p-10 text-center text-muted">
+                <div className="card grid min-h-[240px] place-items-center p-10 text-center text-muted">
                   <div>
                     <p className="text-5xl">🎥</p>
                     <p className="mt-3">{t('vid.emptyHint')}</p>
@@ -267,6 +272,10 @@ export default function VideoStudioPage() {
                           <div>
                             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-brand-magenta" />
                             <p className="mt-3 text-sm">{t('common.generating')} ({asset.provider})</p>
+                            <p className="mt-1 text-lg font-bold text-white">
+                              ⏱️ <GenTimer />
+                            </p>
+                            <p className="mt-1 text-xs text-white/60">{t('vid.pleaseWait')}</p>
                           </div>
                         </div>
                       ) : asset.status === 'FAILED' ? (
@@ -308,6 +317,9 @@ export default function VideoStudioPage() {
                   )}
                 </div>
               )}
+
+              {/* Galerie persistée : les vidéos ne disparaissent plus en changeant de page */}
+              <VideoGallery refreshKey={videosRefresh} />
             </div>
           </div>
         )}

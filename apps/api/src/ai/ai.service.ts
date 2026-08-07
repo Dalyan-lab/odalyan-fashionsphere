@@ -161,6 +161,32 @@ export class AiService {
     return asset;
   }
 
+  /**
+   * Liste les vidéos générées de la boutique (persistance : elles ne disparaissent
+   * plus en changeant de page). Rafraîchit au passage celles encore en cours.
+   */
+  async listVideos(userId: string, productId?: string) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const assets = await this.prisma.generatedAsset.findMany({
+      where: {
+        shopId: shop.id,
+        type: GeneratedAssetType.AD_VISUAL,
+        meta: { path: ['kind'], equals: 'video' },
+        ...(productId ? { productId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    // Résout les vidéos encore en attente (le polling front s'arrête quand on quitte la page).
+    return Promise.all(
+      assets.map(async (a) =>
+        a.status === GeneratedAssetStatus.PENDING
+          ? await this.getVideoStatus(userId, a.id).catch(() => a)
+          : a,
+      ),
+    );
+  }
+
   /** Génère des photos mannequin / studio à partir d'un produit ou d'un prompt. */
   async generateMannequin(userId: string, input: GenerateMannequinInput) {
     const shop = await this.shopService.requireOwnedShop(userId);

@@ -94,6 +94,12 @@ export class AiController {
     return this.aiService.generateVideo(userId, input);
   }
 
+  /** Liste des vidéos générées (persistance) — optionnellement filtrées par produit. */
+  @Get('videos')
+  listVideos(@CurrentUser('id') userId: string, @Query('productId') productId?: string) {
+    return this.aiService.listVideos(userId, productId);
+  }
+
   @Get('video/:id')
   getVideoStatus(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.aiService.getVideoStatus(userId, id);
