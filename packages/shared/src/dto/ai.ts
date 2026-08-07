@@ -122,6 +122,10 @@ export const addVoiceoverSchema = z.object({
   script: z.string().max(800).optional(),
   language: z.string().min(2).max(10).default('fr'),
   voice: z.string().max(60).optional(),
+  /** Ajoute une musique de fond (MusicGen) atténuée sous la voix. */
+  music: z.boolean().optional(),
+  /** Ambiance de la musique de fond (ex. « afro-chic », « luxe calme »). */
+  musicPrompt: z.string().max(200).optional(),
 });
 
 export type AddVoiceoverInput = z.infer<typeof addVoiceoverSchema>;

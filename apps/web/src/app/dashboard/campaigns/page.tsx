@@ -10,6 +10,7 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
 import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
+import { VoiceoverButton } from '@/components/dashboard/voiceover-button';
 
 const ALL_NETWORKS = Object.values(SocialNetwork);
 
@@ -451,9 +452,20 @@ function CampaignVideo({
               </div>
             )}
           </div>
-          <p className="px-3 py-1.5 text-[10px] text-faint">
-            {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
-          </p>
+          <div className="space-y-2 px-3 py-2">
+            <p className="text-[10px] text-faint">
+              {asset.provider === 'mock' ? t('common.simulated') : `✨ ${asset.provider}`} · {asset.status}
+            </p>
+            {asset.status === 'READY' && asset.url && (
+              <VoiceoverButton
+                videoId={asset.id}
+                productName={campaign.productName}
+                onDone={(created) => {
+                  if (created) setAsset(created);
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -4,6 +4,8 @@ import { StorageService } from '../../storage/storage.service';
 
 /** Modèle TTS Replicate (voix off), surchargeable par variable d'env. */
 const REPLICATE_TTS_MODEL = () => process.env.REPLICATE_TTS_MODEL || 'minimax/speech-02-turbo';
+/** Modèle musique Replicate (fond sonore libre de droits), surchargeable. */
+const REPLICATE_MUSIC_MODEL = () => process.env.REPLICATE_MUSIC_MODEL || 'meta/musicgen';
 
 /** Nom de langue attendu par le modèle (language_boost). */
 const LANG_NAME: Record<string, string> = {
@@ -45,6 +47,17 @@ export class AudioProvider {
       bitrate: 128000,
     };
     return this.run(REPLICATE_TTS_MODEL(), input);
+  }
+
+  /** Génère une musique de fond libre de droits (MusicGen) à partir d'une ambiance. */
+  async music(ambiance: string, durationSec = 10): Promise<TtsResult> {
+    if (!this.enabled) return { url: null, error: 'Replicate non configuré' };
+    return this.run(REPLICATE_MUSIC_MODEL(), {
+      prompt: ambiance,
+      duration: Math.min(Math.max(durationSec, 5), 30),
+      output_format: 'mp3',
+      normalization_strategy: 'peak',
+    });
   }
 
   // ---------------------------------------------------------------- Replicate

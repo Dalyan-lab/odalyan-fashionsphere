@@ -59,9 +59,16 @@ export function VideoGallery({ productId, refreshKey }: { productId?: string; re
                 {v.provider === 'mock' ? t('common.simulated') : `✨ ${v.provider}`} ·{' '}
                 {new Date(v.createdAt).toLocaleDateString('fr-FR')}
               </p>
-              {(v.meta as { hasVoiceover?: boolean } | null)?.hasVoiceover && (
-                <p className="text-center text-[10px] font-medium text-emerald-400">🎙️ {t('vo.badge')}</p>
-              )}
+              {(() => {
+                const m = v.meta as { hasVoiceover?: boolean; hasMusic?: boolean } | null;
+                if (!m?.hasVoiceover && !m?.hasMusic) return null;
+                return (
+                  <p className="text-center text-[10px] font-medium text-emerald-400">
+                    {m?.hasVoiceover ? `🎙️ ${t('vo.badge')}` : ''}
+                    {m?.hasMusic ? ' 🎵' : ''}
+                  </p>
+                );
+              })()}
               <AttachToProduct url={v.url!} kind="video" />
               <VoiceoverButton videoId={v.id} onDone={load} />
               <a

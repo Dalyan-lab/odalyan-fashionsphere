@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { VideoAsset } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { GenTimer } from './video-gallery';
@@ -15,6 +16,14 @@ const VOICES = [
 ];
 const LANGS = ['fr', 'en', 'ar', 'es'];
 
+/** Ambiances musicales → prompt MusicGen (libellé traduit côté i18n). */
+const AMBIANCES = [
+  { key: 'vo.ambAfro', prompt: 'upbeat modern afro-chic fashion background music, catchy, instrumental, no vocals' },
+  { key: 'vo.ambLuxe', prompt: 'elegant luxury fashion background music, smooth, cinematic, instrumental, no vocals' },
+  { key: 'vo.ambDynamic', prompt: 'energetic upbeat pop runway music, driving beat, instrumental, no vocals' },
+  { key: 'vo.ambChill', prompt: 'chill lo-fi relaxed background music, mellow, instrumental, no vocals' },
+];
+
 /**
  * Ajoute une voix off publicitaire à une vidéo. Script optionnel (généré si vide).
  * Crée une NOUVELLE vidéo ; `onDone` rafraîchit la liste pour l'afficher.
@@ -26,13 +35,15 @@ export function VoiceoverButton({
 }: {
   videoId: string;
   productName?: string;
-  onDone?: () => void;
+  onDone?: (created?: VideoAsset) => void;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [script, setScript] = useState('');
   const [language, setLanguage] = useState('fr');
   const [voice, setVoice] = useState(VOICES[0]!.id);
+  const [music, setMusic] = useState(false);
+  const [ambiance, setAmbiance] = useState(AMBIANCES[0]!.prompt);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,13 +51,19 @@ export function VoiceoverButton({
     setLoading(true);
     setError('');
     try {
-      await apiFetch(`/ai/video/${videoId}/voiceover`, {
+      const created = await apiFetch<VideoAsset>(`/ai/video/${videoId}/voiceover`, {
         method: 'POST',
-        body: JSON.stringify({ script: script.trim() || undefined, language, voice }),
+        body: JSON.stringify({
+          script: script.trim() || undefined,
+          language,
+          voice,
+          music,
+          musicPrompt: music ? ambiance : undefined,
+        }),
       });
       setOpen(false);
       setScript('');
-      onDone?.();
+      onDone?.(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('common.error'));
     } finally {
@@ -85,6 +102,17 @@ export function VoiceoverButton({
           ))}
         </select>
       </div>
+      <label className="flex items-center gap-2 text-xs text-content">
+        <input type="checkbox" checked={music} onChange={(e) => setMusic(e.target.checked)} />
+        🎵 {t('vo.music')}
+      </label>
+      {music && (
+        <select className="input text-xs" value={ambiance} onChange={(e) => setAmbiance(e.target.value)}>
+          {AMBIANCES.map((a) => (
+            <option key={a.key} value={a.prompt}>{t(a.key)}</option>
+          ))}
+        </select>
+      )}
       {error && <p className="rounded bg-red-500/15 px-2 py-1 text-[11px] text-red-400">{error}</p>}
       <div className="flex gap-2">
         <button onClick={run} disabled={loading} className="btn-primary flex-1 py-1.5 text-xs">

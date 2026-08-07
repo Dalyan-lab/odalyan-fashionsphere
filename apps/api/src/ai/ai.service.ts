@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { GeneratedAssetStatus, GeneratedAssetType, Prisma } from '@prisma/client';
 import {
   AI_CREDIT_COSTS,
@@ -28,6 +28,8 @@ import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly shopService: ShopService,
@@ -201,7 +203,7 @@ export class AiService {
   async addVoiceover(
     userId: string,
     videoId: string,
-    opts: { script?: string; language?: string; voice?: string },
+    opts: { script?: string; language?: string; voice?: string; music?: boolean; musicPrompt?: string },
   ) {
     const shop = await this.shopService.requireOwnedShop(userId);
     const source = await this.prisma.generatedAsset.findFirst({ where: { id: videoId, shopId: shop.id } });
@@ -226,10 +228,21 @@ export class AiService {
     const tts = await this.audioProvider.tts(script, language, opts.voice);
     if (!tts.url) throw new BadRequestException(`Échec de la voix off : ${tts.error ?? 'inconnu'}`);
 
+    // 1bis) Musique de fond optionnelle (on continue sans si elle échoue)
+    let musicUrl: string | undefined;
+    if (opts.music) {
+      const amb =
+        opts.musicPrompt?.trim() ||
+        'upbeat modern afro-chic fashion background music, catchy, instrumental, no vocals';
+      const m = await this.audioProvider.music(amb, 12);
+      if (m.url) musicUrl = m.url;
+      else this.logger.warn(`Musique de fond ignorée : ${m.error}`);
+    }
+
     // 2) Montage audio sur la vidéo (ffmpeg) puis stockage R2
     let finalUrl: string;
     try {
-      const buffer = await muxAudioOnVideo(source.url, tts.url);
+      const buffer = await muxAudioOnVideo(source.url, tts.url, musicUrl);
       finalUrl = this.storage.enabled
         ? await this.storage.save(buffer, `${randomUUID()}.mp4`, 'video/mp4', 'ai')
         : source.url;
@@ -249,6 +262,7 @@ export class AiService {
         meta: {
           kind: 'video',
           hasVoiceover: true,
+          hasMusic: Boolean(musicUrl),
           voiceoverScript: script,
           language,
           sourceVideoId: source.id,
