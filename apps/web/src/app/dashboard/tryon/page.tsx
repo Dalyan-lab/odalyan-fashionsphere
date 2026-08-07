@@ -9,6 +9,7 @@ import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { AvatarPicker } from '@/components/dashboard/avatar-picker';
+import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 import { Icon } from '@/components/dashboard/icons';
 
 export default function TryOnPage() {
@@ -22,6 +23,7 @@ export default function TryOnPage() {
   const [result, setResult] = useState<TryOnResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<Product[]>('/products/mine')
@@ -134,7 +136,13 @@ export default function TryOnPage() {
                     {result.views.map((v) => (
                       <div key={v.angle} className="card overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={v.url} alt={v.angle} className="aspect-[3/5] w-full object-cover" />
+                        <img
+                          src={v.url}
+                          alt={v.angle}
+                          className="aspect-[3/5] w-full cursor-zoom-in object-cover transition hover:opacity-90"
+                          onClick={() => setZoomUrl(v.url)}
+                          title={t('stu.zoomHint')}
+                        />
                         <p className="bg-surface-2 py-1 text-center text-[11px] font-medium">{v.angle}</p>
                       </div>
                     ))}
@@ -155,6 +163,7 @@ export default function TryOnPage() {
           </div>
         )}
       </div>
+      {zoomUrl && <ImageLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} />}
     </>
   );
 }

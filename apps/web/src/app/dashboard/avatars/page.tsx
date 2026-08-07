@@ -10,6 +10,7 @@ import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
 import { ProductImagePicker } from '@/components/dashboard/product-image-picker';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
+import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 
 interface AvatarAsset {
   id: string;
@@ -24,6 +25,7 @@ export default function AvatarsPage() {
   const [avatars, setAvatars] = useState<AvatarAsset[]>([]);
   const [noShop, setNoShop] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -78,7 +80,13 @@ export default function AvatarsPage() {
                     <div key={a.id} className="card overflow-hidden">
                       {a.url && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.url} alt="Avatar" className="aspect-[3/4] w-full object-cover" />
+                        <img
+                          src={a.url}
+                          alt="Avatar"
+                          className="aspect-[3/4] w-full cursor-zoom-in object-cover transition hover:opacity-90"
+                          onClick={() => setZoomUrl(a.url!)}
+                          title={t('stu.zoomHint')}
+                        />
                       )}
                       <div className="p-2">
                         <p className="text-xs font-medium">
@@ -120,6 +128,7 @@ export default function AvatarsPage() {
           </div>
         )}
       </div>
+      {zoomUrl && <ImageLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} />}
     </>
   );
 }
@@ -139,6 +148,7 @@ function AvatarCreator({ onCreated }: { onCreated: () => void }) {
   const [result, setResult] = useState<AvatarAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,12 +262,19 @@ function AvatarCreator({ onCreated }: { onCreated: () => void }) {
       {result?.url && (
         <div className="overflow-hidden rounded-xl border border-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={result.url} alt="Avatar généré" className="aspect-[3/4] w-full object-cover" />
+          <img
+            src={result.url}
+            alt="Avatar généré"
+            className="aspect-[3/4] w-full cursor-zoom-in object-cover transition hover:opacity-90"
+            onClick={() => setZoomUrl(result.url!)}
+            title={t('stu.zoomHint')}
+          />
           <p className="px-2 py-1 text-[10px] text-faint">
             {result.provider === 'mock' ? t('common.simulated') : `✨ ${result.provider}`}
           </p>
         </div>
       )}
+      {zoomUrl && <ImageLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} />}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { useCart } from '@/lib/store';
 import { convertAndFormat, useLocale } from '@/lib/i18n';
 import { ProductReviews } from '@/components/product-reviews';
+import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 import type { Product, Variant } from '@/lib/types';
 
 const FALLBACK = 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=800';
@@ -20,6 +21,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [variant, setVariant] = useState<Variant | null>(null);
   const [added, setAdded] = useState(false);
   const [active, setActive] = useState(0);
+  const [zoomUrl, setZoomUrl] = useState<string | null>(null);
 
   useEffect(() => {
     apiFetch<Product>(`/products/${id}`, { auth: false })
@@ -66,7 +68,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             <video src={current.url} controls playsInline className="aspect-[3/4] w-full bg-black object-contain" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={current.url} alt={product.name} className="aspect-[3/4] w-full object-cover" />
+            <img
+              src={current.url}
+              alt={product.name}
+              className="aspect-[3/4] w-full cursor-zoom-in object-cover"
+              onClick={() => setZoomUrl(current.url)}
+              title="Cliquer pour agrandir"
+            />
           )}
         </div>
 
@@ -174,6 +182,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       </div>
     </main>
     <ProductReviews productId={product.id} />
+    {zoomUrl && <ImageLightbox url={zoomUrl} onClose={() => setZoomUrl(null)} />}
     </>
   );
 }
