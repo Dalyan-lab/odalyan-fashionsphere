@@ -11,12 +11,20 @@ import type {
 const AUTH = 'https://www.tiktok.com/v2/auth/authorize/';
 const API = 'https://open.tiktokapis.com/v2';
 
+/** Lecture du profil + publication directe de contenu : le strict nécessaire pour publier. */
+const BASE_SCOPES = ['user.info.basic', 'video.publish'];
+
 /**
- * Lecture du profil + publication directe de contenu + lecture des vidéos.
- * `video.list` sert uniquement aux statistiques : les comptes connectés avant
- * son ajout devront être reconnectés pour que TikTok remonte ses chiffres.
+ * `video.list` (lecture des statistiques) dépend du produit « Display API ».
+ * Tant que ce produit n'est pas ajouté à l'app dans le portail TikTok, demander
+ * ce scope fait échouer TOUTE la connexion (« Une erreur est survenue : scope »),
+ * y compris la publication. On ne l'ajoute donc qu'une fois le produit en place,
+ * en passant TIKTOK_ENABLE_INSIGHTS=true.
  */
-const SCOPES = ['user.info.basic', 'video.publish', 'video.list'].join(',');
+const SCOPES = [
+  ...BASE_SCOPES,
+  ...(process.env.TIKTOK_ENABLE_INSIGHTS === 'true' ? ['video.list'] : []),
+].join(',');
 
 /**
  * Tant que l'app n'a pas passé l'audit « Content Posting API », TikTok impose
@@ -72,7 +80,8 @@ export class TikTokPublisher implements SocialPublisher {
   readonly requirement =
     'App TikTok for Developers (Content Posting API, Direct Post activé). ' +
     'Vidéo : envoi direct des octets (FILE_UPLOAD), aucune vérification de domaine requise. ' +
-    'Avant l’audit, les publications restent privées (SELF_ONLY).';
+    'Avant l’audit, les publications restent privées (SELF_ONLY). ' +
+    'Statistiques : produit « Display API » + TIKTOK_ENABLE_INSIGHTS=true.';
 
   get enabled(): boolean {
     return Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET);
@@ -297,7 +306,8 @@ export class TikTokPublisher implements SocialPublisher {
     // tout de suite, avec l'action à faire, plutôt que de laisser un message obscur.
     if (!conn.scope?.includes('video.list')) {
       throw new Error(
-        'Statistiques TikTok non autorisées : reconnectez le compte TikTok pour accorder la lecture des vidéos.',
+        'Statistiques TikTok non disponibles : ajoutez le produit « Display API » à votre app TikTok, ' +
+          'passez TIKTOK_ENABLE_INSIGHTS=true, puis reconnectez le compte.',
       );
     }
 
