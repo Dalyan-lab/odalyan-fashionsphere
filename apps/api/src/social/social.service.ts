@@ -4,10 +4,14 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma, type SocialConnection } from '@prisma/client';
 import {
   SocialNetwork,
+  type BestTimeSlot,
+  type BestTimesResult,
+  type MonthlyReportDto,
   type PostInsightDto,
   type ScheduledPostDto,
   type SchedulePostInput,
   type SocialConnectionInfo,
+  type TopPostDto,
   type UpdateScheduledPostInput,
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +23,11 @@ const NETWORKS = Object.values(SocialNetwork) as string[];
 const MAX_ATTEMPTS = 3;
 /** Au-delà, une publication n'évolue quasiment plus : inutile de réinterroger les réseaux. */
 const INSIGHTS_WINDOW_DAYS = 30;
+/**
+ * En dessous, une recommandation d'horaire tirée des données du vendeur serait du
+ * bruit : on continue d'afficher les repères généraux du réseau.
+ */
+const MIN_POSTS_FOR_BEST_TIMES = 5;
 
 @Injectable()
 export class SocialService {
@@ -473,5 +482,171 @@ export class SocialService {
       }
     }
     return refreshed;
+  }
+
+  // ------------------------------------------------------------- Analyse
+
+  /** Publications publiées et mesurées de la boutique, sur une période donnée. */
+  private async measuredPosts(shopId: string, from?: Date, to?: Date) {
+    return this.prisma.scheduledPost.findMany({
+      where: {
+        shopId,
+        status: { in: ['PUBLISHED', 'PARTIAL'] },
+        publishedAt: { not: null, ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) },
+      },
+      include: { insights: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+  }
+
+  private static interactions(i: { likes: number; comments: number; shares: number }): number {
+    return i.likes + i.comments + i.shares;
+  }
+
+  /**
+   * Déduit les meilleurs créneaux de publication des performances réellement
+   * constatées, réseau par réseau. Tant que le vendeur n'a pas assez de recul,
+   * on renvoie une liste vide : l'interface garde alors les repères généraux
+   * plutôt que d'afficher une recommandation tirée de deux publications.
+   */
+  async bestTimes(userId: string): Promise<BestTimesResult> {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    // 6 mois : assez pour dégager une tendance, assez récent pour rester pertinent.
+    const posts = await this.measuredPosts(shop.id, new Date(Date.now() - 180 * 86_400_000));
+
+    const buckets = new Map<string, { network: string; weekday: number; hour: number; total: number; samples: number }>();
+    let analyzed = 0;
+
+    for (const post of posts) {
+      if (!post.publishedAt) continue;
+      const d = post.publishedAt;
+      const weekday = ((d.getDay() + 6) % 7) + 1; // 1 = lundi … 7 = dimanche
+      const hour = d.getHours();
+      let counted = false;
+
+      for (const insight of post.insights) {
+        const value = SocialService.interactions(insight);
+        // Une ligne en erreur pure (aucun chiffre) ne doit pas peser dans la moyenne.
+        if (insight.error && value === 0 && insight.views === 0) continue;
+
+        const key = `${insight.network}|${weekday}|${hour}`;
+        const bucket = buckets.get(key) ?? { network: insight.network, weekday, hour, total: 0, samples: 0 };
+        bucket.total += value;
+        bucket.samples++;
+        buckets.set(key, bucket);
+        counted = true;
+      }
+      if (counted) analyzed++;
+    }
+
+    if (analyzed < MIN_POSTS_FOR_BEST_TIMES) {
+      return { slots: [], analyzed, minimum: MIN_POSTS_FOR_BEST_TIMES };
+    }
+
+    // Meilleurs créneaux par réseau (3 au maximum), du plus performant au moins bon.
+    const byNetwork = new Map<string, BestTimeSlot[]>();
+    for (const b of buckets.values()) {
+      const slot: BestTimeSlot = {
+        network: b.network,
+        weekday: b.weekday,
+        hour: b.hour,
+        avgInteractions: Math.round((b.total / b.samples) * 10) / 10,
+        samples: b.samples,
+      };
+      byNetwork.set(b.network, [...(byNetwork.get(b.network) ?? []), slot]);
+    }
+
+    const slots: BestTimeSlot[] = [];
+    for (const list of byNetwork.values()) {
+      list.sort((a, b) => b.avgInteractions - a.avgInteractions || b.samples - a.samples);
+      slots.push(...list.slice(0, 3));
+    }
+    return { slots, analyzed, minimum: MIN_POSTS_FOR_BEST_TIMES };
+  }
+
+  /** Convertit une publication mesurée en ligne de classement. */
+  private static toTopPost(post: {
+    id: string;
+    caption: string;
+    networks: string[];
+    publishedAt: Date | null;
+    imageUrl: string | null;
+    videoUrl: string | null;
+    insights: { views: number; likes: number; comments: number; shares: number }[];
+  }): TopPostDto {
+    return {
+      id: post.id,
+      caption: post.caption,
+      networks: post.networks,
+      publishedAt: post.publishedAt?.toISOString() ?? null,
+      imageUrl: post.imageUrl,
+      videoUrl: post.videoUrl,
+      views: post.insights.reduce((s, i) => s + i.views, 0),
+      interactions: post.insights.reduce((s, i) => s + SocialService.interactions(i), 0),
+    };
+  }
+
+  /** Publications les plus performantes — base du recyclage (« republier ce qui a marché »). */
+  async topPosts(userId: string, limit = 5): Promise<TopPostDto[]> {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const posts = await this.measuredPosts(shop.id, new Date(Date.now() - 180 * 86_400_000));
+    return posts
+      .map((p) => SocialService.toTopPost(p))
+      .filter((p) => p.interactions > 0 || p.views > 0)
+      .sort((a, b) => b.interactions - a.interactions || b.views - a.views)
+      .slice(0, limit);
+  }
+
+  /** Bilan d'un mois : volumes, détail par réseau, meilleures publications, évolution. */
+  async monthlyReport(userId: string, month: string): Promise<MonthlyReportDto> {
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new BadRequestException('Mois attendu au format AAAA-MM.');
+    const shop = await this.shopService.requireOwnedShop(userId);
+
+    const [year, m] = month.split('-').map(Number);
+    const start = new Date(year, m - 1, 1);
+    const end = new Date(year, m, 1);
+    const prevStart = new Date(year, m - 2, 1);
+
+    const [posts, prevPosts] = await Promise.all([
+      this.measuredPosts(shop.id, start, end),
+      this.measuredPosts(shop.id, prevStart, start),
+    ]);
+
+    const totals = { views: 0, likes: 0, comments: 0, shares: 0 };
+    const networks = new Map<string, { network: string; published: number; views: number; interactions: number }>();
+
+    for (const post of posts) {
+      for (const i of post.insights) {
+        totals.views += i.views;
+        totals.likes += i.likes;
+        totals.comments += i.comments;
+        totals.shares += i.shares;
+
+        const row = networks.get(i.network) ?? { network: i.network, published: 0, views: 0, interactions: 0 };
+        row.published++;
+        row.views += i.views;
+        row.interactions += SocialService.interactions(i);
+        networks.set(i.network, row);
+      }
+    }
+
+    const interactions = totals.likes + totals.comments + totals.shares;
+    const prevInteractions = prevPosts.reduce(
+      (s, p) => s + p.insights.reduce((n, i) => n + SocialService.interactions(i), 0),
+      0,
+    );
+
+    return {
+      month,
+      published: posts.length,
+      ...totals,
+      byNetwork: [...networks.values()].sort((a, b) => b.interactions - a.interactions),
+      topPosts: posts
+        .map((p) => SocialService.toTopPost(p))
+        .sort((a, b) => b.interactions - a.interactions)
+        .slice(0, 5),
+      interactionsChange:
+        prevInteractions > 0 ? Math.round(((interactions - prevInteractions) / prevInteractions) * 100) : null,
+    };
   }
 }

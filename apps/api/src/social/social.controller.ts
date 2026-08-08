@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 import {
   UserRole,
@@ -74,6 +74,24 @@ export class SocialController {
   @Delete('scheduled/:id')
   remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.socialService.remove(userId, id);
+  }
+
+  /** Créneaux de publication déduits des performances réelles de la boutique. */
+  @Get('best-times')
+  bestTimes(@CurrentUser('id') userId: string) {
+    return this.socialService.bestTimes(userId);
+  }
+
+  /** Publications les plus performantes (recyclage). */
+  @Get('top-posts')
+  topPosts(@CurrentUser('id') userId: string) {
+    return this.socialService.topPosts(userId);
+  }
+
+  /** Bilan mensuel des publications (mois au format AAAA-MM ; défaut : mois courant). */
+  @Get('report')
+  report(@CurrentUser('id') userId: string, @Query('month') month?: string) {
+    return this.socialService.monthlyReport(userId, month ?? new Date().toISOString().slice(0, 7));
   }
 
   /** Rafraîchit les statistiques des publications récentes de la boutique. */

@@ -80,6 +80,55 @@ export interface PublishOutcome {
   simulated?: boolean;
 }
 
+// ── Analyse : créneaux, meilleures publications, rapport mensuel ───────────
+
+/** Créneau de publication observé, avec sa performance moyenne constatée. */
+export interface BestTimeSlot {
+  network: string;
+  /** Jour ISO : 1 = lundi … 7 = dimanche. */
+  weekday: number;
+  hour: number;
+  /** Interactions moyennes (j'aime + commentaires + partages) par publication. */
+  avgInteractions: number;
+  /** Nombre de publications observées sur ce créneau — indique la fiabilité. */
+  samples: number;
+}
+
+export interface BestTimesResult {
+  /** Créneaux calculés sur les publications réelles ; vide tant qu'il n'y a pas assez de recul. */
+  slots: BestTimeSlot[];
+  /** Publications mesurées ayant servi au calcul. */
+  analyzed: number;
+  /** Publications mesurées nécessaires avant de proposer un calcul. */
+  minimum: number;
+}
+
+/** Publication classée par performance, pour le recyclage et le rapport. */
+export interface TopPostDto {
+  id: string;
+  caption: string;
+  networks: string[];
+  publishedAt?: string | null;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  views: number;
+  /** j'aime + commentaires + partages, cumulés sur tous les réseaux. */
+  interactions: number;
+}
+
+export interface MonthlyReportDto {
+  month: string; // AAAA-MM
+  published: number;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  byNetwork: { network: string; published: number; views: number; interactions: number }[];
+  topPosts: TopPostDto[];
+  /** Évolution des interactions vs mois précédent, en % ; null si aucun point de comparaison. */
+  interactionsChange: number | null;
+}
+
 /** Statistiques d'une publication sur un réseau, telles que remontées par son API. */
 export interface PostInsightDto {
   network: string;

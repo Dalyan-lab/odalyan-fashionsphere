@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { ScheduledPostDto, SocialConnectionInfo, SocialCopyResult, SocialIdeasResult } from '@odalyan/shared';
+import type {
+  BestTimesResult,
+  MonthlyReportDto,
+  ScheduledPostDto,
+  SocialConnectionInfo,
+  SocialCopyResult,
+  SocialIdeasResult,
+  TopPostDto,
+} from '@odalyan/shared';
 import { apiFetch, uploadFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
@@ -39,6 +47,18 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** Libellés courts, indexés par jour ISO - 1 (1 = lundi). */
+const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+/** Prochaine occurrence d'un jour de la semaine (aujourd'hui compris), au format AAAA-MM-JJ. */
+function nextDateForWeekday(weekday: number): string {
+  const d = new Date();
+  const current = ((d.getDay() + 6) % 7) + 1; // 1 = lundi … 7 = dimanche
+  d.setDate(d.getDate() + ((weekday - current + 7) % 7));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 function NetBadge({ network, size = 20 }: { network: string; size?: number }) {
   const Icon = BrandIcon[network as BrandName];
@@ -186,18 +206,33 @@ function scoreText(text: string, network: string, t: (k: string) => string): { s
   return { score, notes };
 }
 
+const TABS = ['create', 'calendar', 'report'] as const;
+const TAB_ICON: Record<(typeof TABS)[number], string> = { create: '✨', calendar: '📅', report: '📈' };
+
 export default function PilotagePage() {
   const t = useT();
-  const [tab, setTab] = useState<'create' | 'calendar'>('create');
+  const [tab, setTab] = useState<(typeof TABS)[number]>('create');
   const [connections, setConnections] = useState<SocialConnectionInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPostDto[]>([]);
+  const [bestTimes, setBestTimes] = useState<BestTimesResult | null>(null);
   const [noShop, setNoShop] = useState(false);
+  /** Sujet injecté depuis le recyclage d'une publication performante. */
+  const [seedBrief, setSeedBrief] = useState('');
 
   const load = () => {
     apiFetch<SocialConnectionInfo[]>('/social/connections').then(setConnections).catch(() => setNoShop(true));
     apiFetch<ScheduledPostDto[]>('/social/scheduled').then(setPosts).catch(() => undefined);
+    apiFetch<BestTimesResult>('/social/best-times').then(setBestTimes).catch(() => undefined);
   };
   useEffect(load, []);
+
+  /** Reprend une publication qui a marché : pré-remplit l'onglet Créer avec un angle neuf. */
+  const recycle = (post: TopPostDto) => {
+    setSeedBrief(
+      `${t('pilot.recycleBrief')} : « ${post.caption.replace(/\s+/g, ' ').slice(0, 400)} »`,
+    );
+    setTab('create');
+  };
 
   return (
     <>
@@ -219,7 +254,7 @@ export default function PilotagePage() {
         ) : (
           <>
             <div className="mt-6 flex gap-2 border-b border-border">
-              {(['create', 'calendar'] as const).map((id) => (
+              {TABS.map((id) => (
                 <button
                   key={id}
                   onClick={() => setTab(id)}
@@ -227,18 +262,23 @@ export default function PilotagePage() {
                     tab === id ? 'border-brand-violet text-content' : 'border-transparent text-muted hover:text-content'
                   }`}
                 >
-                  {id === 'create' ? '✨ ' : '📅 '}
-                  {t(`pilot.tab.${id}`)}
+                  {TAB_ICON[id]} {t(`pilot.tab.${id}`)}
                 </button>
               ))}
             </div>
 
             <div className="mt-6">
-              {tab === 'create' ? (
-                <CreateTab connections={connections} onScheduled={() => { load(); setTab('calendar'); }} />
-              ) : (
-                <CalendarTab posts={posts} onChanged={load} />
+              {tab === 'create' && (
+                <CreateTab
+                  connections={connections}
+                  bestTimes={bestTimes}
+                  seedBrief={seedBrief}
+                  onSeedUsed={() => setSeedBrief('')}
+                  onScheduled={() => { load(); setTab('calendar'); }}
+                />
               )}
+              {tab === 'calendar' && <CalendarTab posts={posts} onChanged={load} onRecycle={recycle} />}
+              {tab === 'report' && <ReportTab onRecycle={recycle} />}
             </div>
           </>
         )}
@@ -249,7 +289,19 @@ export default function PilotagePage() {
 
 // ─────────────────────────────────────────────── Onglet « Créer un post »
 
-function CreateTab({ connections, onScheduled }: { connections: SocialConnectionInfo[]; onScheduled: () => void }) {
+function CreateTab({
+  connections,
+  bestTimes,
+  seedBrief,
+  onSeedUsed,
+  onScheduled,
+}: {
+  connections: SocialConnectionInfo[];
+  bestTimes: BestTimesResult | null;
+  seedBrief: string;
+  onSeedUsed: () => void;
+  onScheduled: () => void;
+}) {
   const t = useT();
   const connected = connections.filter((c) => c.connected);
 
@@ -278,6 +330,15 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
     if (nets.length === 0 && connected.length > 0) setNets(connected.map((c) => c.network));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections]);
+
+  // Sujet venu du recyclage d'une publication performante
+  useEffect(() => {
+    if (!seedBrief) return;
+    setBrief(seedBrief);
+    setDrafts({});
+    onSeedUsed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedBrief]);
 
   const toggleNet = (n: string) =>
     setNets((p) => (p.includes(n) ? p.filter((x) => x !== n) : [...p, n]));
@@ -338,6 +399,8 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
 
   const readyNets = nets.filter((n) => drafts[n]?.trim());
   const tiktokNoVideo = readyNets.includes('TikTok') && media?.kind !== 'video';
+  // Créneaux issus des vraies performances, limités aux réseaux sélectionnés.
+  const computedSlots = (bestTimes?.slots ?? []).filter((s) => nets.includes(s.network));
 
   const schedule = async () => {
     if (readyNets.length === 0) return;
@@ -551,18 +614,55 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
             )}
           </div>
           {when === 'later' && nets.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-faint">{t('pilot.bestTimes')} :</span>
-              {nets.flatMap((n) => (BEST_TIMES[n] ?? []).map((h) => ({ n, h }))).map(({ n, h }) => (
-                <button
-                  key={`${n}-${h}`}
-                  onClick={() => setTime(h)}
-                  title={n}
-                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition hover:border-brand-violet ${time === h ? 'border-brand-violet text-content' : 'border-border text-muted'}`}
-                >
-                  <NetBadge network={n} size={14} /> {h}
-                </button>
-              ))}
+            <div className="mt-2">
+              {computedSlots.length > 0 ? (
+                <>
+                  <span className="text-xs text-faint">
+                    {t('pilot.bestTimesComputed').replace('{n}', String(bestTimes?.analyzed ?? 0))} :
+                  </span>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {computedSlots.map((s) => {
+                      const hh = `${String(s.hour).padStart(2, '0')}:00`;
+                      return (
+                        <button
+                          key={`${s.network}-${s.weekday}-${s.hour}`}
+                          onClick={() => {
+                            setTime(hh);
+                            setDate(nextDateForWeekday(s.weekday));
+                          }}
+                          title={t('pilot.slotDetail')
+                            .replace('{avg}', String(s.avgInteractions))
+                            .replace('{n}', String(s.samples))}
+                          className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted transition hover:border-brand-violet"
+                        >
+                          <NetBadge network={s.network} size={14} />
+                          {WEEKDAYS[s.weekday - 1]} {hh}
+                          <span className="text-emerald-500">↑{s.avgInteractions}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-faint">
+                    {t('pilot.bestTimesGeneric')}
+                    {bestTimes ? ` (${t('pilot.needMore').replace('{n}', String(bestTimes.minimum - bestTimes.analyzed))})` : ''} :
+                  </span>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {nets.flatMap((n) => (BEST_TIMES[n] ?? []).map((h) => ({ n, h }))).map(({ n, h }) => (
+                      <button
+                        key={`${n}-${h}`}
+                        onClick={() => setTime(h)}
+                        title={n}
+                        className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition hover:border-brand-violet ${time === h ? 'border-brand-violet text-content' : 'border-border text-muted'}`}
+                      >
+                        <NetBadge network={n} size={14} /> {h}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -641,12 +741,25 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
 
 // ─────────────────────────────────────────────── Onglet « Calendrier »
 
-function CalendarTab({ posts, onChanged }: { posts: ScheduledPostDto[]; onChanged: () => void }) {
+function CalendarTab({
+  posts,
+  onChanged,
+  onRecycle,
+}: {
+  posts: ScheduledPostDto[];
+  onChanged: () => void;
+  onRecycle: (post: TopPostDto) => void;
+}) {
   const t = useT();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [selected, setSelected] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [top, setTop] = useState<TopPostDto[]>([]);
+
+  useEffect(() => {
+    apiFetch<TopPostDto[]>('/social/top-posts').then(setTop).catch(() => undefined);
+  }, [posts]);
 
   // Cumul des statistiques de toutes les publications remontées par les réseaux.
   const totals = useMemo(() => {
@@ -741,6 +854,9 @@ function CalendarTab({ posts, onChanged }: { posts: ScheduledPostDto[]; onChange
           </div>
         )}
       </div>
+
+      {/* Recyclage : reprendre ce qui a déjà bien fonctionné */}
+      {top.length > 0 && <RecycleSection posts={top} onRecycle={onRecycle} />}
 
       <div className="flex items-center justify-between">
         <div className="flex gap-1">
@@ -965,6 +1081,157 @@ function PostRow({ post: p, onChanged }: { post: ScheduledPostDto; onChanged: ()
         <button onClick={cancel} className="text-xs text-red-400 hover:text-red-300">{t('common.cancel')}</button>
       )}
       <button onClick={remove} title={t('pub.deletePost')} className="text-faint transition hover:text-red-400">🗑</button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────── Recyclage & rapport
+
+/** Publications les plus performantes, à reprendre sous un angle neuf. */
+function RecycleSection({ posts, onRecycle }: { posts: TopPostDto[]; onRecycle: (p: TopPostDto) => void }) {
+  const t = useT();
+  return (
+    <div className="card p-4">
+      <h3 className="text-sm font-bold">♻️ {t('pilot.recycleTitle')}</h3>
+      <p className="mb-3 mt-0.5 text-xs text-muted">{t('pilot.recycleHint')}</p>
+      <div className="space-y-2">
+        {posts.map((p) => (
+          <div key={p.id} className="flex items-center gap-3 rounded-xl bg-surface-2 p-3">
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-1 text-sm">{p.caption}</p>
+              <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-faint">
+                <span className="flex gap-1">
+                  {p.networks.map((n) => <NetBadge key={n} network={n} size={16} />)}
+                </span>
+                👁️ {p.views.toLocaleString('fr-FR')} · ❤️💬🔁 {p.interactions.toLocaleString('fr-FR')}
+              </p>
+            </div>
+            <button
+              onClick={() => onRecycle(p)}
+              className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:border-brand-violet hover:text-content"
+            >
+              ✨ {t('pilot.recycleBtn')}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Bilan mensuel : volumes, détail par réseau, meilleures publications. */
+function ReportTab({ onRecycle }: { onRecycle: (p: TopPostDto) => void }) {
+  const t = useT();
+  const [month, setMonth] = useState(todayISO().slice(0, 7));
+  const [report, setReport] = useState<MonthlyReportDto | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    apiFetch<MonthlyReportDto>(`/social/report?month=${month}`)
+      .then(setReport)
+      .catch(() => setReport(null))
+      .finally(() => setLoading(false));
+  }, [month]);
+
+  const exportCsv = () => {
+    if (!report) return;
+    const rows = [
+      [t('pilot.network'), t('pilot.published'), t('pilot.views'), t('pilot.interactions')],
+      ...report.byNetwork.map((n) => [n.network, n.published, n.views, n.interactions]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rapport-social-${report.month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const interactions = report ? report.likes + report.comments + report.shares : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input w-auto" />
+        <button
+          onClick={exportCsv}
+          disabled={!report || report.byNetwork.length === 0}
+          className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted transition hover:bg-surface-hover disabled:opacity-40"
+        >
+          ⬇️ {t('pilot.exportCsv')}
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="p-6 text-center text-sm text-muted">…</p>
+      ) : !report || report.published === 0 ? (
+        <div className="card p-10 text-center text-muted">{t('pilot.reportEmpty')}</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ['📤', t('pilot.published'), report.published],
+              ['👁️', t('pilot.views'), report.views],
+              ['❤️', t('pilot.likes'), report.likes],
+              ['💬', t('pilot.comments'), report.comments],
+            ].map(([icon, label, val]) => (
+              <div key={String(label)} className="card p-4">
+                <p className="text-xs text-muted">
+                  {icon} {label}
+                </p>
+                <p className="mt-0.5 text-xl font-bold">{Number(val).toLocaleString('fr-FR')}</p>
+              </div>
+            ))}
+          </div>
+
+          {report.interactionsChange !== null && (
+            <div
+              className={`rounded-xl border p-3 text-sm ${
+                report.interactionsChange >= 0
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-600'
+              }`}
+            >
+              {report.interactionsChange >= 0 ? '📈 ' : '📉 '}
+              {t('pilot.vsPrevMonth')
+                .replace('{pct}', `${report.interactionsChange > 0 ? '+' : ''}${report.interactionsChange}`)
+                .replace('{n}', interactions.toLocaleString('fr-FR'))}
+            </div>
+          )}
+
+          {report.byNetwork.length > 0 && (
+            <div className="card overflow-x-auto p-4">
+              <h3 className="mb-3 text-sm font-bold">{t('pilot.byNetwork')}</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted">
+                    <th className="pb-2 pr-4">{t('pilot.network')}</th>
+                    <th className="pb-2 pr-4">{t('pilot.published')}</th>
+                    <th className="pb-2 pr-4">{t('pilot.views')}</th>
+                    <th className="pb-2">{t('pilot.interactions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byNetwork.map((n) => (
+                    <tr key={n.network} className="border-t border-border">
+                      <td className="flex items-center gap-2 py-2 pr-4">
+                        <NetBadge network={n.network} size={18} /> {n.network}
+                      </td>
+                      <td className="py-2 pr-4">{n.published}</td>
+                      <td className="py-2 pr-4">{n.views.toLocaleString('fr-FR')}</td>
+                      <td className="py-2">{n.interactions.toLocaleString('fr-FR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {report.topPosts.length > 0 && <RecycleSection posts={report.topPosts} onRecycle={onRecycle} />}
+        </>
+      )}
     </div>
   );
 }
