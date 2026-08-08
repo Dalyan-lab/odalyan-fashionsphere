@@ -10,6 +10,8 @@ import {
   type GenerateAvatarInput,
   type GenerateCampaignInput,
   type GenerateMannequinInput,
+  type GenerateSocialCopyInput,
+  type GenerateSocialIdeasInput,
   type GenerateTryOnInput,
   type GenerateVideoInput,
   type TryOnResult,
@@ -575,6 +577,32 @@ export class AiService {
     });
 
     return { asset, result };
+  }
+
+  /**
+   * Pilotage social : rédige une publication adaptée à chaque réseau choisi
+   * (texte court TikTok/X, hashtags Instagram, etc.), dans le ton de la boutique.
+   */
+  async generateSocialCopy(userId: string, input: GenerateSocialCopyInput) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    return this.textProvider.generateSocialCopy({
+      brief: input.brief,
+      tone: input.tone?.trim() || 'Chaleureux et professionnel',
+      postType: input.postType?.trim() || 'autre',
+      networks: input.networks,
+      shopName: shop.name,
+      shopDescription: shop.description,
+    });
+  }
+
+  /** Pilotage social : idées de sujets + hashtags adaptés à la boutique. */
+  async generateSocialIdeas(userId: string, input: GenerateSocialIdeasInput) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    return this.textProvider.generateSocialIdeas({
+      tone: input.tone?.trim() || 'Chaleureux et professionnel',
+      shopName: shop.name,
+      shopDescription: shop.description,
+    });
   }
 
   /**

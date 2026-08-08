@@ -12,6 +12,36 @@ export const schedulePostSchema = z.object({
 
 export type SchedulePostInput = z.infer<typeof schedulePostSchema>;
 
+// ── Pilotage social : génération de textes adaptés par réseau ──────────────
+
+export const generateSocialCopySchema = z.object({
+  brief: z.string().min(3, 'Décrivez le sujet de la publication').max(600),
+  tone: z.string().max(120).optional(),
+  postType: z.string().max(40).optional(), // promo | actu | temoignage | coulisses | autre
+  networks: z.array(z.nativeEnum(SocialNetwork)).min(1, 'Choisissez au moins un réseau'),
+});
+
+export type GenerateSocialCopyInput = z.infer<typeof generateSocialCopySchema>;
+
+/** Un texte prêt à publier par réseau (clé = SocialNetwork). */
+export interface SocialCopyResult {
+  texts: Record<string, string>;
+  provider: 'anthropic' | 'mock';
+}
+
+export const generateSocialIdeasSchema = z.object({
+  tone: z.string().max(120).optional(),
+});
+
+export type GenerateSocialIdeasInput = z.infer<typeof generateSocialIdeasSchema>;
+
+/** Idées de sujets + hashtags pertinents pour la boutique. */
+export interface SocialIdeasResult {
+  ideas: string[];
+  hashtags: string[];
+  provider: 'anthropic' | 'mock';
+}
+
 export interface SocialConnectionInfo {
   network: string;
   connected: boolean;

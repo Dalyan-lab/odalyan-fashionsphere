@@ -1,5 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { AdCopyResult, GenerateAdCopyInput } from '@odalyan/shared';
+import type {
+  AdCopyResult,
+  GenerateAdCopyInput,
+  SocialCopyResult,
+  SocialIdeasResult,
+} from '@odalyan/shared';
+
+/** Consignes rédactionnelles par réseau (longueur recommandée + style attendu). */
+const NETWORK_GUIDANCE: Record<string, { limit: number; guidance: string }> = {
+  Facebook: { limit: 1900, guidance: 'Ton conversationnel, phrases courtes, CTA clair, 1-2 emojis maximum.' },
+  Instagram: { limit: 2200, guidance: 'Accrocheur, storytelling court, 3 à 5 hashtags pertinents en fin de texte.' },
+  TikTok: { limit: 150, guidance: 'Très court et percutant, langage tendance, accroche dès les 3 premiers mots.' },
+  YouTube: { limit: 5000, guidance: 'Première ligne = titre accrocheur, puis description claire avec mots-clés.' },
+  Pinterest: { limit: 500, guidance: 'Descriptif et inspirant, orienté découverte, mots-clés naturels.' },
+  X: { limit: 280, guidance: 'Concis et direct, une seule idée forte, 1-2 hashtags maximum.' },
+};
 
 export interface ViralScriptResult {
   hook: string;
@@ -55,6 +70,128 @@ Réponds UNIQUEMENT avec un objet JSON valide de cette forme exacte :
       this.logger.error(`Erreur génération texte: ${String(err)} — repli sur mock`);
       return { result: this.mock(input), provider: 'mock' };
     }
+  }
+
+  /** Appel Anthropic mutualisé : renvoie le texte brut de la réponse, ou null en cas d'échec. */
+  private async callClaude(prompt: string, maxTokens: number): Promise<string | null> {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      this.logger.error(`Anthropic a échoué (${res.status})`);
+      return null;
+    }
+    const data = (await res.json()) as { content: { text: string }[] };
+    return data.content?.[0]?.text ?? null;
+  }
+
+  /** Extrait l'objet JSON d'une réponse texte (tolère du texte autour et les balises markdown). */
+  private static extractJson<T>(text: string): T {
+    const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
+    return JSON.parse(json) as T;
+  }
+
+  /**
+   * Rédige une publication prête à poster, adaptée à chaque réseau demandé
+   * (limite de caractères et style propres à chacun). Pilotage social.
+   */
+  async generateSocialCopy(input: {
+    brief: string;
+    tone: string;
+    postType: string;
+    networks: string[];
+    shopName: string;
+    shopDescription?: string | null;
+  }): Promise<SocialCopyResult> {
+    if (!this.enabled) return { texts: this.mockSocialCopy(input), provider: 'mock' };
+    try {
+      const specs = input.networks
+        .map((n) => {
+          const g = NETWORK_GUIDANCE[n] ?? { limit: 1000, guidance: 'Style adapté au réseau.' };
+          return `- ${n} (${g.limit} caractères maximum) : ${g.guidance}`;
+        })
+        .join('\n');
+      const prompt = `Tu es community manager pour la boutique "${input.shopName}"${input.shopDescription ? ` (${input.shopDescription})` : ''}. Ton de marque à respecter : ${input.tone}. Type de publication : ${input.postType}.
+Rédige une publication prête à poster, en français, adaptée au contexte de la Côte d'Ivoire, sur le sujet suivant : "${input.brief}"
+
+Adapte le texte à chacun des réseaux suivants :
+${specs}
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans balises markdown ni texte autour, au format exact :
+{${input.networks.map((n) => `"${n}": "texte pour ${n}"`).join(', ')}}`;
+
+      const text = await this.callClaude(prompt, 1500);
+      if (!text) return { texts: this.mockSocialCopy(input), provider: 'mock' };
+      const parsed = TextProvider.extractJson<Record<string, string>>(text);
+      // Ne garde que les réseaux demandés, avec repli mock pour ceux qui manqueraient
+      const texts: Record<string, string> = {};
+      for (const n of input.networks) texts[n] = parsed[n] ?? this.mockSocialCopy(input)[n];
+      return { texts, provider: 'anthropic' };
+    } catch (err) {
+      this.logger.error(`Erreur génération publication sociale: ${String(err)} — repli sur mock`);
+      return { texts: this.mockSocialCopy(input), provider: 'mock' };
+    }
+  }
+
+  /** Propose des idées de sujets et des hashtags adaptés à la boutique. Pilotage social. */
+  async generateSocialIdeas(input: {
+    tone: string;
+    shopName: string;
+    shopDescription?: string | null;
+  }): Promise<SocialIdeasResult> {
+    if (!this.enabled) return { ...this.mockSocialIdeas(input), provider: 'mock' };
+    try {
+      const prompt = `Tu es community manager pour la boutique de mode "${input.shopName}"${input.shopDescription ? ` (${input.shopDescription})` : ''} (ton : ${input.tone}). Propose 5 idées de sujets de publication courtes et concrètes pour les réseaux sociaux, adaptées à cette boutique et au contexte de la Côte d'Ivoire. Propose aussi 6 hashtags pertinents et réalistes (sans le symbole #).
+Réponds UNIQUEMENT avec un JSON valide, sans texte autour : {"ideas": ["...", "...", "...", "...", "..."], "hashtags": ["...", "...", "...", "...", "...", "..."]}`;
+
+      const text = await this.callClaude(prompt, 800);
+      if (!text) return { ...this.mockSocialIdeas(input), provider: 'mock' };
+      const parsed = TextProvider.extractJson<{ ideas?: string[]; hashtags?: string[] }>(text);
+      return {
+        ideas: Array.isArray(parsed.ideas) ? parsed.ideas.filter((i) => typeof i === 'string') : [],
+        hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags.filter((h) => typeof h === 'string') : [],
+        provider: 'anthropic',
+      };
+    } catch (err) {
+      this.logger.error(`Erreur génération idées sociales: ${String(err)} — repli sur mock`);
+      return { ...this.mockSocialIdeas(input), provider: 'mock' };
+    }
+  }
+
+  private mockSocialCopy(input: { brief: string; networks: string[]; shopName: string }): Record<string, string> {
+    const texts: Record<string, string> = {};
+    for (const n of input.networks) {
+      const limit = NETWORK_GUIDANCE[n]?.limit ?? 1000;
+      const base =
+        n === 'TikTok' || limit <= 300
+          ? `${input.brief} ✨ Dispo chez ${input.shopName} — commandez vite !`
+          : `${input.brief}\n\nChez ${input.shopName}, on vous a préparé le meilleur. Passez nous voir ou commandez dès maintenant — votre style vous attend. ✨\n\n#${input.shopName.replace(/\s+/g, '')} #mode #CoteDivoire`;
+      texts[n] = base.slice(0, limit);
+    }
+    return texts;
+  }
+
+  private mockSocialIdeas(input: { shopName: string }): { ideas: string[]; hashtags: string[] } {
+    return {
+      ideas: [
+        `Présentez la nouveauté de la semaine chez ${input.shopName}`,
+        'Coulisses : comment vos commandes sont préparées',
+        'Témoignage d’un client satisfait (photo avant/après)',
+        'Promo flash du week-end — créez l’urgence',
+        'Conseil style : comment porter votre pièce phare',
+      ],
+      hashtags: ['mode', 'fashion', 'abidjan', 'CoteDivoire', 'style', 'shopping'],
+    };
   }
 
   /** Génère un court script parlé pour une vidéo présentateur/influenceur. */

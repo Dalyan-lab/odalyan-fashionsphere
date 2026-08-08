@@ -6,6 +6,8 @@ import {
   generateAvatarSchema,
   generateCampaignSchema,
   generateMannequinSchema,
+  generateSocialCopySchema,
+  generateSocialIdeasSchema,
   generateTryOnSchema,
   generateVideoSchema,
   type AddVoiceoverInput,
@@ -13,6 +15,8 @@ import {
   type GenerateAvatarInput,
   type GenerateCampaignInput,
   type GenerateMannequinInput,
+  type GenerateSocialCopyInput,
+  type GenerateSocialIdeasInput,
   type GenerateTryOnInput,
   type GenerateVideoInput,
 } from '@odalyan/shared';
@@ -81,6 +85,24 @@ export class AiController {
     @Body(new ZodValidationPipe(generateAdCopySchema)) input: GenerateAdCopyInput,
   ) {
     return this.aiService.generateAdCopy(userId, input);
+  }
+
+  /** Pilotage social : un texte prêt à publier par réseau choisi. */
+  @Post('social-copy')
+  generateSocialCopy(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(generateSocialCopySchema)) input: GenerateSocialCopyInput,
+  ) {
+    return this.aiService.generateSocialCopy(userId, input);
+  }
+
+  /** Pilotage social : idées de sujets + hashtags pour la boutique. */
+  @Post('social-ideas')
+  generateSocialIdeas(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(generateSocialIdeasSchema)) input: GenerateSocialIdeasInput,
+  ) {
+    return this.aiService.generateSocialIdeas(userId, input);
   }
 
   @Get('video/providers')
