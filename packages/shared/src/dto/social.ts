@@ -12,6 +12,20 @@ export const schedulePostSchema = z.object({
 
 export type SchedulePostInput = z.infer<typeof schedulePostSchema>;
 
+/**
+ * Édition d'une publication non encore publiée (ou relance d'une publication
+ * échouée/annulée) : tout champ absent reste inchangé ; media null = retiré.
+ */
+export const updateScheduledPostSchema = z.object({
+  caption: z.string().min(1, 'Légende requise').max(3000).optional(),
+  scheduledAt: z.string().optional(), // ISO ; absent = inchangé
+  networks: z.array(z.nativeEnum(SocialNetwork)).min(1).optional(),
+  imageUrl: z.string().url().nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+});
+
+export type UpdateScheduledPostInput = z.infer<typeof updateScheduledPostSchema>;
+
 // ── Pilotage social : génération de textes adaptés par réseau ──────────────
 
 export const generateSocialCopySchema = z.object({

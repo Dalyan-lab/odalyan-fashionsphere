@@ -52,6 +52,112 @@ function NetBadge({ network, size = 20 }: { network: string; size?: number }) {
   );
 }
 
+interface GeneratedAsset {
+  id: string;
+  type: string;
+  provider: string;
+  prompt?: string | null;
+  url?: string | null;
+  meta?: unknown;
+  createdAt: string;
+}
+
+const isVideoAsset = (a: GeneratedAsset) => {
+  const kind = (a.meta as { kind?: string } | null)?.kind;
+  return kind === 'video' || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(a.url ?? '');
+};
+
+/**
+ * Sélecteur de médias générés (Studio / Vidéo IA) : réutilise les visuels et
+ * vidéos déjà créés au lieu de re-téléverser un fichier.
+ */
+function StudioMediaPicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (m: { url: string; kind: 'image' | 'video'; name: string }) => void;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const [tab, setTab] = useState<'images' | 'videos'>('images');
+  const [images, setImages] = useState<GeneratedAsset[]>([]);
+  const [videos, setVideos] = useState<GeneratedAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch<GeneratedAsset[]>('/ai/assets').catch(() => [] as GeneratedAsset[]),
+      apiFetch<GeneratedAsset[]>('/ai/videos').catch(() => [] as GeneratedAsset[]),
+    ]).then(([assets, vids]) => {
+      setImages(assets.filter((a) => a.url && !isVideoAsset(a)));
+      setVideos(vids.filter((a) => a.url));
+      setLoading(false);
+    });
+  }, []);
+
+  const list = tab === 'images' ? images : videos;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-surface p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-display text-lg font-bold">🎨 {t('pilot.pickerTitle')}</h3>
+          <button onClick={onClose} className="text-faint hover:text-content">✕</button>
+        </div>
+        <div className="mb-4 flex gap-2">
+          {(['images', 'videos'] as const).map((id) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                tab === id ? 'border-brand-violet bg-surface-2' : 'border-border text-muted'
+              }`}
+            >
+              {id === 'images' ? `🖼️ ${t('pilot.pickerImages')} (${images.length})` : `🎬 ${t('pilot.pickerVideos')} (${videos.length})`}
+            </button>
+          ))}
+        </div>
+        {loading ? (
+          <p className="p-6 text-center text-sm text-muted">…</p>
+        ) : list.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted">{t('pilot.pickerEmpty')}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {list.map((a) => (
+              <button
+                key={a.id}
+                onClick={() =>
+                  onPick({
+                    url: a.url!,
+                    kind: tab === 'images' ? 'image' : 'video',
+                    name: a.prompt?.slice(0, 40) || (tab === 'images' ? 'Image Studio' : 'Vidéo générée'),
+                  })
+                }
+                className="group overflow-hidden rounded-xl border border-border transition hover:border-brand-violet"
+              >
+                {tab === 'images' ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={a.url!} alt="" className="h-28 w-full object-cover transition group-hover:scale-105" loading="lazy" />
+                ) : (
+                  <span className="relative block h-28 w-full bg-black">
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    <video src={`${a.url}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                    <span className="absolute right-1 top-1 rounded-full bg-black/70 px-1.5 text-xs">🎬</span>
+                  </span>
+                )}
+                {a.prompt && <p className="line-clamp-1 px-2 py-1.5 text-left text-[11px] text-faint">{a.prompt}</p>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Score qualité d'un texte : longueur, appel à l'action, hashtags (Instagram). */
 function scoreText(text: string, network: string, t: (k: string) => string): { score: number; notes: string[] } {
   if (!text.trim()) return { score: 0, notes: [] };
@@ -162,6 +268,7 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
 
   const [media, setMedia] = useState<{ url: string; kind: 'image' | 'video'; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const [publishing, setPublishing] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -376,6 +483,12 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
         <div>
           <label className="mb-1 block text-xs font-semibold text-muted">{t('pilot.media')}</label>
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-surface-hover"
+            >
+              🎨 {t('pilot.fromStudio')}
+            </button>
             <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-surface-hover">
               {uploading ? t('pilot.uploading') : `📎 ${t('pilot.chooseMedia')}`}
               <input
@@ -403,6 +516,15 @@ function CreateTab({ connections, onScheduled }: { connections: SocialConnection
             <video src={media.url} controls className="mt-2 max-h-48 rounded-xl border border-border" />
           )}
           {tiktokNoVideo && <p className="mt-1.5 text-xs text-amber-500">⚠️ {t('pilot.tiktokNeedsVideo')}</p>}
+          {pickerOpen && (
+            <StudioMediaPicker
+              onPick={(m) => {
+                setMedia(m);
+                setPickerOpen(false);
+              }}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
         </div>
 
         {/* Quand publier */}
@@ -641,6 +763,16 @@ function CalendarTab({ posts, onChanged }: { posts: ScheduledPostDto[]; onChange
 
 function PostRow({ post: p, onChanged }: { post: ScheduledPostDto; onChanged: () => void }) {
   const t = useT();
+  const [editing, setEditing] = useState(false);
+  const [caption, setCaption] = useState(p.caption);
+  const local = new Date(p.scheduledAt);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const [date, setDate] = useState(`${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`);
+  const [time, setTime] = useState(`${pad(local.getHours())}:${pad(local.getMinutes())}`);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const editable = p.status === 'SCHEDULED' || p.status === 'FAILED' || p.status === 'CANCELLED';
 
   const cancel = async () => {
     await apiFetch(`/social/scheduled/${p.id}/cancel`, { method: 'POST' }).catch(() => undefined);
@@ -651,6 +783,50 @@ function PostRow({ post: p, onChanged }: { post: ScheduledPostDto; onChanged: ()
     await apiFetch(`/social/scheduled/${p.id}`, { method: 'DELETE' }).catch(() => undefined);
     onChanged();
   };
+  const save = async () => {
+    if (!caption.trim()) return;
+    setSaving(true);
+    setErr('');
+    try {
+      await apiFetch(`/social/scheduled/${p.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ caption: caption.trim(), scheduledAt: new Date(`${date}T${time}`).toISOString() }),
+      });
+      setEditing(false);
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('common.error'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="card space-y-3 p-4">
+        <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={3} className="input w-full" />
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input w-auto" />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="input w-auto" />
+          <span className="flex gap-1">
+            {p.networks.map((n) => <NetBadge key={n} network={n} size={20} />)}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={save} disabled={saving || !caption.trim()} className="btn-primary text-sm disabled:opacity-40">
+            {saving ? '…' : `💾 ${t('pilot.save')}`}
+          </button>
+          <button
+            onClick={() => { setEditing(false); setCaption(p.caption); }}
+            className="rounded-lg border border-border px-3 py-2 text-sm text-muted transition hover:bg-surface-hover"
+          >
+            {t('common.cancel')}
+          </button>
+          {err && <span className="text-sm text-red-400">⚠️ {err}</span>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card flex items-center gap-4 p-4">
@@ -697,6 +873,11 @@ function PostRow({ post: p, onChanged }: { post: ScheduledPostDto; onChanged: ()
       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[p.status] ?? ''}`}>
         {t(`ps.${p.status}`)}
       </span>
+      {editable && (
+        <button onClick={() => setEditing(true)} className="text-xs text-brand-violet hover:underline">
+          {p.status === 'SCHEDULED' ? `✏️ ${t('pilot.edit')}` : `🔁 ${t('pilot.retry')}`}
+        </button>
+      )}
       {p.status === 'SCHEDULED' && (
         <button onClick={cancel} className="text-xs text-red-400 hover:text-red-300">{t('common.cancel')}</button>
       )}

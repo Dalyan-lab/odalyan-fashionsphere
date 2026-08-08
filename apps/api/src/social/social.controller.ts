@@ -1,6 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
-import { UserRole, schedulePostSchema, type SchedulePostInput } from '@odalyan/shared';
+import {
+  UserRole,
+  schedulePostSchema,
+  updateScheduledPostSchema,
+  type SchedulePostInput,
+  type UpdateScheduledPostInput,
+} from '@odalyan/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -48,6 +54,16 @@ export class SocialController {
   @Get('scheduled')
   scheduled(@CurrentUser('id') userId: string) {
     return this.socialService.listScheduled(userId);
+  }
+
+  /** Édite une publication programmée, ou relance une publication échouée/annulée. */
+  @Patch('scheduled/:id')
+  update(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateScheduledPostSchema)) input: UpdateScheduledPostInput,
+  ) {
+    return this.socialService.update(userId, id, input);
   }
 
   @Post('scheduled/:id/cancel')

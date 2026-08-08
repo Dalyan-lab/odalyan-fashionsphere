@@ -7,6 +7,7 @@ import {
   type ScheduledPostDto,
   type SchedulePostInput,
   type SocialConnectionInfo,
+  type UpdateScheduledPostInput,
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
@@ -198,6 +199,49 @@ export class SocialService {
       results: (p.results as ScheduledPostDto['results']) ?? null,
       lastError: p.lastError ?? null,
     }));
+  }
+
+  /**
+   * Modifie une publication non encore publiée, ou relance une publication
+   * échouée/annulée : le statut repasse à SCHEDULED et les tentatives sont
+   * remises à zéro (sert donc aussi de « réessayer »).
+   */
+  async update(userId: string, id: string, input: UpdateScheduledPostInput) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    const post = await this.prisma.scheduledPost.findUnique({ where: { id } });
+    if (!post || post.shopId !== shop.id) throw new NotFoundException('Publication introuvable');
+    if (post.status === 'PUBLISHED' || post.status === 'PARTIAL') {
+      throw new BadRequestException('Publication déjà publiée — non modifiable.');
+    }
+
+    if (input.networks) {
+      const connections = await this.prisma.socialConnection.findMany({
+        where: { shopId: shop.id, network: { in: input.networks }, connected: true },
+      });
+      if (connections.length === 0) {
+        throw new BadRequestException('Aucun des réseaux choisis n’est connecté.');
+      }
+    }
+
+    await this.prisma.scheduledPost.update({
+      where: { id },
+      data: {
+        caption: input.caption ?? post.caption,
+        networks: input.networks ?? post.networks,
+        scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : post.scheduledAt,
+        imageUrl: input.imageUrl !== undefined ? input.imageUrl : post.imageUrl,
+        videoUrl: input.videoUrl !== undefined ? input.videoUrl : post.videoUrl,
+        status: 'SCHEDULED',
+        attempts: 0,
+        lastError: null,
+        results: Prisma.DbNull,
+        publishedAt: null,
+      },
+    });
+
+    // Publie tout de suite si la nouvelle échéance est déjà passée
+    await this.processDue(shop.id);
+    return this.prisma.scheduledPost.findUnique({ where: { id } });
   }
 
   async cancel(userId: string, id: string) {

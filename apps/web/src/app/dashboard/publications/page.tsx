@@ -88,6 +88,7 @@ export default function PublicationsPage() {
   };
 
   const remove = async (id: string) => {
+    if (!window.confirm(t('pilot.deleteConfirm'))) return;
     await apiFetch(`/social/scheduled/${id}`, { method: 'DELETE' }).catch(() => undefined);
     load();
   };
