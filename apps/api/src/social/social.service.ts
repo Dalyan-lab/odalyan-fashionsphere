@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma, type SocialConnection } from '@prisma/client';
 import {
   SocialNetwork,
+  type PostInsightDto,
   type ScheduledPostDto,
   type SchedulePostInput,
   type SocialConnectionInfo,
@@ -16,6 +17,8 @@ import type { PublishResult, SocialPublisher } from './publishers/social-publish
 
 const NETWORKS = Object.values(SocialNetwork) as string[];
 const MAX_ATTEMPTS = 3;
+/** Au-delà, une publication n'évolue quasiment plus : inutile de réinterroger les réseaux. */
+const INSIGHTS_WINDOW_DAYS = 30;
 
 @Injectable()
 export class SocialService {
@@ -185,6 +188,7 @@ export class SocialService {
       where: { shopId: shop.id },
       orderBy: { scheduledAt: 'desc' },
       take: 50,
+      include: { insights: true },
     });
     return posts.map((p) => ({
       id: p.id,
@@ -198,6 +202,18 @@ export class SocialService {
       createdAt: p.createdAt.toISOString(),
       results: (p.results as ScheduledPostDto['results']) ?? null,
       lastError: p.lastError ?? null,
+      insights: p.insights.map(
+        (i): PostInsightDto => ({
+          network: i.network,
+          views: i.views,
+          reach: i.reach,
+          likes: i.likes,
+          comments: i.comments,
+          shares: i.shares,
+          fetchedAt: i.fetchedAt.toISOString(),
+          error: i.error,
+        }),
+      ),
     }));
   }
 
@@ -358,5 +374,104 @@ export class SocialService {
       });
     }
     return due.length;
+  }
+
+  // ------------------------------------------------------------- Statistiques
+
+  /** Rafraîchit les statistiques de la boutique du vendeur (bouton « actualiser »). */
+  async refreshInsightsForUser(userId: string): Promise<{ refreshed: number }> {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    return { refreshed: await this.refreshInsights(shop.id) };
+  }
+
+  /** Worker : rafraîchit les statistiques de toutes les boutiques (toutes les 6 heures). */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async refreshAllInsights(): Promise<{ refreshed: number }> {
+    const since = new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 86_400_000);
+    const shops = await this.prisma.scheduledPost.findMany({
+      where: { status: { in: ['PUBLISHED', 'PARTIAL'] }, publishedAt: { gte: since } },
+      select: { shopId: true },
+      distinct: ['shopId'],
+    });
+    let refreshed = 0;
+    for (const { shopId } of shops) refreshed += await this.refreshInsights(shopId);
+    if (refreshed) this.logger.log(`Statistiques rafraîchies : ${refreshed}`);
+    return { refreshed };
+  }
+
+  /**
+   * Interroge chaque réseau pour les publications récentes de la boutique et
+   * enregistre les compteurs. Un réseau en échec (permission manquante, contenu
+   * supprimé) n'interrompt pas les autres : l'erreur est consignée sur la ligne
+   * concernée, et les chiffres déjà connus sont conservés.
+   */
+  private async refreshInsights(shopId: string): Promise<number> {
+    const since = new Date(Date.now() - INSIGHTS_WINDOW_DAYS * 86_400_000);
+    const posts = await this.prisma.scheduledPost.findMany({
+      where: { shopId, status: { in: ['PUBLISHED', 'PARTIAL'] }, publishedAt: { gte: since } },
+      include: { insights: true },
+    });
+    if (posts.length === 0) return 0;
+
+    const connections = await this.prisma.socialConnection.findMany({ where: { shopId, connected: true } });
+    let refreshed = 0;
+
+    for (const post of posts) {
+      const results = (post.results ?? {}) as unknown as Record<string, PublishResult & { simulated?: boolean }>;
+
+      for (const [network, outcome] of Object.entries(results)) {
+        // Rien à lire pour un réseau en échec ou dont la publication était simulée.
+        if (!outcome.ok || outcome.simulated) continue;
+
+        const publisher = this.registry.get(network);
+        const conn = connections.find((c) => c.network === network);
+        if (!publisher?.fetchInsights || !conn || conn.simulated) continue;
+
+        // L'id résolu au passage précédent (TikTok) évite de refaire la résolution.
+        const known = post.insights.find((i) => i.network === network);
+        const externalId = known?.externalId ?? outcome.externalId;
+        if (!externalId) continue;
+
+        try {
+          const fresh = await this.withFreshToken(publisher, conn);
+          const stats = await publisher.fetchInsights(fresh, externalId);
+          await this.prisma.postInsight.upsert({
+            where: { postId_network: { postId: post.id, network } },
+            update: {
+              externalId: stats.externalId ?? externalId,
+              views: stats.views ?? 0,
+              reach: stats.reach ?? 0,
+              likes: stats.likes ?? 0,
+              comments: stats.comments ?? 0,
+              shares: stats.shares ?? 0,
+              fetchedAt: new Date(),
+              error: stats.partial ?? null,
+            },
+            create: {
+              postId: post.id,
+              network,
+              externalId: stats.externalId ?? externalId,
+              views: stats.views ?? 0,
+              reach: stats.reach ?? 0,
+              likes: stats.likes ?? 0,
+              comments: stats.comments ?? 0,
+              shares: stats.shares ?? 0,
+              error: stats.partial ?? null,
+            },
+          });
+          refreshed++;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`${network} — statistiques indisponibles (post ${post.id}) : ${message}`);
+          // Conserve les chiffres déjà connus : on ne consigne que l'échec.
+          await this.prisma.postInsight.upsert({
+            where: { postId_network: { postId: post.id, network } },
+            update: { fetchedAt: new Date(), error: message },
+            create: { postId: post.id, network, externalId, error: message },
+          });
+        }
+      }
+    }
+    return refreshed;
   }
 }

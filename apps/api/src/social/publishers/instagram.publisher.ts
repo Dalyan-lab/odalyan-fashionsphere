@@ -1,13 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { SocialConnection } from '@prisma/client';
-import type { OAuthResult, PublishInput, PublishResult, SocialPublisher } from './social-publisher.interface';
+import type {
+  InsightResult,
+  OAuthResult,
+  PublishInput,
+  PublishResult,
+  SocialPublisher,
+} from './social-publisher.interface';
 
 const IG_AUTH = 'https://www.instagram.com/oauth/authorize';
 const IG_TOKEN = 'https://api.instagram.com/oauth/access_token';
 const IG_GRAPH = 'https://graph.instagram.com';
 
 /** Publication de contenu + lecture du profil (« Instagram API with Instagram login »). */
-const SCOPES = ['instagram_business_basic', 'instagram_business_content_publish'].join(',');
+const SCOPES = [
+  'instagram_business_basic',
+  'instagram_business_content_publish',
+  'instagram_business_manage_insights', // statistiques des publications (vues, portée)
+].join(',');
 
 interface IgEnvelope<T> {
   data?: T;
@@ -143,6 +153,47 @@ export class InstagramPublisher implements SocialPublisher {
       this.logger.error(`Instagram — publication échouée : ${message}`);
       return { ok: false, error: message };
     }
+  }
+
+  /**
+   * Statistiques d'un média Instagram. Les compteurs j'aime / commentaires sont
+   * lisibles avec la permission de base ; la portée et les partages passent par
+   * /insights et exigent `instagram_business_manage_insights` (accordée lors
+   * d'une reconnexion du compte) — leur absence n'empêche pas le reste.
+   */
+  async fetchInsights(conn: SocialConnection, externalId: string): Promise<InsightResult> {
+    if (!conn.accessToken) throw new Error('Connexion Instagram incomplète.');
+    const token = encodeURIComponent(conn.accessToken);
+
+    const basicRes = await fetch(`${IG_GRAPH}/${externalId}?fields=like_count,comments_count&access_token=${token}`);
+    const basic = (await basicRes.json()) as {
+      like_count?: number;
+      comments_count?: number;
+      error?: { message: string };
+    };
+    if (basic.error) throw new Error(basic.error.message);
+
+    const result: InsightResult = {
+      likes: basic.like_count ?? 0,
+      comments: basic.comments_count ?? 0,
+    };
+
+    try {
+      const insRes = await fetch(`${IG_GRAPH}/${externalId}/insights?metric=views,reach,shares&access_token=${token}`);
+      const ins = (await insRes.json()) as {
+        data?: { name: string; values?: { value?: number }[] }[];
+        error?: { message: string };
+      };
+      if (ins.error) throw new Error(ins.error.message);
+      const read = (name: string) => ins.data?.find((d) => d.name === name)?.values?.[0]?.value;
+      result.views = read('views') ?? 0;
+      result.reach = read('reach') ?? 0;
+      result.shares = read('shares') ?? 0;
+    } catch (err) {
+      result.partial = `Vues et portée indisponibles (${err instanceof Error ? err.message : String(err)})`;
+    }
+
+    return result;
   }
 
   /** Attend que le conteneur vidéo soit encodé (status_code=FINISHED). */

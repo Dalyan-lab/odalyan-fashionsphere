@@ -80,6 +80,19 @@ export interface PublishOutcome {
   simulated?: boolean;
 }
 
+/** Statistiques d'une publication sur un réseau, telles que remontées par son API. */
+export interface PostInsightDto {
+  network: string;
+  views: number;
+  reach: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  fetchedAt: string;
+  /** Renseigné quand le réseau n'a rien pu remonter (permission manquante, contenu supprimé…). */
+  error?: string | null;
+}
+
 export interface ScheduledPostDto {
   id: string;
   caption: string;
@@ -93,4 +106,6 @@ export interface ScheduledPostDto {
   /** Détail par réseau (clé = nom du réseau). */
   results?: Record<string, PublishOutcome> | null;
   lastError?: string | null;
+  /** Statistiques par réseau, rafraîchies périodiquement (vide tant qu'aucune lecture). */
+  insights?: PostInsightDto[];
 }

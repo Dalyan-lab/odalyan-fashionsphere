@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { SocialConnection } from '@prisma/client';
-import type { OAuthResult, PublishInput, PublishResult, SocialPublisher } from './social-publisher.interface';
+import type {
+  InsightResult,
+  OAuthResult,
+  PublishInput,
+  PublishResult,
+  SocialPublisher,
+} from './social-publisher.interface';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 const DIALOG = 'https://www.facebook.com/v21.0/dialog/oauth';
@@ -12,6 +18,7 @@ const SCOPES = [
   'pages_read_engagement',
   'instagram_basic',
   'instagram_content_publish',
+  'read_insights', // statistiques des publications de la Page
 ].join(',');
 
 interface MetaPage {
@@ -195,5 +202,52 @@ export class FacebookPublisher extends MetaBasePublisher {
     } catch (err) {
       return this.fail(err);
     }
+  }
+
+  /**
+   * Statistiques d'un post de Page. L'engagement (j'aime / commentaires / partages)
+   * ne demande que `pages_read_engagement` ; les impressions passent par /insights
+   * et exigent `read_insights`. Si cette permission manque, on renvoie quand même
+   * l'engagement en signalant ce qui n'a pas pu être lu.
+   */
+  async fetchInsights(conn: SocialConnection, externalId: string): Promise<InsightResult> {
+    if (!conn.accessToken) throw new Error('Connexion Facebook incomplète.');
+    const token = encodeURIComponent(conn.accessToken);
+
+    const engRes = await fetch(
+      `${GRAPH}/${externalId}?fields=likes.summary(true),comments.summary(true),shares&access_token=${token}`,
+    );
+    const eng = (await engRes.json()) as {
+      likes?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+      shares?: { count?: number };
+      error?: { message: string };
+    };
+    if (eng.error) throw new Error(eng.error.message);
+
+    const result: InsightResult = {
+      likes: eng.likes?.summary?.total_count ?? 0,
+      comments: eng.comments?.summary?.total_count ?? 0,
+      shares: eng.shares?.count ?? 0,
+    };
+
+    // Impressions : métrique séparée, souvent refusée faute de permission → non bloquante.
+    try {
+      const insRes = await fetch(
+        `${GRAPH}/${externalId}/insights?metric=post_impressions,post_impressions_unique&access_token=${token}`,
+      );
+      const ins = (await insRes.json()) as {
+        data?: { name: string; values?: { value?: number }[] }[];
+        error?: { message: string };
+      };
+      if (ins.error) throw new Error(ins.error.message);
+      const read = (name: string) => ins.data?.find((d) => d.name === name)?.values?.[0]?.value;
+      result.views = read('post_impressions') ?? 0;
+      result.reach = read('post_impressions_unique') ?? 0;
+    } catch (err) {
+      result.partial = `Impressions indisponibles (${err instanceof Error ? err.message : String(err)})`;
+    }
+
+    return result;
   }
 }

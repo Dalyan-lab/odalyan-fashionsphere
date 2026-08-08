@@ -26,6 +26,26 @@ export interface PublishResult {
 }
 
 /**
+ * Statistiques d'une publication. Tous les champs sont optionnels : chaque réseau
+ * n'expose pas les mêmes métriques, et certaines demandent une permission
+ * supplémentaire que le compte n'a pas forcément accordée.
+ */
+export interface InsightResult {
+  views?: number;
+  reach?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  /**
+   * Id réel du contenu quand il diffère de celui obtenu à la publication
+   * (TikTok renvoie un publish_id qu'il faut résoudre en id de vidéo).
+   */
+  externalId?: string;
+  /** Métriques indisponibles malgré une récupération réussie (permission manquante). */
+  partial?: string;
+}
+
+/**
  * Contrat commun à tous les réseaux de publication.
  * Un provider est « enabled » quand les clés de l'app développeur sont présentes ;
  * sinon la connexion reste simulée et la publication renvoie une erreur explicite.
@@ -51,4 +71,11 @@ export interface SocialPublisher {
    * Absent = jeton longue durée, rien à faire (cas de Meta).
    */
   refresh?(connection: SocialConnection): Promise<OAuthResult>;
+
+  /**
+   * Récupère les statistiques d'un contenu publié. Absent = réseau qui n'expose
+   * pas encore ses chiffres. Doit lever une erreur explicite en cas d'échec :
+   * le message est affiché au vendeur (ex. permission à réaccorder).
+   */
+  fetchInsights?(connection: SocialConnection, externalId: string): Promise<InsightResult>;
 }

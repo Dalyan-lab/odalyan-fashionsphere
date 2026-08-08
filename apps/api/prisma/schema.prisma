@@ -486,10 +486,41 @@ model ScheduledPost {
   shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
   shopId String
 
+  insights PostInsight[]
+
   createdAt DateTime @default(now())
 
   @@index([shopId])
   @@index([status])
+}
+
+/**
+ * Statistiques d'une publication sur un réseau donné, rafraîchies périodiquement
+ * depuis l'API du réseau. Une ligne par (publication, réseau) : les chiffres sont
+ * remplacés à chaque rafraîchissement (on stocke l'état courant, pas l'historique).
+ */
+model PostInsight {
+  id      String @id @default(cuid())
+  network String
+
+  /** Id du contenu côté réseau (post Facebook, média Instagram, vidéo TikTok). */
+  externalId String?
+
+  views    Int @default(0) // impressions / vues
+  reach    Int @default(0) // comptes uniques touchés (quand le réseau le fournit)
+  likes    Int @default(0)
+  comments Int @default(0)
+  shares   Int @default(0)
+
+  /** Dernière tentative de récupération, et son échec éventuel (permission manquante…). */
+  fetchedAt DateTime @default(now())
+  error     String?  @db.Text
+
+  post   ScheduledPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId String
+
+  @@unique([postId, network])
+  @@index([postId])
 }
 
 // ────────────────────────────────────────────────────────────────────────

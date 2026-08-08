@@ -76,6 +76,12 @@ export class SocialController {
     return this.socialService.remove(userId, id);
   }
 
+  /** Rafraîchit les statistiques des publications récentes de la boutique. */
+  @Post('insights/refresh')
+  refreshInsights(@CurrentUser('id') userId: string) {
+    return this.socialService.refreshInsightsForUser(userId);
+  }
+
   /** Déclenche manuellement le worker de publication (admin). */
   @Post('run-publisher')
   @Roles(UserRole.ADMIN)

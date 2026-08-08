@@ -1,12 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { SocialConnection } from '@prisma/client';
-import type { OAuthResult, PublishInput, PublishResult, SocialPublisher } from './social-publisher.interface';
+import type {
+  InsightResult,
+  OAuthResult,
+  PublishInput,
+  PublishResult,
+  SocialPublisher,
+} from './social-publisher.interface';
 
 const AUTH = 'https://www.tiktok.com/v2/auth/authorize/';
 const API = 'https://open.tiktokapis.com/v2';
 
-/** Lecture du profil + publication directe de contenu. */
-const SCOPES = ['user.info.basic', 'video.publish'].join(',');
+/**
+ * Lecture du profil + publication directe de contenu + lecture des vidéos.
+ * `video.list` sert uniquement aux statistiques : les comptes connectés avant
+ * son ajout devront être reconnectés pour que TikTok remonte ses chiffres.
+ */
+const SCOPES = ['user.info.basic', 'video.publish', 'video.list'].join(',');
 
 /**
  * Tant que l'app n'a pas passé l'audit « Content Posting API », TikTok impose
@@ -267,6 +277,81 @@ export class TikTokPublisher implements SocialPublisher {
     if (!put.ok) throw new Error(`Envoi de la vidéo à TikTok échoué (HTTP ${put.status}).`);
 
     return { ok: true, externalId: publishId };
+  }
+
+  /**
+   * Statistiques d'une vidéo publiée. Deux étapes, car la publication ne renvoie
+   * qu'un `publish_id` (identifiant de traitement) :
+   *  1. status/fetch résout ce publish_id en identifiant de vidéo publique ;
+   *  2. video/query lit les compteurs — cela exige le scope `video.list`, absent
+   *     des comptes connectés avant son ajout (message explicite dans ce cas).
+   */
+  async fetchInsights(conn: SocialConnection, externalId: string): Promise<InsightResult> {
+    if (!conn.accessToken) throw new Error('Connexion TikTok incomplète.');
+    const headers = {
+      Authorization: `Bearer ${conn.accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+    };
+
+    // Sans ce scope, video/query répond systématiquement en erreur : autant le dire
+    // tout de suite, avec l'action à faire, plutôt que de laisser un message obscur.
+    if (!conn.scope?.includes('video.list')) {
+      throw new Error(
+        'Statistiques TikTok non autorisées : reconnectez le compte TikTok pour accorder la lecture des vidéos.',
+      );
+    }
+
+    // Un id de vidéo est purement numérique ; un publish_id (ex. « v_pub_file~… »)
+    // doit d'abord être résolu. Aux rafraîchissements suivants, l'id est déjà résolu.
+    const videoId = /^\d+$/.test(externalId) ? externalId : await this.resolveVideoId(externalId, headers);
+
+    const res = await fetch(`${API}/video/query/?fields=id,like_count,comment_count,share_count,view_count`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ filters: { video_ids: [videoId] } }),
+    });
+    const body = (await res.json()) as TikTokEnvelope<{
+      videos?: { id?: string; like_count?: number; comment_count?: number; share_count?: number; view_count?: number }[];
+    }>;
+    if (body.error?.code && body.error.code !== 'ok') throw new Error(this.errMsg(body.error));
+
+    const video = body.data?.videos?.[0];
+    if (!video) throw new Error('Vidéo TikTok introuvable (supprimée côté TikTok ?).');
+
+    return {
+      externalId: videoId,
+      views: video.view_count ?? 0,
+      likes: video.like_count ?? 0,
+      comments: video.comment_count ?? 0,
+      shares: video.share_count ?? 0,
+    };
+  }
+
+  /** publish_id → id de la vidéo publiée (disponible une fois le traitement terminé). */
+  private async resolveVideoId(publishId: string, headers: Record<string, string>): Promise<string> {
+    const res = await fetch(`${API}/post/publish/status/fetch/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ publish_id: publishId }),
+    });
+    const body = (await res.json()) as TikTokEnvelope<{
+      status?: string;
+      publicaly_available_post_id?: (string | number)[];
+      fail_reason?: string;
+    }>;
+    if (body.error?.code && body.error.code !== 'ok') throw new Error(this.errMsg(body.error));
+
+    const id = body.data?.publicaly_available_post_id?.[0];
+    if (!id) {
+      const status = body.data?.status ?? 'inconnu';
+      // La vidéo peut encore être en cours de traitement chez TikTok.
+      throw new Error(
+        body.data?.fail_reason
+          ? `Publication TikTok en échec : ${body.data.fail_reason}`
+          : `Vidéo TikTok pas encore disponible (statut ${status}).`,
+      );
+    }
+    return String(id);
   }
 
   /**

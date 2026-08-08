@@ -646,6 +646,34 @@ function CalendarTab({ posts, onChanged }: { posts: ScheduledPostDto[]; onChange
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [selected, setSelected] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Cumul des statistiques de toutes les publications remontées par les réseaux.
+  const totals = useMemo(() => {
+    const acc = { views: 0, likes: 0, comments: 0, shares: 0, measured: 0 };
+    for (const p of posts) {
+      for (const i of p.insights ?? []) {
+        acc.views += i.views;
+        acc.likes += i.likes;
+        acc.comments += i.comments;
+        acc.shares += i.shares;
+        acc.measured++;
+      }
+    }
+    return acc;
+  }, [posts]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await apiFetch('/social/insights/refresh', { method: 'POST' });
+      onChanged();
+    } catch {
+      /* l'erreur par réseau est déjà affichée sur chaque publication */
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const byDate = useMemo(() => {
     const m: Record<string, ScheduledPostDto[]> = {};
@@ -681,6 +709,39 @@ function CalendarTab({ posts, onChanged }: { posts: ScheduledPostDto[]; onChange
 
   return (
     <div className="space-y-4">
+      {/* Performances cumulées, remontées automatiquement depuis les réseaux */}
+      <div className="card p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold">📊 {t('pilot.perf')}</h3>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:bg-surface-hover disabled:opacity-40"
+          >
+            {refreshing ? '…' : `🔄 ${t('pilot.refreshStats')}`}
+          </button>
+        </div>
+        {totals.measured === 0 ? (
+          <p className="text-xs text-faint">{t('pilot.noStats')}</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ['👁️', t('pilot.views'), totals.views],
+              ['❤️', t('pilot.likes'), totals.likes],
+              ['💬', t('pilot.comments'), totals.comments],
+              ['🔁', t('pilot.shares'), totals.shares],
+            ].map(([icon, label, val]) => (
+              <div key={String(label)} className="rounded-xl bg-surface-2 p-3">
+                <p className="text-xs text-muted">
+                  {icon} {label}
+                </p>
+                <p className="mt-0.5 text-xl font-bold">{Number(val).toLocaleString('fr-FR')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex gap-1">
           <button
@@ -869,6 +930,28 @@ function PostRow({ post: p, onChanged }: { post: ScheduledPostDto; onChanged: ()
             ⚠️ {p.lastError}
           </p>
         )}
+        {/* Statistiques remontées par chaque réseau */}
+        {(p.insights ?? []).map((i) => {
+          const hasNumbers = i.views + i.likes + i.comments + i.shares > 0;
+          return (
+            <p key={i.network} className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="font-semibold text-muted">{i.network}</span>
+              {hasNumbers ? (
+                <>
+                  <span title={t('pilot.views')}>👁️ {i.views.toLocaleString('fr-FR')}</span>
+                  <span title={t('pilot.likes')}>❤️ {i.likes.toLocaleString('fr-FR')}</span>
+                  <span title={t('pilot.comments')}>💬 {i.comments.toLocaleString('fr-FR')}</span>
+                  <span title={t('pilot.shares')}>🔁 {i.shares.toLocaleString('fr-FR')}</span>
+                </>
+              ) : null}
+              {i.error && (
+                <span className="text-amber-500" title={i.error}>
+                  ⚠️ {i.error.length > 70 ? `${i.error.slice(0, 70)}…` : i.error}
+                </span>
+              )}
+            </p>
+          );
+        })}
       </div>
       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLE[p.status] ?? ''}`}>
         {t(`ps.${p.status}`)}
