@@ -10,6 +10,12 @@ interface BeforeInstallPromptEvent extends Event {
 export function PWARegister() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [hidden, setHidden] = useState(false);
+  /** Ordinateur (souris) vs mobile (tactile) : l'app s'installe sur le bureau ou l'écran d'accueil. */
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setIsDesktop(window.matchMedia('(pointer: fine)').matches);
+  }, []);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
@@ -54,7 +60,9 @@ export function PWARegister() {
       <img src="/icon-192.png" alt="" className="h-9 w-9 rounded-lg" />
       <div className="text-sm">
         <p className="font-semibold">Installer l’application</p>
-        <p className="text-xs text-muted">Accès rapide depuis votre écran d’accueil</p>
+        <p className="text-xs text-muted">
+          {isDesktop ? 'Accès rapide depuis votre bureau' : 'Accès rapide depuis votre écran d’accueil'}
+        </p>
       </div>
       <button onClick={install} className="btn-primary px-4 py-2 text-sm">
         Installer
