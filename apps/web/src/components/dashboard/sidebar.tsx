@@ -51,6 +51,7 @@ const SELLER_SECTIONS: NavSection[] = [
       { key: 'dash.nav.campaigns', href: '/dashboard/campaigns', icon: 'marketing' },
       { key: 'dash.nav.pilotage', href: '/dashboard/pilotage', icon: 'sparkles' },
       { key: 'dash.nav.publications', href: '/dashboard/publications', icon: 'publications' },
+      { key: 'dash.nav.partage', href: '/dashboard/partage', icon: 'shop' },
     ],
   },
   {
