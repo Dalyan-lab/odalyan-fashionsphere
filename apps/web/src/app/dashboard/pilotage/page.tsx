@@ -209,12 +209,46 @@ function scoreText(text: string, network: string, t: (k: string) => string): { s
   return { score, notes };
 }
 
+/**
+ * L'onglet actif et le brouillon en cours sont mémorisés pour la session : en
+ * revenant sur la page (après avoir consulté une commande, par exemple) on
+ * retrouve exactement où on en était, au lieu d'un formulaire vide.
+ */
+const TAB_KEY = 'pilotage.tab';
+const DRAFT_KEY = 'pilotage.draft';
+
+/** Brouillon de publication conservé entre deux visites de la page. */
+interface PilotageDraft {
+  brief: string;
+  tone: string;
+  postType: string;
+  nets: string[];
+  when: 'now' | 'later';
+  date: string;
+  time: string;
+  drafts: Record<string, string>;
+  media: { url: string; kind: 'image' | 'video'; name: string } | null;
+}
+
 const TABS = ['create', 'calendar', 'report'] as const;
 const TAB_ICON: Record<(typeof TABS)[number], string> = { create: '✨', calendar: '📅', report: '📈' };
 
 export default function PilotagePage() {
   const t = useT();
   const [tab, setTab] = useState<(typeof TABS)[number]>('create');
+
+  // Restaure l'onglet consulté en dernier (sessionStorage n'existe pas côté serveur).
+  useEffect(() => {
+    const saved = sessionStorage.getItem(TAB_KEY);
+    if (saved && (TABS as readonly string[]).includes(saved)) {
+      setTab(saved as (typeof TABS)[number]);
+    }
+  }, []);
+
+  const changeTab = (id: (typeof TABS)[number]) => {
+    setTab(id);
+    sessionStorage.setItem(TAB_KEY, id);
+  };
   const [connections, setConnections] = useState<SocialConnectionInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPostDto[]>([]);
   const [bestTimes, setBestTimes] = useState<BestTimesResult | null>(null);
@@ -234,7 +268,7 @@ export default function PilotagePage() {
     setSeedBrief(
       `${t('pilot.recycleBrief')} : « ${post.caption.replace(/\s+/g, ' ').slice(0, 400)} »`,
     );
-    setTab('create');
+    changeTab('create');
   };
 
   return (
@@ -260,7 +294,7 @@ export default function PilotagePage() {
               {TABS.map((id) => (
                 <button
                   key={id}
-                  onClick={() => setTab(id)}
+                  onClick={() => changeTab(id)}
                   className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition ${
                     tab === id ? 'border-brand-violet text-content' : 'border-transparent text-muted hover:text-content'
                   }`}
@@ -277,7 +311,7 @@ export default function PilotagePage() {
                   bestTimes={bestTimes}
                   seedBrief={seedBrief}
                   onSeedUsed={() => setSeedBrief('')}
-                  onScheduled={() => { load(); setTab('calendar'); }}
+                  onScheduled={() => { load(); changeTab('calendar'); }}
                 />
               )}
               {tab === 'calendar' && <CalendarTab posts={posts} onChanged={load} onRecycle={recycle} />}
@@ -333,6 +367,39 @@ function CreateTab({
     if (nets.length === 0 && connected.length > 0) setNets(connected.map((c) => c.network));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connections]);
+
+  /**
+   * Brouillon : restauré au montage, puis sauvegardé à chaque modification.
+   * `restored` évite d'écraser le brouillon enregistré avec l'état vide initial.
+   */
+  const [restored, setRestored] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as PilotageDraft;
+        setBrief(d.brief ?? '');
+        setTone(d.tone ?? '');
+        setPostType(d.postType ?? 'autre');
+        if (d.nets?.length) setNets(d.nets);
+        setWhen(d.when ?? 'later');
+        if (d.date) setDate(d.date);
+        if (d.time) setTime(d.time);
+        setDrafts(d.drafts ?? {});
+        setMedia(d.media ?? null);
+      }
+    } catch {
+      /* brouillon illisible : on repart d'un formulaire vierge */
+    }
+    setRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!restored) return;
+    const draft: PilotageDraft = { brief, tone, postType, nets, when, date, time, drafts, media };
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [restored, brief, tone, postType, nets, when, date, time, drafts, media]);
 
   // Sujet venu du recyclage d'une publication performante
   useEffect(() => {
