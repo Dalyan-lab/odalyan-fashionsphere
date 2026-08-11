@@ -16,6 +16,9 @@ import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
 
+/** Taille maximale acceptée par l'API pour un média (miroir de upload.controller.ts). */
+const MAX_UPLOAD_MB = 64;
+
 /** Limite de caractères recommandée par réseau (miroir du serveur). */
 const NET_LIMITS: Record<string, number> = {
   Facebook: 1900,
@@ -385,6 +388,15 @@ function CreateTab({
 
   const pickMedia = async (file: File | undefined) => {
     if (!file) return;
+    // Vérifié AVANT l'envoi : inutile de faire monter 200 Mo pour se voir refuser à l'arrivée.
+    const sizeMb = file.size / (1024 * 1024);
+    if (sizeMb > MAX_UPLOAD_MB) {
+      setMsg({
+        kind: 'err',
+        text: t('pilot.tooLarge').replace('{size}', sizeMb.toFixed(0)).replace('{max}', String(MAX_UPLOAD_MB)),
+      });
+      return;
+    }
     setUploading(true);
     setMsg(null);
     try {
@@ -578,6 +590,7 @@ function CreateTab({
           {media?.kind === 'video' && (
             <video src={media.url} controls className="mt-2 max-h-48 rounded-xl border border-border" />
           )}
+          <p className="mt-1.5 text-xs text-faint">{t('pilot.mediaHint').replace('{max}', String(MAX_UPLOAD_MB))}</p>
           {tiktokNoVideo && <p className="mt-1.5 text-xs text-amber-500">⚠️ {t('pilot.tiktokNeedsVideo')}</p>}
           {pickerOpen && (
             <StudioMediaPicker
