@@ -17,7 +17,7 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { BrandIcon, type BrandName } from '@/components/brand-icons';
 
 /** Taille maximale acceptée par l'API pour un média (miroir de upload.controller.ts). */
-const MAX_UPLOAD_MB = 64;
+const MAX_UPLOAD_MB = 200;
 
 /** Limite de caractères recommandée par réseau (miroir du serveur). */
 const NET_LIMITS: Record<string, number> = {
@@ -565,10 +565,10 @@ function CreateTab({
               🎨 {t('pilot.fromStudio')}
             </button>
             <label className="cursor-pointer rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted transition hover:bg-surface-hover">
-              {uploading ? t('pilot.uploading') : `📎 ${t('pilot.chooseMedia')}`}
+              {uploading ? t('pilot.converting') : `📎 ${t('pilot.chooseMedia')}`}
               <input
                 type="file"
-                accept="image/*,video/mp4,video/quicktime,video/webm"
+                accept="image/*,video/*"
                 className="hidden"
                 disabled={uploading}
                 onChange={(e) => pickMedia(e.target.files?.[0])}
