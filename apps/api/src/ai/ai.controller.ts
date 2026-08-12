@@ -6,6 +6,7 @@ import {
   generateAvatarSchema,
   generateCampaignSchema,
   generateMannequinSchema,
+  generateProductShotSchema,
   generateSocialCopySchema,
   generateSocialIdeasSchema,
   generateTryOnSchema,
@@ -15,6 +16,7 @@ import {
   type GenerateAvatarInput,
   type GenerateCampaignInput,
   type GenerateMannequinInput,
+  type GenerateProductShotInput,
   type GenerateSocialCopyInput,
   type GenerateSocialIdeasInput,
   type GenerateTryOnInput,
@@ -55,6 +57,15 @@ export class AiController {
     @Body(new ZodValidationPipe(generateMannequinSchema)) input: GenerateMannequinInput,
   ) {
     return this.aiService.generateMannequin(userId, input);
+  }
+
+  /** Studio photo produit : remet en scène l'article (rayons non-mode). */
+  @Post('product-shot')
+  generateProductShot(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(generateProductShotSchema)) input: GenerateProductShotInput,
+  ) {
+    return this.aiService.generateProductShot(userId, input);
   }
 
   @Post('avatar')

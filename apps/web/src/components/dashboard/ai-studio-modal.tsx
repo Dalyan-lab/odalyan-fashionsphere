@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import {
   AdTone,
   MannequinType,
+  PRODUCT_SCENE_LABELS,
   PhotoStyle,
+  ProductScene,
   type AdCopyResult,
 } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
@@ -13,7 +15,7 @@ import type { Product } from '@/lib/types';
 import { Icon } from './icons';
 import { ProductImagePicker } from './product-image-picker';
 
-export type StudioMode = 'mannequin' | 'adcopy';
+export type StudioMode = 'mannequin' | 'product' | 'adcopy';
 
 interface GeneratedImage {
   url: string;
@@ -211,6 +213,140 @@ export function MannequinForm({ products, onGenerated }: { products: Product[]; 
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="label">{t('aim.customPrompt')}</label>
+        <textarea
+          className="input min-h-[70px]"
+          placeholder={t('aim.promptPh')}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+      </div>
+
+      {error && <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
+
+      <button onClick={generate} disabled={loading} className="btn-primary w-full">
+        {loading ? t('common.generating') : <>{Icon.sparkles({ width: 16, height: 16 })} {t('aim.generatePhoto')}</>}
+      </button>
+
+      {images.length > 0 && (
+        <div>
+          <p className="label">{t('aim.results')}</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {images.map((img, i) => (
+              <div key={i} className="card overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.url} alt="" className="aspect-[3/4] w-full object-cover" />
+                <p className="px-2 py-1 text-[10px] text-faint">
+                  {img.provider === 'mock' ? t('common.simulated') : `✨ ${img.provider}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Studio photo produit : remet en scène l'article dans un décor choisi.
+ *
+ * Destiné aux rayons où l'essayage virtuel n'a pas de sens — on ne fait pas
+ * porter une casserole. Quand une photo du produit existe, la génération part
+ * d'elle : le vendeur doit retrouver SON produit, avec un meilleur décor.
+ */
+export function ProductShotForm({ products, onGenerated }: { products: Product[]; onGenerated?: () => void }) {
+  const t = useT();
+  const [productId, setProductId] = useState('');
+  const [productName, setProductName] = useState('');
+  const [sourceImageUrl, setSourceImageUrl] = useState('');
+  const [scene, setScene] = useState<ProductScene>(ProductScene.FOND_BLANC);
+  const [prompt, setPrompt] = useState('');
+  const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const asset = await apiFetch<{ url: string; provider: string }>('/ai/product-shot', {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: productId || undefined,
+          productName: productName.trim() || undefined,
+          sourceImageUrl: sourceImageUrl || undefined,
+          scene,
+          prompt: prompt.trim() || undefined,
+        }),
+      });
+      setImages((prev) => [{ url: asset.url, provider: asset.provider }, ...prev]);
+      onGenerated?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted">{t('aim.productShotIntro')}</p>
+
+      {products.length > 0 && (
+        <div>
+          <label className="label">{t('aim.productOptional')}</label>
+          <select
+            className="input"
+            value={productId}
+            onChange={(e) => {
+              setProductId(e.target.value);
+              const p = products.find((x) => x.id === e.target.value);
+              setSourceImageUrl(p?.images?.[0] ?? '');
+            }}
+          >
+            <option value="">{t('aim.noProduct')}</option>
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {!productId && (
+        <div>
+          <label className="label">{t('aim.productShotNameLabel')}</label>
+          <input
+            className="input"
+            placeholder={t('aim.productShotNamePh')}
+            value={productName}
+            onChange={(e) => setProductName(e.target.value)}
+          />
+        </div>
+      )}
+
+      <div>
+        <label className="label">{t('aim.importPhoto')}</label>
+        <ProductImagePicker
+          value={sourceImageUrl || undefined}
+          onPick={(url, p) => {
+            setSourceImageUrl(url);
+            setProductId(p.id);
+          }}
+        />
+        <p className="mt-1 text-xs text-faint">{t('aim.productShotPhotoHint')}</p>
+      </div>
+
+      <div>
+        <label className="label">{t('aim.scene')}</label>
+        <select className="input" value={scene} onChange={(e) => setScene(e.target.value as ProductScene)}>
+          {Object.values(ProductScene).map((s) => (
+            <option key={s} value={s}>{PRODUCT_SCENE_LABELS[s]}</option>
+          ))}
+        </select>
       </div>
 
       <div>

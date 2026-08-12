@@ -9,7 +9,12 @@ import type { Product } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { WorkflowSteps } from '@/components/dashboard/workflow-steps';
 import { Icon } from '@/components/dashboard/icons';
-import { MannequinForm, AdCopyForm } from '@/components/dashboard/ai-studio-modal';
+import {
+  MannequinForm,
+  ProductShotForm,
+  AdCopyForm,
+  type StudioMode,
+} from '@/components/dashboard/ai-studio-modal';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 
@@ -25,7 +30,7 @@ interface GeneratedAsset {
 
 export default function StudioPage() {
   const t = useT();
-  const [tab, setTab] = useState<'mannequin' | 'adcopy'>('mannequin');
+  const [tab, setTab] = useState<StudioMode>('mannequin');
   const [products, setProducts] = useState<Product[]>([]);
   const [assets, setAssets] = useState<GeneratedAsset[]>([]);
   const [noShop, setNoShop] = useState(false);
@@ -134,17 +139,21 @@ export default function StudioPage() {
                   🎭 {t('dh.tool.mannequin')}
                 </button>
                 <button
+                  onClick={() => setTab('product')}
+                  className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${tab === 'product' ? 'bg-brand-violet-magenta text-white' : 'text-muted'}`}
+                >
+                  📦 {t('dh.tool.productShot')}
+                </button>
+                <button
                   onClick={() => setTab('adcopy')}
                   className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${tab === 'adcopy' ? 'bg-brand-violet-magenta text-white' : 'text-muted'}`}
                 >
                   📣 {t('dh.tool.adcopy')}
                 </button>
               </div>
-              {tab === 'mannequin' ? (
-                <MannequinForm products={products} onGenerated={loadAssets} />
-              ) : (
-                <AdCopyForm products={products} onGenerated={loadAssets} />
-              )}
+              {tab === 'mannequin' && <MannequinForm products={products} onGenerated={loadAssets} />}
+              {tab === 'product' && <ProductShotForm products={products} onGenerated={loadAssets} />}
+              {tab === 'adcopy' && <AdCopyForm products={products} onGenerated={loadAssets} />}
             </div>
 
             {/* Galerie */}

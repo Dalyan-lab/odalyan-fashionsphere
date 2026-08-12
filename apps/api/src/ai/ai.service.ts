@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { GeneratedAssetStatus, GeneratedAssetType, Prisma } from '@prisma/client';
 import {
   AI_CREDIT_COSTS,
+  PRODUCT_SCENE_PROMPTS,
   PhotoStyle,
   TRYON_ANGLES,
   type CampaignResult,
@@ -10,6 +11,7 @@ import {
   type GenerateAvatarInput,
   type GenerateCampaignInput,
   type GenerateMannequinInput,
+  type GenerateProductShotInput,
   type GenerateSocialCopyInput,
   type GenerateSocialIdeasInput,
   type GenerateTryOnInput,
@@ -577,6 +579,74 @@ export class AiService {
     });
 
     return { asset, result };
+  }
+
+  /**
+   * Studio photo produit : transforme la photo d'un article en visuel de vente.
+   *
+   * Pensé pour les rayons non-mode, où l'essayage virtuel n'a aucun sens. Quand
+   * une photo existe, on travaille en image→image afin de **conserver le produit
+   * réel** et de ne remplacer que le décor et la lumière : un vendeur doit
+   * retrouver sa casserole, pas une casserole inventée. Sans photo, on retombe
+   * sur une génération à partir du seul nom.
+   */
+  async generateProductShot(userId: string, input: GenerateProductShotInput) {
+    const shop = await this.shopService.requireOwnedShop(userId);
+    if (this.imageProvider.enabled) await this.credits.ensure(userId, AI_CREDIT_COSTS.image);
+
+    let productName = input.productName?.trim() || 'ce produit';
+    let productImage: string | undefined;
+    if (input.productId) {
+      const product = await this.prisma.product.findUnique({ where: { id: input.productId } });
+      if (product && product.shopId === shop.id) {
+        productName = product.name;
+        productImage = product.images[0];
+      }
+    }
+
+    const sourceImageUrl = input.sourceImageUrl ?? productImage;
+    const scene = PRODUCT_SCENE_PROMPTS[input.scene];
+
+    let url: string;
+    let provider: string;
+    let prompt: string;
+
+    if (sourceImageUrl) {
+      prompt =
+        input.prompt?.trim() ||
+        `Photo produit professionnelle : place ce produit ${scene}. ` +
+          `Conserve fidèlement le produit — sa forme, ses couleurs, sa matière et ses inscriptions — ` +
+          `ne modifie que l'arrière-plan et l'éclairage. Rendu commercial haute qualité, netteté parfaite, 8k`;
+      ({ url, provider } = await this.imageProvider.generateFromImage(prompt, sourceImageUrl, 'produit'));
+    } else {
+      prompt =
+        input.prompt?.trim() ||
+        `Photo produit professionnelle de ${productName}, ${scene}, ` +
+          `rendu commercial haute qualité, netteté parfaite, 8k`;
+      ({ url, provider } = await this.imageProvider.generate(prompt, 'produit'));
+    }
+
+    if (provider !== 'mock') await this.credits.consume(userId, AI_CREDIT_COSTS.image);
+
+    const asset = await this.prisma.generatedAsset.create({
+      data: {
+        type: GeneratedAssetType.STUDIO_PHOTO,
+        provider,
+        prompt,
+        url,
+        meta: {
+          kind: 'product-shot',
+          scene: input.scene,
+          fromImage: Boolean(sourceImageUrl),
+          sourceImageUrl: sourceImageUrl ?? null,
+        },
+        ownerId: userId,
+        shopId: shop.id,
+        productId: input.productId ?? null,
+      },
+    });
+
+    return { asset, url, provider };
   }
 
   /**

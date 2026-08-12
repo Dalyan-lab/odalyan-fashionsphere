@@ -56,6 +56,67 @@ export const generateAvatarSchema = z.object({
 
 export type GenerateAvatarInput = z.infer<typeof generateAvatarSchema>;
 
+/**
+ * Décors du studio photo produit. L'essayage et le défilé n'ayant aucun sens
+ * hors de la mode, c'est ce studio qui donne aux autres rayons leur équivalent :
+ * transformer une photo prise au téléphone en visuel de vente.
+ */
+export enum ProductScene {
+  FOND_BLANC = 'FOND_BLANC',
+  MARBRE = 'MARBRE',
+  BOIS = 'BOIS',
+  CUISINE = 'CUISINE',
+  SALON = 'SALON',
+  BUREAU = 'BUREAU',
+  EXTERIEUR = 'EXTERIEUR',
+  LIFESTYLE = 'LIFESTYLE',
+}
+
+export const PRODUCT_SCENE_LABELS: Record<ProductScene, string> = {
+  [ProductScene.FOND_BLANC]: 'Fond blanc (fiche produit)',
+  [ProductScene.MARBRE]: 'Plan de travail en marbre',
+  [ProductScene.BOIS]: 'Table en bois',
+  [ProductScene.CUISINE]: 'Cuisine moderne',
+  [ProductScene.SALON]: 'Salon lumineux',
+  [ProductScene.BUREAU]: 'Bureau design',
+  [ProductScene.EXTERIEUR]: 'Extérieur naturel',
+  [ProductScene.LIFESTYLE]: 'Mise en situation',
+};
+
+/** Description du décor injectée dans le prompt de génération. */
+export const PRODUCT_SCENE_PROMPTS: Record<ProductScene, string> = {
+  [ProductScene.FOND_BLANC]:
+    'sur un fond blanc parfaitement uni, ombre douce portée, cadrage centré type fiche produit e-commerce',
+  [ProductScene.MARBRE]:
+    'posé sur un plan de travail en marbre blanc veiné, lumière latérale douce, quelques reflets subtils',
+  [ProductScene.BOIS]:
+    'posé sur une table en bois clair, ambiance chaleureuse et naturelle, lumière du jour rasante',
+  [ProductScene.CUISINE]:
+    'mis en situation dans une cuisine moderne épurée, arrière-plan légèrement flou, lumière naturelle',
+  [ProductScene.SALON]:
+    'mis en situation dans un salon lumineux et élégant, arrière-plan légèrement flou, ambiance chaleureuse',
+  [ProductScene.BUREAU]:
+    'posé sur un bureau design minimaliste, ambiance technologique, éclairage doux et contrasté',
+  [ProductScene.EXTERIEUR]:
+    'en extérieur dans un cadre naturel, lumière du soleil de fin de journée, arrière-plan flou',
+  [ProductScene.LIFESTYLE]:
+    'en situation d’usage réel, ambiance de vie authentique, arrière-plan flou, lumière naturelle',
+};
+
+export const generateProductShotSchema = z.object({
+  /** Produit du catalogue : sa photo sert de base et son nom nourrit le prompt. */
+  productId: z.string().optional(),
+  /** Nom libre quand aucun produit du catalogue n'est choisi. */
+  productName: z.string().max(140).optional(),
+  scene: z.nativeEnum(ProductScene).default(ProductScene.FOND_BLANC),
+  /** Photo de départ ; à défaut, celle du produit choisi. */
+  sourceImageUrl: z.string().url().optional(),
+  /** Consigne libre qui remplace entièrement le prompt calculé. */
+  prompt: z.string().max(600).optional(),
+});
+
+export type GenerateProductShotInput = z.infer<typeof generateProductShotSchema>;
+
 export const generateMannequinSchema = z.object({
   productId: z.string().optional(),
   prompt: z.string().max(500).optional(),
