@@ -3,13 +3,12 @@ import { SocialNetwork } from '@odalyan/shared';
 import { FacebookPublisher } from './meta.publisher';
 import { InstagramPublisher } from './instagram.publisher';
 import { TikTokPublisher } from './tiktok.publisher';
+import { YouTubePublisher } from './youtube.publisher';
+import { PinterestPublisher } from './pinterest.publisher';
 import type { SocialPublisher } from './social-publisher.interface';
 
 /** Ce qu'il faut obtenir pour les réseaux dont le provider n'est pas encore écrit. */
 const PENDING_REQUIREMENTS: Record<string, string> = {
-  [SocialNetwork.YOUTUBE]:
-    'Projet Google Cloud + YouTube Data API v3 (scope d’upload sensible → vérification Google).',
-  [SocialNetwork.PINTEREST]: 'App Pinterest Developers approuvée (accès API standard).',
   [SocialNetwork.X]: 'API X v2 — le niveau permettant de publier est payant (~100 $/mois).',
 };
 
@@ -27,8 +26,14 @@ export interface NetworkStatus {
 export class PublisherRegistry {
   private readonly publishers: SocialPublisher[];
 
-  constructor(facebook: FacebookPublisher, instagram: InstagramPublisher, tiktok: TikTokPublisher) {
-    this.publishers = [facebook, instagram, tiktok];
+  constructor(
+    facebook: FacebookPublisher,
+    instagram: InstagramPublisher,
+    tiktok: TikTokPublisher,
+    youtube: YouTubePublisher,
+    pinterest: PinterestPublisher,
+  ) {
+    this.publishers = [facebook, instagram, tiktok, youtube, pinterest];
   }
 
   get(network: string): SocialPublisher | undefined {
