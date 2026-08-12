@@ -5,6 +5,7 @@ import { ProductCategory, ProductStatus } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
+import { CategorySelect } from './category-select';
 
 /**
  * Édition rapide d'un produit (nom, prix, catégorie, statut) via PATCH /products/:id.
@@ -48,13 +49,7 @@ export function ProductEditor({ product, onSaved }: { product: Product; onSaved:
       </div>
       <div>
         <label className="label">{t('prod.category')}</label>
-        <select className="input" value={category} onChange={(e) => setCategory(e.target.value as ProductCategory)}>
-          {Object.values(ProductCategory).map((c) => (
-            <option key={c} value={c}>
-              {t(`cat.${c}`)}
-            </option>
-          ))}
-        </select>
+        <CategorySelect value={category} onChange={setCategory} />
       </div>
       <div>
         <label className="label">{t('prod.status')}</label>

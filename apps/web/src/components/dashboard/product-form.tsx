@@ -5,6 +5,7 @@ import { ProductCategory } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { ImageUploadInput } from './image-upload-input';
+import { CategorySelect } from './category-select';
 
 /**
  * Formulaire d'ajout de produit — composant unique réutilisé par
@@ -58,11 +59,7 @@ export function ProductForm({ onAdded, className = '' }: { onAdded: () => void; 
       </div>
       <div>
         <label className="label">{t('prod.category')}</label>
-        <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })}>
-          {Object.values(ProductCategory).map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <CategorySelect value={form.category} onChange={(category) => setForm({ ...form, category })} />
       </div>
       <ImageUploadInput label={t('prod.image')} value={form.image} onChange={(url) => setForm({ ...form, image: url })} />
       <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : t('common.add')}</button>

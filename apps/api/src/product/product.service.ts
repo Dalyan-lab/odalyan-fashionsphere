@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import {
   PLAN_PRODUCT_LIMITS,
   ProductCategory,
+  ProductDepartment,
   SubscriptionPlan,
+  categoriesOfDepartment,
   type CreateProductInput,
   type UpdateProductInput,
 } from '@odalyan/shared';
@@ -12,6 +14,8 @@ import { ShopService } from '../shop/shop.service';
 
 export interface MarketplaceFilters {
   category?: ProductCategory;
+  /** Rayon entier : élargit le filtre à toutes ses catégories. Ignoré si `category` est fourni. */
+  department?: ProductDepartment;
   minPrice?: number;
   maxPrice?: number;
   search?: string;
@@ -33,7 +37,12 @@ export class ProductService {
 
     const where: Prisma.ProductWhereInput = {
       status: 'ACTIVE',
-      ...(filters.category ? { category: filters.category } : {}),
+      // Une catégorie précise l'emporte ; sinon on ouvre à tout le rayon.
+      ...(filters.category
+        ? { category: filters.category }
+        : filters.department
+          ? { category: { in: categoriesOfDepartment(filters.department) } }
+          : {}),
       ...(filters.search
         ? { name: { contains: filters.search, mode: 'insensitive' } }
         : {}),

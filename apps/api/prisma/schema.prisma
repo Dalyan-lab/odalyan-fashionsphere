@@ -34,6 +34,9 @@ enum ProductStatus {
   ARCHIVED
 }
 
+/// Rayons : Mode (valeurs d'origine, à ne jamais renommer), Maison, Beauté,
+/// High-tech, Enfants, Loisirs, Divers. Le rayon se déduit de la catégorie
+/// côté code partagé (CATEGORY_DEPARTMENT) et n'est donc pas stocké ici.
 enum ProductCategory {
   HOMME
   FEMME
@@ -41,6 +44,35 @@ enum ProductCategory {
   LUXE
   SPORT
   ACCESSOIRES
+
+  CUISINE
+  DECORATION
+  MEUBLES
+  LINGE_MAISON
+  JARDIN_BRICOLAGE
+
+  SOINS_BEAUTE
+  PARFUMS
+  MAQUILLAGE
+  CHEVEUX
+
+  TELEPHONIE
+  INFORMATIQUE
+  AUDIO_IMAGE
+  ELECTROMENAGER
+
+  JOUETS
+  PUERICULTURE
+  SCOLAIRE
+
+  SPORT_LOISIRS
+  LIVRES_MEDIAS
+  ANIMAUX
+  AUTO_MOTO
+
+  ALIMENTATION
+  SANTE
+  AUTRE
 }
 
 enum OrderStatus {

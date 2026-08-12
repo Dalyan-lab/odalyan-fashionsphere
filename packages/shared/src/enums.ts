@@ -46,13 +46,168 @@ export enum PaymentProvider {
   PAYSTACK = 'PAYSTACK',
 }
 
+/**
+ * Catégories de produits de la place de marché.
+ *
+ * Les six premières (mode) existent depuis l'origine et ne doivent jamais être
+ * renommées : des produits y sont déjà rattachés en base. Les suivantes ouvrent
+ * la plateforme aux autres rayons — maison, beauté, high-tech, enfants, loisirs.
+ *
+ * Le rayon d'appartenance n'est pas stocké : il se déduit de la catégorie via
+ * `CATEGORY_DEPARTMENT`, ce qui évite deux champs à maintenir cohérents.
+ */
 export enum ProductCategory {
+  // — Mode
   HOMME = 'HOMME',
   FEMME = 'FEMME',
   ENFANT = 'ENFANT',
   LUXE = 'LUXE',
   SPORT = 'SPORT',
   ACCESSOIRES = 'ACCESSOIRES',
+  // — Maison
+  CUISINE = 'CUISINE',
+  DECORATION = 'DECORATION',
+  MEUBLES = 'MEUBLES',
+  LINGE_MAISON = 'LINGE_MAISON',
+  JARDIN_BRICOLAGE = 'JARDIN_BRICOLAGE',
+  // — Beauté & bien-être
+  SOINS_BEAUTE = 'SOINS_BEAUTE',
+  PARFUMS = 'PARFUMS',
+  MAQUILLAGE = 'MAQUILLAGE',
+  CHEVEUX = 'CHEVEUX',
+  // — High-tech
+  TELEPHONIE = 'TELEPHONIE',
+  INFORMATIQUE = 'INFORMATIQUE',
+  AUDIO_IMAGE = 'AUDIO_IMAGE',
+  ELECTROMENAGER = 'ELECTROMENAGER',
+  // — Enfants
+  JOUETS = 'JOUETS',
+  PUERICULTURE = 'PUERICULTURE',
+  SCOLAIRE = 'SCOLAIRE',
+  // — Loisirs
+  SPORT_LOISIRS = 'SPORT_LOISIRS',
+  LIVRES_MEDIAS = 'LIVRES_MEDIAS',
+  ANIMAUX = 'ANIMAUX',
+  AUTO_MOTO = 'AUTO_MOTO',
+  // — Divers
+  ALIMENTATION = 'ALIMENTATION',
+  SANTE = 'SANTE',
+  AUTRE = 'AUTRE',
+}
+
+/** Rayons de la place de marché : le premier niveau de navigation. */
+export enum ProductDepartment {
+  MODE = 'MODE',
+  MAISON = 'MAISON',
+  BEAUTE = 'BEAUTE',
+  HIGH_TECH = 'HIGH_TECH',
+  ENFANTS = 'ENFANTS',
+  LOISIRS = 'LOISIRS',
+  DIVERS = 'DIVERS',
+}
+
+/** Rayon auquel appartient chaque catégorie. */
+export const CATEGORY_DEPARTMENT: Record<ProductCategory, ProductDepartment> = {
+  [ProductCategory.HOMME]: ProductDepartment.MODE,
+  [ProductCategory.FEMME]: ProductDepartment.MODE,
+  [ProductCategory.ENFANT]: ProductDepartment.MODE,
+  [ProductCategory.LUXE]: ProductDepartment.MODE,
+  [ProductCategory.SPORT]: ProductDepartment.MODE,
+  [ProductCategory.ACCESSOIRES]: ProductDepartment.MODE,
+
+  [ProductCategory.CUISINE]: ProductDepartment.MAISON,
+  [ProductCategory.DECORATION]: ProductDepartment.MAISON,
+  [ProductCategory.MEUBLES]: ProductDepartment.MAISON,
+  [ProductCategory.LINGE_MAISON]: ProductDepartment.MAISON,
+  [ProductCategory.JARDIN_BRICOLAGE]: ProductDepartment.MAISON,
+
+  [ProductCategory.SOINS_BEAUTE]: ProductDepartment.BEAUTE,
+  [ProductCategory.PARFUMS]: ProductDepartment.BEAUTE,
+  [ProductCategory.MAQUILLAGE]: ProductDepartment.BEAUTE,
+  [ProductCategory.CHEVEUX]: ProductDepartment.BEAUTE,
+
+  [ProductCategory.TELEPHONIE]: ProductDepartment.HIGH_TECH,
+  [ProductCategory.INFORMATIQUE]: ProductDepartment.HIGH_TECH,
+  [ProductCategory.AUDIO_IMAGE]: ProductDepartment.HIGH_TECH,
+  [ProductCategory.ELECTROMENAGER]: ProductDepartment.HIGH_TECH,
+
+  [ProductCategory.JOUETS]: ProductDepartment.ENFANTS,
+  [ProductCategory.PUERICULTURE]: ProductDepartment.ENFANTS,
+  [ProductCategory.SCOLAIRE]: ProductDepartment.ENFANTS,
+
+  [ProductCategory.SPORT_LOISIRS]: ProductDepartment.LOISIRS,
+  [ProductCategory.LIVRES_MEDIAS]: ProductDepartment.LOISIRS,
+  [ProductCategory.ANIMAUX]: ProductDepartment.LOISIRS,
+  [ProductCategory.AUTO_MOTO]: ProductDepartment.LOISIRS,
+
+  [ProductCategory.ALIMENTATION]: ProductDepartment.DIVERS,
+  [ProductCategory.SANTE]: ProductDepartment.DIVERS,
+  [ProductCategory.AUTRE]: ProductDepartment.DIVERS,
+};
+
+/** Libellés affichés pour les rayons, dans l'ordre de la vitrine. */
+export const DEPARTMENT_LABELS: Record<ProductDepartment, string> = {
+  [ProductDepartment.MODE]: 'Mode',
+  [ProductDepartment.MAISON]: 'Maison',
+  [ProductDepartment.BEAUTE]: 'Beauté & bien-être',
+  [ProductDepartment.HIGH_TECH]: 'High-tech',
+  [ProductDepartment.ENFANTS]: 'Enfants',
+  [ProductDepartment.LOISIRS]: 'Loisirs',
+  [ProductDepartment.DIVERS]: 'Divers',
+};
+
+/** Libellés affichés pour les catégories. */
+export const CATEGORY_LABELS: Record<ProductCategory, string> = {
+  [ProductCategory.HOMME]: 'Homme',
+  [ProductCategory.FEMME]: 'Femme',
+  [ProductCategory.ENFANT]: 'Enfant',
+  [ProductCategory.LUXE]: 'Luxe',
+  [ProductCategory.SPORT]: 'Sportswear',
+  [ProductCategory.ACCESSOIRES]: 'Accessoires',
+
+  [ProductCategory.CUISINE]: 'Cuisine',
+  [ProductCategory.DECORATION]: 'Décoration',
+  [ProductCategory.MEUBLES]: 'Meubles',
+  [ProductCategory.LINGE_MAISON]: 'Linge de maison',
+  [ProductCategory.JARDIN_BRICOLAGE]: 'Jardin & bricolage',
+
+  [ProductCategory.SOINS_BEAUTE]: 'Soins & beauté',
+  [ProductCategory.PARFUMS]: 'Parfums',
+  [ProductCategory.MAQUILLAGE]: 'Maquillage',
+  [ProductCategory.CHEVEUX]: 'Cheveux',
+
+  [ProductCategory.TELEPHONIE]: 'Téléphonie',
+  [ProductCategory.INFORMATIQUE]: 'Informatique',
+  [ProductCategory.AUDIO_IMAGE]: 'Audio & image',
+  [ProductCategory.ELECTROMENAGER]: 'Électroménager',
+
+  [ProductCategory.JOUETS]: 'Jouets',
+  [ProductCategory.PUERICULTURE]: 'Puériculture',
+  [ProductCategory.SCOLAIRE]: 'Fournitures scolaires',
+
+  [ProductCategory.SPORT_LOISIRS]: 'Sport & loisirs',
+  [ProductCategory.LIVRES_MEDIAS]: 'Livres & médias',
+  [ProductCategory.ANIMAUX]: 'Animaux',
+  [ProductCategory.AUTO_MOTO]: 'Auto & moto',
+
+  [ProductCategory.ALIMENTATION]: 'Alimentation',
+  [ProductCategory.SANTE]: 'Santé',
+  [ProductCategory.AUTRE]: 'Autre',
+};
+
+/** Catégories d'un rayon, dans l'ordre de déclaration. */
+export function categoriesOfDepartment(department: ProductDepartment): ProductCategory[] {
+  return (Object.keys(CATEGORY_DEPARTMENT) as ProductCategory[]).filter(
+    (c) => CATEGORY_DEPARTMENT[c] === department,
+  );
+}
+
+/**
+ * Vrai pour les catégories de mode : ce sont les seules où l'essayage virtuel,
+ * le défilé et les mannequins ont un sens (on n'essaie pas une casserole).
+ */
+export function isFashionCategory(category: ProductCategory): boolean {
+  return CATEGORY_DEPARTMENT[category] === ProductDepartment.MODE;
 }
 
 /** Limites produits par plan d'abonnement (cf. cahier des charges). */

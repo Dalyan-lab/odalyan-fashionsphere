@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   ProductCategory,
+  ProductDepartment,
   UserRole,
   createProductSchema,
   updateProductSchema,
@@ -32,6 +33,7 @@ export class ProductController {
   @Get()
   marketplace(
     @Query('category') category?: ProductCategory,
+    @Query('department') department?: ProductDepartment,
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('search') search?: string,
@@ -40,6 +42,7 @@ export class ProductController {
   ) {
     return this.productService.marketplace({
       category,
+      department,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
       search,
