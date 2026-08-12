@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AvatarSex, BodyType, TRYON_ANGLES, TRYON_SIZES, type TryOnResult } from '@odalyan/shared';
+import {
+  AvatarSex,
+  BodyType,
+  ProductCategory,
+  TRYON_ANGLES,
+  TRYON_SIZES,
+  isFashionCategory,
+  type TryOnResult,
+} from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
@@ -12,10 +20,13 @@ import { AvatarPicker } from '@/components/dashboard/avatar-picker';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { ImageLightbox } from '@/components/dashboard/image-lightbox';
 import { Icon } from '@/components/dashboard/icons';
+import { NoFashionProducts } from '@/components/dashboard/no-fashion-products';
 
 export default function TryOnPage() {
   const t = useT();
   const [products, setProducts] = useState<Product[]>([]);
+  /** La boutique a des produits, mais aucun de mode : on oriente vers le studio produit. */
+  const [hasOtherProducts, setHasOtherProducts] = useState(false);
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
   const [avatarSex, setAvatarSex] = useState<AvatarSex>(AvatarSex.FEMME);
@@ -29,9 +40,13 @@ export default function TryOnPage() {
 
   useEffect(() => {
     apiFetch<Product[]>('/products/mine')
-      .then((p) => {
-        setProducts(p);
-        if (p[0]) setProductId(p[0].id);
+      .then((all) => {
+        // L'essayage n'a de sens que pour la mode : on n'essaie ni une casserole
+        // ni un canapé. Les autres rayons ont le studio photo produit.
+        const fashion = all.filter((x) => isFashionCategory(x.category as ProductCategory));
+        setProducts(fashion);
+        setHasOtherProducts(all.length > fashion.length);
+        if (fashion[0]) setProductId(fashion[0].id);
       })
       .catch(() => setNoShop(true));
   }, []);
@@ -100,7 +115,7 @@ export default function TryOnPage() {
               <div>
                 <label className="label">{t('common.product')}</label>
                 {products.length === 0 ? (
-                  <p className="text-sm text-muted">{t('common.noProducts')} <Link href="/dashboard/products" className="text-brand-violet hover:underline">{t('common.addOne')}</Link>.</p>
+                  <NoFashionProducts hasOtherProducts={hasOtherProducts} />
                 ) : (
                   <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
                     {products.map((p) => (

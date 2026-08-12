@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AvatarSex, SkinTone, type TryOnResult, type TryOnView } from '@odalyan/shared';
+import {
+  AvatarSex,
+  ProductCategory,
+  SkinTone,
+  isFashionCategory,
+  type TryOnResult,
+  type TryOnView,
+} from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Product } from '@/lib/types';
@@ -12,6 +19,7 @@ import { AvatarPicker } from '@/components/dashboard/avatar-picker';
 import { AttachToProduct } from '@/components/dashboard/attach-to-product';
 import { VideoGallery, GenTimer } from '@/components/dashboard/video-gallery';
 import { VoiceoverButton } from '@/components/dashboard/voiceover-button';
+import { NoFashionProducts } from '@/components/dashboard/no-fashion-products';
 import { Icon } from '@/components/dashboard/icons';
 
 const SPEEDS = [
@@ -23,6 +31,8 @@ const SPEEDS = [
 export default function DefilePage() {
   const t = useT();
   const [products, setProducts] = useState<Product[]>([]);
+  /** La boutique a des produits, mais aucun de mode utilisable pour le défilé. */
+  const [hasOtherProducts, setHasOtherProducts] = useState(false);
   const [noShop, setNoShop] = useState(false);
   const [productId, setProductId] = useState('');
   const [avatarSex, setAvatarSex] = useState<AvatarSex>(AvatarSex.FEMME);
@@ -50,9 +60,13 @@ export default function DefilePage() {
 
   useEffect(() => {
     apiFetch<Product[]>('/products/mine')
-      .then((p) => {
-        const withImg = p.filter((x) => x.images[0]);
+      .then((all) => {
+        // Défilé = mode uniquement, comme l'essayage dont il réutilise les vues.
+        const withImg = all.filter(
+          (x) => x.images[0] && isFashionCategory(x.category as ProductCategory),
+        );
         setProducts(withImg);
+        setHasOtherProducts(all.length > withImg.length);
         if (withImg[0]) setProductId(withImg[0].id);
       })
       .catch(() => setNoShop(true));
@@ -252,7 +266,7 @@ export default function DefilePage() {
                 <h2 className="mb-3 font-bold">{t('defile.staging')}</h2>
                 <label className="label">{t('common.product')}</label>
                 {products.length === 0 ? (
-                  <p className="text-sm text-muted">{t('common.noProducts')} <Link href="/dashboard/products" className="text-brand-violet hover:underline">{t('common.addOne')}</Link>.</p>
+                  <NoFashionProducts hasOtherProducts={hasOtherProducts} />
                 ) : (
                   <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
                     {products.map((p) => (
