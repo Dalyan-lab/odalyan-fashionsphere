@@ -158,23 +158,52 @@ export async function apiFetch<T>(
 /** Upload d'un fichier (image ou vidéo) vers /uploads. Renvoie l'URL publique. */
 export const uploadFile = uploadImage;
 
-/** Upload d'un fichier image vers /uploads. Renvoie l'URL publique. */
-export async function uploadImage(file: File): Promise<{ url: string }> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('odalyan_access_token') : null;
+/**
+ * Upload d'un fichier (image ou vidéo) vers /uploads. Renvoie l'URL publique.
+ *
+ * Ne passe pas par `apiFetch` car le corps est un FormData (le navigateur doit
+ * poser lui-même l'en-tête multipart avec sa frontière). On reproduit donc ici
+ * le renouvellement de jeton d'`apiFetch` : sans lui, un jeton expiré faisait
+ * échouer tous les envois en 401 alors que le reste de l'application
+ * continuait de fonctionner — symptôme déroutant et sans rapport apparent.
+ */
+export async function uploadImage(file: File, _retried = false): Promise<{ url: string }> {
+  const token = getToken();
   const fd = new FormData();
   fd.append('file', file);
-  const res = await fetch(`${API_BASE}/uploads`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: fd,
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/uploads`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    });
+  } catch {
+    // Erreur réseau : message lisible plutôt que le « Failed to fetch » du navigateur.
+    throw new ApiError(
+      'Impossible de joindre le serveur pendant l’envoi. Vérifiez votre connexion, puis réessayez.',
+      0,
+    );
+  }
+
+  // Jeton expiré : renouvellement transparent, puis nouvel envoi du même fichier.
+  if (res.status === 401 && !_retried) {
+    if (await refreshAccessToken()) return uploadImage(file, true);
+    clearStoredAuth();
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login?expired=1';
+    }
+    throw new ApiError('Session expirée, veuillez vous reconnecter.', 401);
+  }
+
   if (!res.ok) {
-    let msg = `Échec de l'upload (${res.status})`;
+    let msg = `Échec de l’envoi (${res.status})`;
     try {
       const b = (await res.json()) as { message?: string };
       if (b?.message) msg = b.message;
     } catch {
-      /* ignore */
+      /* réponse sans corps JSON */
     }
     throw new ApiError(msg, res.status);
   }
