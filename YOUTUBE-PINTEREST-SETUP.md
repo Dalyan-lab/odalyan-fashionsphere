@@ -19,27 +19,40 @@ dédiée n'est fournie.
 [console.cloud.google.com](https://console.cloud.google.com) → ton projet →
 **API et services** → **Bibliothèque** → chercher **« YouTube Data API v3 »** → **Activer**.
 
+> **L'interface a changé.** Ce qui s'appelait « Écran de consentement OAuth »
+> et « Identifiants » se trouve désormais sous **Google Auth Platform**, avec
+> des noms différents :
+>
+> | Ce qu'on cherche | Ancien nom | Nouveau menu |
+> |---|---|---|
+> | Champs d'application (scopes) | Écran de consentement | **Accès aux données** |
+> | Identifiants OAuth / redirections | Identifiants | **Clients** |
+> | Utilisateurs test | Écran de consentement | **Audience** |
+
 ### 2. Déclarer les autorisations
 
-**API et services** → **Écran de consentement OAuth** → section **Champs d'application**
-→ ajouter :
+**Google Auth Platform** → **Accès aux données** → ajouter ou supprimer des
+champs d'application → ajouter :
 
 ```
 https://www.googleapis.com/auth/youtube.upload
 https://www.googleapis.com/auth/youtube.readonly
 ```
 
-Le premier est classé **sensible** par Google. Tant que l'application n'est pas
-vérifiée, deux conséquences :
+Ils n'apparaissent dans la liste **que si l'étape 1 a été faite** : sans API
+activée, Google ne propose pas ses champs d'application.
 
-- seuls les comptes déclarés en **Utilisateurs test** peuvent se connecter
-  (écran de consentement → **Utilisateurs test** → ajouter ton adresse Gmail) ;
+Le premier est classé **sensible**. Tant que l'application n'est pas vérifiée,
+deux conséquences :
+
+- seuls les comptes déclarés dans **Audience → Utilisateurs test** peuvent se
+  connecter — y ajouter son adresse Gmail ;
 - **les vidéos envoyées restent privées**, quoi qu'on demande.
 
 ### 3. Adresse de redirection
 
-**API et services** → **Identifiants** → ton **ID client OAuth 2.0** → dans
-**URI de redirection autorisés**, ajouter :
+**Google Auth Platform** → **Clients** → ouvrir le client OAuth (le même que
+celui de la connexion Google) → dans **URI de redirection autorisés**, ajouter :
 
 ```
 https://api.fashodalyansp.com/api/social/oauth/callback/YouTube
