@@ -26,7 +26,7 @@ const NET_LIMITS: Record<string, number> = {
   TikTok: 150,
   YouTube: 5000,
   Pinterest: 500,
-  X: 280,
+  LinkedIn: 3000,
 };
 
 /** Créneaux de publication recommandés (heure locale) par réseau. */
@@ -36,7 +36,8 @@ const BEST_TIMES: Record<string, string[]> = {
   TikTok: ['19:00', '21:00'],
   YouTube: ['18:00'],
   Pinterest: ['21:00'],
-  X: ['09:00', '12:30'],
+  // Réseau professionnel : on publie aux heures de bureau, en semaine.
+  LinkedIn: ['08:00', '12:30', '17:30'],
 };
 
 const POST_TYPES = ['promo', 'actu', 'temoignage', 'coulisses', 'autre'] as const;
@@ -794,7 +795,7 @@ function CreateTab({
                 <textarea
                   value={drafts[n]}
                   onChange={(e) => setDrafts((d) => ({ ...d, [n]: e.target.value }))}
-                  rows={n === 'TikTok' || n === 'X' ? 2 : 4}
+                  rows={n === 'TikTok' ? 2 : 4}
                   className="input w-full"
                 />
                 <div className="mt-1 flex items-center justify-between text-xs">

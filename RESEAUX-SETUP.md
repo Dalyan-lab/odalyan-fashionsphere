@@ -1,4 +1,4 @@
-# Activer YouTube et Pinterest
+# Activer YouTube, Pinterest et LinkedIn
 
 Les deux providers de publication sont écrits et déployés. Il ne reste qu'à créer
 les accès chez chaque plateforme et à renseigner les clés dans Railway.
@@ -132,6 +132,69 @@ boards:read, pins:read, pins:write, user_accounts:read
   depuis son URL. C'est le cas des médias de la plateforme (stockage R2).
 - Statistiques remontées : impressions et enregistrements. Les j'aime et
   commentaires ne sont pas exposés par l'API.
+
+---
+
+## LinkedIn
+
+Remplace X, dont le niveau d'API permettant de publier est payant (~100 $/mois).
+LinkedIn publie **du texte et des images sur votre profil**.
+
+### 1. Créer l'application
+
+[developer.linkedin.com](https://developer.linkedin.com) → **My apps** → créer une
+application. Elle doit être rattachée à une **Page LinkedIn** — si vous n'en avez
+pas, créez-en une, c'est gratuit et immédiat.
+
+### 2. Ajouter le produit
+
+Onglet **Products** → demander **« Share on LinkedIn »**. L'accès est
+automatique, sans validation manuelle.
+
+> Ne pas demander « Community Management API » : elle sert à publier au nom
+> d'une Page d'entreprise et exige une validation longue. Le produit
+> « Share on LinkedIn » suffit pour publier sur votre profil.
+
+### 3. Adresse de redirection
+
+Onglet **Auth** → **Authorized redirect URLs** → ajouter :
+
+```
+https://api.fashodalyansp.com/api/social/oauth/callback/LinkedIn
+```
+
+### 4. Vérifier les autorisations
+
+Toujours dans **Auth**, la section des scopes OAuth doit contenir :
+
+```
+openid, profile, w_member_social
+```
+
+Les deux premiers servent uniquement à récupérer votre identifiant de membre,
+indispensable pour signer la publication. Le troisième publie.
+
+### 5. Variables Railway
+
+| Variable | Valeur |
+|---|---|
+| `LINKEDIN_CLIENT_ID` | Client ID de l'app |
+| `LINKEDIN_CLIENT_SECRET` | Client Secret de l'app |
+| `LINKEDIN_API_VERSION` | *(optionnel)* version de l'API, par défaut `202405` |
+
+### À savoir
+
+- **Le jeton dure 60 jours.** Son renouvellement automatique n'est ouvert
+  qu'aux applications validées par LinkedIn : prévoyez une reconnexion tous les
+  deux mois. Un message explicite le rappellera le moment venu.
+- LinkedIn **ne prend pas la vidéo** dans cette intégration. Une publication
+  contenant seulement une vidéo est refusée avec un message clair — ajoutez une
+  image, ou retirez LinkedIn de la sélection.
+- L'API est **versionnée par date**. Si LinkedIn retire la version utilisée,
+  changez `LINKEDIN_API_VERSION` sans toucher au code.
+- Rédaction : seule la **première ligne** s'affiche avant le « voir plus ».
+  La génération IA en tient compte et écrit un ton professionnel, avec une
+  accroche courte en tête.
 
 ---
 

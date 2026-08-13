@@ -8,6 +8,7 @@ import { InstagramPublisher } from './publishers/instagram.publisher';
 import { TikTokPublisher } from './publishers/tiktok.publisher';
 import { YouTubePublisher } from './publishers/youtube.publisher';
 import { PinterestPublisher } from './publishers/pinterest.publisher';
+import { LinkedInPublisher } from './publishers/linkedin.publisher';
 import { PublisherRegistry } from './publishers/publisher.registry';
 
 @Module({
@@ -20,6 +21,7 @@ import { PublisherRegistry } from './publishers/publisher.registry';
     TikTokPublisher,
     YouTubePublisher,
     PinterestPublisher,
+    LinkedInPublisher,
     PublisherRegistry,
   ],
 })

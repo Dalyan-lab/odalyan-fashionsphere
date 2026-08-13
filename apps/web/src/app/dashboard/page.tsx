@@ -269,7 +269,7 @@ const SOCIALS: { name: BrandName; color: string }[] = [
   { name: 'TikTok', color: '#010101' },
   { name: 'YouTube', color: '#FF0000' },
   { name: 'Pinterest', color: '#E60023' },
-  { name: 'X', color: '#111' },
+  { name: 'LinkedIn', color: '#0A66C2' },
 ];
 
 function StatCard({ icon, label, value }: { icon: keyof typeof Icon; label: string; value: string }) {

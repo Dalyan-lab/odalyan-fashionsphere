@@ -13,7 +13,12 @@ const NETWORK_GUIDANCE: Record<string, { limit: number; guidance: string }> = {
   TikTok: { limit: 150, guidance: 'Très court et percutant, langage tendance, accroche dès les 3 premiers mots.' },
   YouTube: { limit: 5000, guidance: 'Première ligne = titre accrocheur, puis description claire avec mots-clés.' },
   Pinterest: { limit: 500, guidance: 'Descriptif et inspirant, orienté découverte, mots-clés naturels.' },
-  X: { limit: 280, guidance: 'Concis et direct, une seule idée forte, 1-2 hashtags maximum.' },
+  LinkedIn: {
+    limit: 3000,
+    guidance:
+      'Ton professionnel et posé, première ligne accrocheuse (le reste est masqué derrière « voir plus »), ' +
+      'apporte un éclairage ou un enseignement plutôt qu’une promotion directe, 3 à 5 hashtags sobres.',
+  },
 };
 
 export interface ViralScriptResult {

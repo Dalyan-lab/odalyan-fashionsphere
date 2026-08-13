@@ -252,7 +252,7 @@ export enum SocialNetwork {
   TIKTOK = 'TikTok',
   YOUTUBE = 'YouTube',
   PINTEREST = 'Pinterest',
-  X = 'X',
+  LINKEDIN = 'LinkedIn',
 }
 
 export const generateCampaignSchema = z.object({

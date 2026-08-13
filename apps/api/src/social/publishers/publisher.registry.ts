@@ -5,12 +5,11 @@ import { InstagramPublisher } from './instagram.publisher';
 import { TikTokPublisher } from './tiktok.publisher';
 import { YouTubePublisher } from './youtube.publisher';
 import { PinterestPublisher } from './pinterest.publisher';
+import { LinkedInPublisher } from './linkedin.publisher';
 import type { SocialPublisher } from './social-publisher.interface';
 
 /** Ce qu'il faut obtenir pour les réseaux dont le provider n'est pas encore écrit. */
-const PENDING_REQUIREMENTS: Record<string, string> = {
-  [SocialNetwork.X]: 'API X v2 — le niveau permettant de publier est payant (~100 $/mois).',
-};
+const PENDING_REQUIREMENTS: Record<string, string> = {};
 
 export interface NetworkStatus {
   network: string;
@@ -32,8 +31,9 @@ export class PublisherRegistry {
     tiktok: TikTokPublisher,
     youtube: YouTubePublisher,
     pinterest: PinterestPublisher,
+    linkedin: LinkedInPublisher,
   ) {
-    this.publishers = [facebook, instagram, tiktok, youtube, pinterest];
+    this.publishers = [facebook, instagram, tiktok, youtube, pinterest, linkedin];
   }
 
   get(network: string): SocialPublisher | undefined {
