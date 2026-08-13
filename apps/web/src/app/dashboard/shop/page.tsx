@@ -76,13 +76,15 @@ export default function ShopSettingsPage() {
     setMsg('');
     setSaving(true);
     try {
-      // n'envoyer que les champs renseignés
+      // Tous les champs sont envoyés, y compris vides : une chaîne vide efface
+      // la valeur. Ne pas les envoyer rendrait un champ impossible à vider —
+      // l'ancienne valeur restait en base malgré l'effacement à l'écran.
       const payload: Record<string, string | boolean> = { name: form.name };
-      if (form.slogan) payload.slogan = form.slogan;
-      if (form.description) payload.description = form.description;
-      if (form.logoUrl) payload.logoUrl = form.logoUrl;
-      if (form.bannerUrl) payload.bannerUrl = form.bannerUrl;
-      payload.videoUrl = form.videoUrl; // '' = retirer la vidéo
+      payload.slogan = form.slogan;
+      payload.description = form.description;
+      payload.logoUrl = form.logoUrl;
+      payload.bannerUrl = form.bannerUrl;
+      payload.videoUrl = form.videoUrl;
       payload.primaryColor = form.primaryColor;
       payload.secondaryColor = form.secondaryColor;
       payload.showNameOnBanner = form.showNameOnBanner;

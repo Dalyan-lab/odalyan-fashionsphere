@@ -13,9 +13,10 @@ export const createShopSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug invalide (minuscules, chiffres et tirets uniquement)'),
   slogan: z.string().max(120).optional(),
   description: z.string().max(2000).optional(),
-  logoUrl: z.string().url().optional(),
-  bannerUrl: z.string().url().optional(),
-  // '' permet de retirer la vidéo de présentation
+  // '' permet de retirer le média : sans cette tolérance, un champ vidé ne peut
+  // plus jamais l'être puisque la validation d'URL rejetterait la chaîne vide.
+  logoUrl: z.string().url().or(z.literal('')).optional(),
+  bannerUrl: z.string().url().or(z.literal('')).optional(),
   videoUrl: z.string().url().or(z.literal('')).optional(),
   primaryColor: hexColor.optional(),
   secondaryColor: hexColor.optional(),

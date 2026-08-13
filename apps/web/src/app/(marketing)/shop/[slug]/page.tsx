@@ -63,7 +63,7 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
         }
       >
         {/* Voile sombre pour lisibilité du texte par-dessus la bannière */}
-        {hasBanner && (showName || showSlogan || shop.description) && (
+        {hasBanner && (showName || showSlogan) && (
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20" />
         )}
 
@@ -95,13 +95,37 @@ export default function ShopPage({ params }: { params: Promise<{ slug: string }>
               {shop.slogan}
             </p>
           )}
+        </div>
+      </section>
+
+      {/*
+        Bande d'identité : recueille tout ce qui n'est PAS sur la bannière.
+        La description n'y est jamais superposée — illisible dès que la bannière
+        contient elle-même du texte, ce qui est le cas de la plupart des
+        bannières commerciales. Et le nom ou le slogan retirés de la bannière
+        atterrissent ici plutôt que de disparaître de la vitrine.
+      */}
+      {(!showName || (!showSlogan && shop.slogan) || shop.description) && (
+        <section className="border-b border-border bg-surface px-6 py-8 text-center">
+          {!showName && (
+            <h1 className="font-display text-3xl font-bold" style={{ color: accent }}>
+              {shop.name}
+            </h1>
+          )}
+          {!showSlogan && shop.slogan && (
+            <p className={`text-lg text-muted ${!showName ? 'mt-2' : ''}`}>{shop.slogan}</p>
+          )}
           {shop.description && (
-            <p className={`mx-auto mt-4 max-w-2xl text-sm ${hasBanner ? 'text-white/75' : 'text-faint'}`}>
+            <p
+              className={`mx-auto max-w-3xl text-base leading-relaxed text-muted ${
+                !showName || (!showSlogan && shop.slogan) ? 'mt-4' : ''
+              }`}
+            >
               {shop.description}
             </p>
           )}
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Vidéo de présentation de la boutique */}
       {shop.videoUrl && (
