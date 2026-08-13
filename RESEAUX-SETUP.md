@@ -91,6 +91,20 @@ Après la vérification Google, pour publier en public :
 
 ## Pinterest
 
+### 0. Compte professionnel obligatoire
+
+L'espace développeur **refuse les comptes personnels** : « Désolé, ceci est votre
+compte personnel ». C'est l'inverse de TikTok et Meta, dont les espaces
+développeurs refusent au contraire les comptes pro — ne pas s'y perdre.
+
+Créer un profil professionnel sur [business.pinterest.com](https://business.pinterest.com)
+(gratuit, rattaché à l'identifiant existant), ou convertir le compte actuel.
+Le compte professionnel donne aussi accès aux statistiques Pinterest.
+
+Avant de continuer : vérifier l'adresse e-mail, accepter les conditions
+développeur, et **créer au moins un tableau** — une épingle ne peut pas exister
+sans tableau.
+
 ### 1. Créer l'application
 
 [developers.pinterest.com](https://developers.pinterest.com) → **My apps** →
