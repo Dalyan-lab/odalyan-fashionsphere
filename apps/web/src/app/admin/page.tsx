@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { MailDiagnostic } from '@/components/dashboard/mail-diagnostic';
 import { useAuth } from '@/lib/store';
 
 interface Overview {
@@ -91,6 +92,11 @@ export default function AdminPage() {
         <Kpi emoji="📦" label="Produits" value={ov ? String(ov.productsCount) : '…'} />
         <Kpi emoji="🧾" label="Commandes" value={ov ? `${ov.paidOrdersCount}/${ov.ordersCount}` : '…'} />
         <Kpi emoji="🛒" label="Vendeurs" value={ov ? String(ov.roles.SELLER ?? 0) : '…'} />
+      </div>
+
+      {/* Santé de la messagerie : sans elle, aucune réinitialisation de mot de passe */}
+      <div className="mt-6">
+        <MailDiagnostic />
       </div>
 
       {/* Revenus mensuels + répartition rôles */}
