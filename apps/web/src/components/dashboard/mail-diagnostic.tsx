@@ -12,6 +12,22 @@ interface MailStatus {
   from: string;
 }
 
+interface Probe {
+  address: string;
+  family: 4 | 6;
+  port: number;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
+interface MailProbe {
+  host: string | null;
+  interfaces: { ipv4: boolean; ipv6: boolean };
+  dns: { ipv4: string[]; ipv6: string[] };
+  probes: Probe[];
+}
+
 /**
  * Diagnostic de la messagerie, réservé à l'administrateur.
  *
@@ -25,6 +41,8 @@ export function MailDiagnostic() {
   const [to, setTo] = useState('');
   const [result, setResult] = useState<{ sent: boolean; error?: string } | null>(null);
   const [sending, setSending] = useState(false);
+  const [probe, setProbe] = useState<MailProbe | null>(null);
+  const [probing, setProbing] = useState(false);
 
   useEffect(() => {
     apiFetch<MailStatus>('/admin/mail/status')
@@ -47,6 +65,18 @@ export function MailDiagnostic() {
       setResult({ sent: false, error: err instanceof Error ? err.message : 'Erreur inconnue' });
     } finally {
       setSending(false);
+    }
+  };
+
+  const runProbe = async () => {
+    setProbing(true);
+    setProbe(null);
+    try {
+      setProbe(await apiFetch<MailProbe>('/admin/mail/probe'));
+    } catch {
+      setProbe(null);
+    } finally {
+      setProbing(false);
     }
   };
 
@@ -102,6 +132,36 @@ export function MailDiagnostic() {
             : `❌ Échec — ${result.error ?? 'raison inconnue'}`}
         </p>
       )}
+
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <button onClick={runProbe} disabled={probing} className="btn-ghost text-xs disabled:opacity-40">
+          {probing ? 'Test réseau en cours…' : '🔍 Tester le réseau depuis le serveur'}
+        </button>
+
+        {probe && (
+          <div className="mt-3 space-y-2 text-xs">
+            <p className="text-muted">
+              Interfaces du serveur : IPv4 {probe.interfaces.ipv4 ? '✅' : '❌'} · IPv6{' '}
+              {probe.interfaces.ipv6 ? '✅' : '❌'}
+            </p>
+            {probe.probes.length === 0 ? (
+              <p className="text-amber-500">Aucune adresse résolue pour {probe.host ?? 'ce serveur'}.</p>
+            ) : (
+              <ul className="space-y-1">
+                {probe.probes.map((p) => (
+                  <li key={`${p.address}:${p.port}`} className="flex flex-wrap items-baseline gap-2">
+                    <span className={p.ok ? 'text-emerald-500' : 'text-red-400'}>{p.ok ? '✅' : '❌'}</span>
+                    <span className="font-mono break-all">
+                      IPv{p.family} {p.address}:{p.port}
+                    </span>
+                    <span className="text-faint">{p.ok ? `${p.ms} ms` : (p.error ?? 'échec')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

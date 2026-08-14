@@ -34,6 +34,17 @@ export class AdminController {
    * erreurs pour ne jamais faire échouer une commande, ce qui rend une
    * configuration SMTP fausse totalement invisible depuis l'extérieur.
    */
+  /**
+   * Diagnostic réseau du SMTP, exécuté depuis le serveur.
+   *
+   * Un « Connection timeout » ne dit pas si c'est la résolution, la route IPv6
+   * ou le port qui bloque. Cette sonde le dit.
+   */
+  @Get('mail/probe')
+  mailProbe() {
+    return this.mail.probe();
+  }
+
   @Post('mail/test')
   async mailTest(@Body('to') to?: string) {
     if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) {

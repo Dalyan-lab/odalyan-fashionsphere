@@ -1,5 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'node:dns';
+import * as net from 'node:net';
+import * as os from 'node:os';
+
+/** Résultat d'une tentative de connexion TCP brute. */
+export interface ProbeResult {
+  address: string;
+  family: 4 | 6;
+  port: number;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
 
 @Injectable()
 export class MailService {
@@ -81,6 +94,78 @@ export class MailService {
       user: process.env.SMTP_USER ?? null,
       from: this.from,
     };
+  }
+
+  /**
+   * Ouvre une connexion TCP nue vers une adresse, sans SMTP ni TLS.
+   *
+   * Sépare ce qui est indissociable dans l'erreur « Connection timeout » de
+   * nodemailer : joindre le serveur, et dialoguer avec lui. Si la connexion
+   * brute passe, le problème est dans l'authentification ; si elle expire,
+   * c'est le réseau de l'hébergeur qui bloque.
+   */
+  private tcpProbe(address: string, family: 4 | 6, port: number): Promise<ProbeResult> {
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const socket = new net.Socket();
+      const done = (ok: boolean, error?: string) => {
+        socket.destroy();
+        resolve({ address, family, port, ok, ms: Date.now() - started, error });
+      };
+      socket.setTimeout(6_000);
+      socket.once('connect', () => done(true));
+      socket.once('timeout', () => done(false, 'timeout (6 s)'));
+      socket.once('error', (err) => done(false, err.message));
+      socket.connect(port, address);
+    });
+  }
+
+  /**
+   * Diagnostic réseau exécuté depuis le serveur lui-même.
+   *
+   * Résout le serveur SMTP en IPv4 et IPv6, puis tente une connexion sur les
+   * ports 465 et 587 pour chaque adresse. Dit précisément quelle combinaison
+   * fonctionne — donc quoi mettre dans `SMTP_PORT`, ou s'il faut renoncer au
+   * SMTP sortant chez cet hébergeur.
+   */
+  async probe(): Promise<{
+    host: string | null;
+    interfaces: { ipv4: boolean; ipv6: boolean };
+    dns: { ipv4: string[]; ipv6: string[]; error?: string };
+    probes: ProbeResult[];
+  }> {
+    const host = process.env.SMTP_HOST ?? null;
+    const nics = Object.values(os.networkInterfaces())
+      .flat()
+      .filter((i): i is os.NetworkInterfaceInfo => Boolean(i) && !i!.internal);
+    const interfaces = {
+      ipv4: nics.some((i) => i.family === 'IPv4' || (i.family as unknown as number) === 4),
+      ipv6: nics.some((i) => i.family === 'IPv6' || (i.family as unknown as number) === 6),
+    };
+
+    if (!host) return { host, interfaces, dns: { ipv4: [], ipv6: [] }, probes: [] };
+
+    const lookup = async (fn: (h: string) => Promise<string[]>) => {
+      try {
+        return await fn(host);
+      } catch {
+        // Absence d'enregistrement = liste vide, pas une panne : un serveur
+        // peut très bien n'avoir que de l'IPv4.
+        return [];
+      }
+    };
+    const ipv4 = await lookup(dns.promises.resolve4);
+    const ipv6 = await lookup(dns.promises.resolve6);
+
+    const targets: { address: string; family: 4 | 6 }[] = [
+      ...ipv4.map((address) => ({ address, family: 4 as const })),
+      ...ipv6.map((address) => ({ address, family: 6 as const })),
+    ];
+    const probes = await Promise.all(
+      targets.flatMap((t) => [465, 587].map((port) => this.tcpProbe(t.address, t.family, port))),
+    );
+
+    return { host, interfaces, dns: { ipv4, ipv6 }, probes };
   }
 
   /** Envoie un email de test et renvoie le résultat réel, erreur comprise. */
