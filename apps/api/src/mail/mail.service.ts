@@ -19,6 +19,16 @@ export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly transporter: nodemailer.Transporter | null;
 
+  /**
+   * Clé de l'API HTTPS d'envoi, prioritaire sur le SMTP.
+   *
+   * Beaucoup d'hébergeurs — Railway compris — bloquent le SMTP sortant pour
+   * empêcher l'envoi de spam depuis leurs serveurs : les paquets vers les
+   * ports 465 et 587 sont jetés sans réponse, ce qui se traduit par un
+   * « Connection timeout » trompeur. Le HTTPS, lui, passe toujours.
+   */
+  private readonly resendKey = process.env.RESEND_API_KEY?.trim() || null;
+
   constructor() {
     if (process.env.SMTP_HOST) {
       const port = Number(process.env.SMTP_PORT ?? 587);
@@ -37,16 +47,24 @@ export class MailService {
       });
     } else {
       this.transporter = null;
-      this.logger.warn('SMTP non configuré — emails désactivés (mode dev).');
+      if (!this.resendKey) this.logger.warn('Aucun canal d’envoi configuré — emails désactivés (mode dev).');
     }
   }
 
   get enabled(): boolean {
-    return Boolean(this.transporter);
+    return Boolean(this.resendKey || this.transporter);
+  }
+
+  /** Canal réellement utilisé pour les envois. */
+  private get channel(): 'resend' | 'smtp' | null {
+    if (this.resendKey) return 'resend';
+    return this.transporter ? 'smtp' : null;
   }
 
   private get from(): string {
-    return process.env.SMTP_FROM ?? 'Odalyan FashionSphere <no-reply@odalyan.ai>';
+    return (
+      process.env.MAIL_FROM ?? process.env.SMTP_FROM ?? 'Odalyan FashionSphere <no-reply@odalyan.ai>'
+    );
   }
 
   /** Enveloppe HTML commune aux emails de la plateforme. */
@@ -73,7 +91,10 @@ export class MailService {
    * variante qui rend le message d'erreur exploitable.
    */
   private async trySend(to: string, subject: string, html: string): Promise<{ sent: boolean; error?: string }> {
-    if (!this.transporter) return { sent: false, error: 'SMTP non configuré (SMTP_HOST absent).' };
+    if (this.resendKey) return this.sendViaResend(to, subject, html);
+    if (!this.transporter) {
+      return { sent: false, error: 'Aucun canal configuré (ni RESEND_API_KEY, ni SMTP_HOST).' };
+    }
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html });
       return { sent: true };
@@ -84,10 +105,45 @@ export class MailService {
     }
   }
 
+  /** Envoi par l'API HTTPS de Resend — pas de dépendance, `fetch` suffit. */
+  private async sendViaResend(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<{ sent: boolean; error?: string }> {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.resendKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ from: this.from, to: [to], subject, html }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (res.ok) return { sent: true };
+
+      // Resend renvoie {name, message} en cas de refus : domaine non vérifié,
+      // clé invalide, expéditeur non autorisé… Le message est explicite.
+      const body: unknown = await res.json().catch(() => null);
+      const detail =
+        body && typeof body === 'object' && 'message' in body
+          ? String((body as { message: unknown }).message)
+          : `HTTP ${res.status}`;
+      this.logger.error(`Échec d'envoi d'email (Resend): ${detail}`);
+      return { sent: false, error: detail };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Échec d'envoi d'email (Resend): ${error}`);
+      return { sent: false, error };
+    }
+  }
+
   /** Configuration SMTP visible pour le diagnostic — jamais le mot de passe. */
   status() {
     return {
       configured: this.enabled,
+      channel: this.channel,
       host: process.env.SMTP_HOST ?? null,
       port: process.env.SMTP_PORT ?? '587 (défaut)',
       secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
@@ -244,27 +300,14 @@ export class MailService {
   }
 
   async sendPasswordReset(to: string, resetUrl: string): Promise<boolean> {
-    if (!this.transporter) return false;
-    const html = `
-      <div style="font-family:system-ui,sans-serif;max-width:480px;margin:auto;padding:24px;color:#1a1226">
-        <h2 style="margin:0 0 8px">Réinitialisation de votre mot de passe</h2>
-        <p style="color:#555">Vous avez demandé à réinitialiser votre mot de passe Odalyan FashionSphere.</p>
-        <p style="text-align:center;margin:28px 0">
-          <a href="${resetUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Réinitialiser mon mot de passe</a>
-        </p>
-        <p style="color:#888;font-size:12px">Ce lien expire dans 1 heure. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-      </div>`;
-    try {
-      await this.transporter.sendMail({
-        from: this.from,
-        to,
-        subject: 'Réinitialisation de votre mot de passe — Odalyan',
-        html,
-      });
-      return true;
-    } catch (err) {
-      this.logger.error(`Échec d'envoi d'email: ${String(err)}`);
-      return false;
-    }
+    const html = this.wrap(
+      'Réinitialisation de votre mot de passe',
+      `<p style="color:#555">Vous avez demandé à réinitialiser votre mot de passe Odalyan FashionSphere.</p>
+       <p style="text-align:center;margin:28px 0">
+         <a href="${resetUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Réinitialiser mon mot de passe</a>
+       </p>
+       <p style="color:#888;font-size:12px">Ce lien expire dans 1 heure. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`,
+    );
+    return this.send(to, 'Réinitialisation de votre mot de passe — Odalyan', html);
   }
 }

@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 
 interface MailStatus {
   configured: boolean;
+  channel: 'resend' | 'smtp' | null;
   host: string | null;
   port: string;
   secure: boolean;
@@ -95,11 +96,18 @@ export function MailDiagnostic() {
         </p>
       ) : (
         <dl className="mb-4 space-y-1 text-xs">
-          {[
-            ['Serveur', `${status.host}:${status.port}${status.secure ? ' (SSL)' : ''}`],
-            ['Identifiant', status.user ?? '—'],
-            ['Expéditeur', status.from],
-          ].map(([k, v]) => (
+          {(status.channel === 'resend'
+            ? [
+                ['Canal', 'Resend (API HTTPS)'],
+                ['Expéditeur', status.from],
+              ]
+            : [
+                ['Canal', 'SMTP direct'],
+                ['Serveur', `${status.host}:${status.port}${status.secure ? ' (SSL)' : ''}`],
+                ['Identifiant', status.user ?? '—'],
+                ['Expéditeur', status.from],
+              ]
+          ).map(([k, v]) => (
             <div key={k} className="flex gap-2">
               <dt className="w-24 shrink-0 text-faint">{k}</dt>
               <dd className="break-all">{v}</dd>
