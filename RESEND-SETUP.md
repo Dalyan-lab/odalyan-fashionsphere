@@ -44,15 +44,28 @@ Resend affiche alors 3 enregistrements DNS à créer.
 > portent sur le sous-domaine **`send`**, pas sur la racine du domaine. Ton
 > `MX` principal — celui qui fait arriver le courrier dans ta boîte — reste
 > intact. Ne le supprime surtout pas.
+>
+> Pour la même raison, laisser **« Enable Receiving » désactivé** dans Resend :
+> cette option ajoute un `MX` sur la racine du domaine et détournerait le
+> courrier entrant loin de ta boîte Hostinger. On veut envoyer, pas recevoir.
 
-Les trois enregistrements ressemblent à ceci (recopier **les valeurs exactes
-affichées par Resend**, pas celles-ci) :
+Trois enregistrements à créer :
 
 | Type | Nom | Valeur | Priorité |
 |---|---|---|---|
-| `MX` | `send` | `feedback-smtp.eu-west-1.amazonses.com` | `10` |
-| `TXT` | `send` | `v=spf1 include:amazonses.com ~all` | — |
-| `TXT` | `resend._domainkey` | `p=MIGfMA0GCSq...` (longue clé) | — |
+| `MX` | `send` | ⚠️ **copier depuis Resend** | `10` |
+| `TXT` | `send` | ⚠️ **copier depuis Resend** | — |
+| `TXT` | `resend._domainkey` | ⚠️ **copier depuis Resend** | — |
+
+> **Ne recopie aucune valeur écrite dans ce guide.** La clé DKIM est unique à
+> ton domaine : c'est une chaîne de plusieurs centaines de caractères que
+> personne ne peut deviner. Resend l'affiche **tronquée** à l'écran
+> (`p=MIGfMA[…]QIDAQAB`) — il faut impérativement utiliser **l'icône de copie**
+> à côté de la valeur, jamais la sélectionner à la souris, sinon on ne copie
+> que le fragment visible.
+>
+> Une valeur DKIM fausse ou tronquée donne toujours le même symptôme :
+> `The fashodalyansp.com domain is not verified`.
 
 Rappel du piège déjà rencontré : **Hostinger refuse d'ajouter un enregistrement
 dont le nom existe déjà**. Si `send` existe (enregistrement de parking), le
