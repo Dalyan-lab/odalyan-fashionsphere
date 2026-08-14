@@ -47,14 +47,53 @@ export class MailService {
   }
 
   private async send(to: string, subject: string, html: string): Promise<boolean> {
-    if (!this.transporter) return false;
+    const { sent } = await this.trySend(to, subject, html);
+    return sent;
+  }
+
+  /**
+   * Envoi avec remontée de l'erreur, pour le diagnostic.
+   *
+   * `send()` avale volontairement les erreurs : un email raté ne doit jamais
+   * faire échouer une commande ou une réinitialisation. Mais du coup, une
+   * configuration SMTP fausse reste invisible depuis l'extérieur — d'où cette
+   * variante qui rend le message d'erreur exploitable.
+   */
+  private async trySend(to: string, subject: string, html: string): Promise<{ sent: boolean; error?: string }> {
+    if (!this.transporter) return { sent: false, error: 'SMTP non configuré (SMTP_HOST absent).' };
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html });
-      return true;
+      return { sent: true };
     } catch (err) {
-      this.logger.error(`Échec d'envoi d'email: ${String(err)}`);
-      return false;
+      const error = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Échec d'envoi d'email: ${error}`);
+      return { sent: false, error };
     }
+  }
+
+  /** Configuration SMTP visible pour le diagnostic — jamais le mot de passe. */
+  status() {
+    return {
+      configured: this.enabled,
+      host: process.env.SMTP_HOST ?? null,
+      port: process.env.SMTP_PORT ?? '587 (défaut)',
+      secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
+      user: process.env.SMTP_USER ?? null,
+      from: this.from,
+    };
+  }
+
+  /** Envoie un email de test et renvoie le résultat réel, erreur comprise. */
+  async sendTest(to: string): Promise<{ sent: boolean; error?: string }> {
+    return this.trySend(
+      to,
+      'Test d’envoi — Odalyan FashionSphere',
+      this.wrap(
+        'Votre messagerie fonctionne ✅',
+        '<p style="color:#555">Si vous lisez ce message, votre plateforme sait envoyer des emails : ' +
+          'réinitialisations de mot de passe, confirmations de commande et alertes partiront normalement.</p>',
+      ),
+    );
   }
 
   /** Confirmation de commande envoyée au client après paiement réussi. */
