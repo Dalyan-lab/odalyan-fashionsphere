@@ -91,12 +91,13 @@ export class MailService {
    * variante qui rend le message d'erreur exploitable.
    */
   private async trySend(to: string, subject: string, html: string): Promise<{ sent: boolean; error?: string }> {
-    if (this.resendKey) return this.sendViaResend(to, subject, html);
+    const text = this.toText(html);
+    if (this.resendKey) return this.sendViaResend(to, subject, html, text);
     if (!this.transporter) {
       return { sent: false, error: 'Aucun canal configuré (ni RESEND_API_KEY, ni SMTP_HOST).' };
     }
     try {
-      await this.transporter.sendMail({ from: this.from, to, subject, html });
+      await this.transporter.sendMail({ from: this.from, to, subject, html, text });
       return { sent: true };
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -105,11 +106,45 @@ export class MailService {
     }
   }
 
+  /**
+   * Version texte brut d'un email HTML.
+   *
+   * Un message qui ne contient que du HTML est un critère de notation
+   * anti-spam : les expéditeurs légitimes envoient les deux versions. Les
+   * liens sont conservés en clair, sans quoi le texte de repli serait
+   * inutilisable — un email de réinitialisation sans son lien ne sert à rien.
+   */
+  private toText(html: string): string {
+    return html
+      .replace(/<a\b[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gis, '$2 : $1')
+      .replace(/<li\b[^>]*>/gi, '- ')
+      .replace(/<\/(p|div|h\d|li|ul|tr)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      // Décodage après le retrait des balises, sinon un &lt; décodé serait
+      // repris pour une balise et le texte suivant disparaîtrait.
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&apos;/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/[ \t]+/g, ' ')
+      // L'indentation du gabarit HTML laisse une espace en tête de chaque
+      // ligne une fois les balises retirées.
+      .split('\n')
+      .map((line) => line.trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   /** Envoi par l'API HTTPS de Resend — pas de dépendance, `fetch` suffit. */
   private async sendViaResend(
     to: string,
     subject: string,
     html: string,
+    text: string,
   ): Promise<{ sent: boolean; error?: string }> {
     try {
       const res = await fetch('https://api.resend.com/emails', {
@@ -118,7 +153,7 @@ export class MailService {
           Authorization: `Bearer ${this.resendKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from: this.from, to: [to], subject, html }),
+        body: JSON.stringify({ from: this.from, to: [to], subject, html, text }),
         signal: AbortSignal.timeout(15_000),
       });
       if (res.ok) return { sent: true };
