@@ -19,6 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupon/coupons.service';
 import { MailService } from '../mail/mail.service';
 import { PaystackProvider, PaystackUnreachableError } from '../payment/providers/paystack.provider';
+import { appUrl } from '../common/app-url';
 
 /** Fenêtre de rappel avant expiration (jours). */
 const REMINDER_DAYS = 3;
@@ -188,7 +189,7 @@ export class SubscriptionService {
     });
     if (subs.length === 0) return { processed: 0 };
 
-    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'https://odalyan-fashionsphere.vercel.app';
+    const webOrigin = appUrl();
     this.logger.log(`Rappels d'expiration : ${subs.length} abonnement(s) à relancer`);
 
     let processed = 0;

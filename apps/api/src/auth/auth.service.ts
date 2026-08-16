@@ -16,6 +16,7 @@ import {
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { appUrl } from '../common/app-url';
 
 @Injectable()
 export class AuthService {
@@ -96,7 +97,7 @@ export class AuthService {
       },
     });
 
-    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    const webOrigin = appUrl();
     const resetUrl = `${webOrigin}/reset-password?token=${token}`;
 
     // SMTP configuré → envoi par email ; sinon (dev) on renvoie le lien directement.

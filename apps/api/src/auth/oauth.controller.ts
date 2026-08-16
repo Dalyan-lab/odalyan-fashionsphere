@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { appUrl } from '../common/app-url';
 
 @Controller('auth/oauth')
 export class OAuthController {
@@ -18,7 +19,7 @@ export class OAuthController {
     return `${proto}://${host}`;
   }
   private get webOrigin() {
-    return process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    return appUrl();
   }
 
   @Get('providers')

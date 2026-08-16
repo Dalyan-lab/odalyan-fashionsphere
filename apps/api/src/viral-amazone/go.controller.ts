@@ -2,6 +2,7 @@ import { Controller, Get, Logger, Param, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from './gamification.service';
+import { appUrl } from '../common/app-url';
 
 /**
  * Lien traçant public (hors préfixe /api, hors authentification) : le vendeur
@@ -25,7 +26,7 @@ export class GoController {
       select: { affiliateUrl: true },
     });
     if (!script) {
-      res.redirect(302, process.env.WEB_ORIGIN?.split(',')[0] ?? '/');
+      res.redirect(302, appUrl());
       return;
     }
 

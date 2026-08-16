@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { appUrl } from '../../common/app-url';
 
 export interface PsLinkInput {
   orderId: string;
@@ -94,7 +95,7 @@ export class PaystackProvider {
   async createLink(input: PsLinkInput): Promise<PsLinkResult> {
     const localAmount = this.convert(input.amountEur);
     const txRef = `ODL-${input.orderNumber}-${Date.now()}`;
-    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    const webOrigin = appUrl();
 
     const res = await this.request('/transaction/initialize', {
       method: 'POST',
@@ -137,7 +138,7 @@ export class PaystackProvider {
    */
   async createGenericLink(input: PsGenericLinkInput): Promise<PsLinkResult> {
     const localAmount = this.convert(input.amountEur);
-    const webOrigin = process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    const webOrigin = appUrl();
     const kind = input.kind ? `&kind=${encodeURIComponent(input.kind)}` : '';
 
     const res = await this.request('/transaction/initialize', {

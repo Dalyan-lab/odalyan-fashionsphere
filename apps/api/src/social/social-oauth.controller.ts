@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SocialService } from './social.service';
 import { socialRedirectUri } from './social-redirect';
+import { appUrl } from '../common/app-url';
 
 /**
  * Retour OAuth des réseaux sociaux — route PUBLIQUE (le réseau appelle sans session).
@@ -12,7 +13,7 @@ export class SocialOAuthController {
   constructor(private readonly socialService: SocialService) {}
 
   private get webOrigin() {
-    return process.env.WEB_ORIGIN?.split(',')[0] ?? 'http://localhost:3000';
+    return appUrl();
   }
 
   @Get('callback/:network')
