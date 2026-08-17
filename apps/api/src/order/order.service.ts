@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
-import { type CheckoutInput, type UpdateOrderStatusInput } from '@odalyan/shared';
+import { type CheckoutInput, type UpdateOrderStatusInput,
+  PLATFORM_CURRENCY,
+} from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentService } from '../payment/payment.service';
 import { MailService } from '../mail/mail.service';
@@ -177,7 +179,7 @@ export class OrderService {
       include: { variants: true, shop: { select: { id: true, name: true } } },
     });
     if (products.length === 0) {
-      return { currency: 'EUR', subtotal: 0, shipping: 0, total: 0, shops: [] };
+      return { currency: PLATFORM_CURRENCY, subtotal: 0, shipping: 0, total: 0, shops: [] };
     }
 
     const dest = { country: input.shippingAddress.country, city: input.shippingAddress.city };

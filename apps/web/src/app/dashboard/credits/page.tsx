@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CREDIT_PACKS, AI_CREDIT_COSTS, type CreditPack, type CouponPreview } from '@odalyan/shared';
 import { apiFetch, ApiError } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 
@@ -18,6 +19,8 @@ interface Balance {
 
 export default function CreditsPage() {
   const t = useT();
+  const displayCurrency = useLocale((s) => s.currency);
+  const fmtMoney = (n: number) => convertAndFormat(n, PLATFORM_CURRENCY, displayCurrency);
   const [bal, setBal] = useState<Balance | null>(null);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
@@ -53,12 +56,12 @@ export default function CreditsPage() {
 
   /** Prix remisé d'un pack selon le coupon validé (null si aucun). */
   function discountedPrice(price: number): number | null {
-    if (!coupon || !coupon.originalEur || coupon.finalEur == null) return null;
+    if (!coupon || !coupon.original || coupon.final == null) return null;
     if (coupon.label?.includes('%')) {
-      const ratio = coupon.finalEur / coupon.originalEur;
+      const ratio = coupon.final / coupon.original;
       return Math.round(price * ratio * 100) / 100;
     }
-    const fixed = coupon.originalEur - coupon.finalEur;
+    const fixed = coupon.original - coupon.final;
     return Math.max(0, Math.round((price - fixed) * 100) / 100);
   }
 
@@ -194,14 +197,14 @@ export default function CreditsPage() {
                 <span className="ml-1 text-sm font-normal text-faint">{t('credits.unit')}</span>
               </p>
               {(() => {
-                const dp = discountedPrice(pack.priceEur);
+                const dp = discountedPrice(pack.price);
                 return dp != null ? (
                   <p className="mt-1 flex items-baseline gap-2">
-                    <span className="text-lg font-semibold text-emerald-600">{dp} €</span>
-                    <span className="text-sm text-faint line-through">{pack.priceEur} €</span>
+                    <span className="text-lg font-semibold text-emerald-600">{fmtMoney(dp)}</span>
+                    <span className="text-sm text-faint line-through">{fmtMoney(pack.price)}</span>
                   </p>
                 ) : (
-                  <p className="mt-1 text-lg font-semibold">{pack.priceEur} €</p>
+                  <p className="mt-1 text-lg font-semibold">{fmtMoney(pack.price)}</p>
                 );
               })()}
               <button

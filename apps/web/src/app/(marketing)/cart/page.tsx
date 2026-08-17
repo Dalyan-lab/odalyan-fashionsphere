@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
 import { stripePromise, stripeConfigured } from '@/lib/stripe';
 import { convertAndFormat, useLocale } from '@/lib/i18n';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 
 interface CheckoutResult {
   group: { id: string; reference: string; totalAmount: string };
@@ -78,7 +79,7 @@ export default function CartPage() {
     return () => clearTimeout(timer);
   }, [items, address.city, address.country, address.fullName, address.line1, address.postalCode]);
 
-  const fmt = (eur: number) => convertAndFormat(eur, 'EUR', currency);
+  const fmt = (amount: number) => convertAndFormat(amount, PLATFORM_CURRENCY, currency);
   const payNote =
     provider === 'paystack'
       ? 'Paiement sécurisé : carte & Mobile Money (Wave, Orange, MTN, Moov) via Paystack.'

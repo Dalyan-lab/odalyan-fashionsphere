@@ -55,7 +55,7 @@ export class PaymentService {
         const ps = await this.paystack.createLink({
           refId: groupId,
           refNumber: group!.reference,
-          amountEur: Number(amount),
+          amount: Number(amount),
           email: group!.customer.email,
           name: `${group!.customer.firstName} ${group!.customer.lastName}`,
           phone: typeof addr.phone === 'string' ? addr.phone : undefined,

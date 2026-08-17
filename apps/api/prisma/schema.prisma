@@ -276,7 +276,7 @@ model CreditPurchase {
   providerRef String   @unique
   status      String   @default("PENDING") // PENDING | PAID | FAILED
   couponCode  String? // code promo appliqué (le cas échéant)
-  discountEur Decimal? @db.Decimal(10, 2) // remise appliquée en EUR
+  discountEur Decimal? @db.Decimal(10, 2) // remise appliquée (nom hérité, unité = devise plateforme)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -360,7 +360,7 @@ model Product {
   description String?
   category    ProductCategory
   price       Decimal         @db.Decimal(10, 2)
-  currency    String          @default("EUR")
+  currency    String          @default("XOF")
   status      ProductStatus   @default(DRAFT)
   images      String[]        @default([])
   videos      String[]        @default([])
@@ -443,7 +443,7 @@ model OrderGroup {
   id          String  @id @default(cuid())
   reference   String  @unique
   totalAmount Decimal @db.Decimal(10, 2)
-  currency    String  @default("EUR")
+  currency    String  @default("XOF")
 
   customer   User   @relation(fields: [customerId], references: [id])
   customerId String
@@ -461,7 +461,7 @@ model Order {
   orderNumber String      @unique
   status      OrderStatus @default(PENDING)
   totalAmount Decimal     @db.Decimal(10, 2)
-  currency    String      @default("EUR")
+  currency    String      @default("XOF")
 
   customer   User   @relation(fields: [customerId], references: [id])
   customerId String
@@ -551,7 +551,7 @@ model Payout {
   id        String       @id @default(cuid())
   reference String       @unique
   amount    Decimal      @db.Decimal(10, 2)
-  currency  String       @default("EUR")
+  currency  String       @default("XOF")
   status    PayoutStatus @default(PENDING)
 
   method PayoutMethod?
@@ -596,7 +596,7 @@ model Payment {
   provider      PaymentProvider @default(STRIPE)
   providerRef   String? // ex: Stripe PaymentIntent id
   amount        Decimal         @db.Decimal(10, 2)
-  currency      String          @default("EUR")
+  currency      String          @default("XOF")
   paid          Boolean         @default(false)
   rawPayload    Json?
 

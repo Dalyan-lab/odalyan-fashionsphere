@@ -51,7 +51,7 @@ const PLANS: PlanCard[] = [
   },
 ];
 
-const RATE = 655.957; // EUR → XOF (indicatif)
+const RATE = 655.957; // XOF → EUR, pour l’équivalent indicatif affiché
 
 export default function SubscriptionsPage() {
   const t = useT();
@@ -117,19 +117,19 @@ export default function SubscriptionsPage() {
   const currentPlan = status?.plan ?? SubscriptionPlan.STARTER;
   const fmtDate = (s?: string | null) => (s ? new Date(s).toLocaleDateString('fr-FR') : null);
 
-  // Prix affiché (remisé si coupon en %), en FCFA + €
+  // Prix affiché (remisé si coupon en %). `planPrice` renvoie désormais des
+  // francs : les multiplier par le taux les convertirait une seconde fois.
   function priceLabel(plan: SubscriptionPlan): { fcfa: string; eur: string; struck?: string } | null {
     if (plan === SubscriptionPlan.STARTER) return null;
     const base = planPrice(plan, period);
     let final = base;
-    if (coupon?.label?.includes('%') && coupon.originalEur && coupon.finalEur != null) {
-      final = Math.round(base * (coupon.finalEur / coupon.originalEur));
+    if (coupon?.label?.includes('%') && coupon.original && coupon.final != null) {
+      final = Math.round(base * (coupon.final / coupon.original));
     }
-    const fcfa = Math.round(final * RATE).toLocaleString('fr-FR');
     return {
-      fcfa: `${fcfa} FCFA`,
-      eur: `≈ ${final} €${period === 'annual' ? ' /mois·an' : ' /mois'}`,
-      struck: final !== base ? `${Math.round(base * RATE).toLocaleString('fr-FR')} FCFA` : undefined,
+      fcfa: `${final.toLocaleString('fr-FR')} FCFA`,
+      eur: `≈ ${Math.round(final / RATE)} €${period === 'annual' ? ' /mois·an' : ' /mois'}`,
+      struck: final !== base ? `${base.toLocaleString('fr-FR')} FCFA` : undefined,
     };
   }
 

@@ -14,6 +14,7 @@ import {
   type BillingPeriod,
   type SubscribeInput,
   type SubscriptionStatusDto,
+  PLATFORM_CURRENCY,
 } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupon/coupons.service';
@@ -92,14 +93,14 @@ export class SubscriptionService {
     if (basePrice <= 0) throw new BadRequestException('Plan invalide.');
 
     // Code promo éventuel
-    let amountEur = basePrice;
-    let discountEur = 0;
+    let amount = basePrice;
+    let discount = 0;
     let appliedCode: string | undefined;
     if (input.couponCode?.trim()) {
       const res = await this.coupons.check(input.couponCode, shop.id, 'subscription');
       if ('reason' in res) throw new BadRequestException(res.reason);
-      discountEur = CouponsService.discountFor(res.coupon, basePrice);
-      amountEur = Math.max(0, Math.round((basePrice - discountEur) * 100) / 100);
+      discount = CouponsService.discountFor(res.coupon, basePrice);
+      amount = Math.max(0, Math.round((basePrice - discount) * 100) / 100);
       appliedCode = res.coupon.code;
     }
 
@@ -107,21 +108,21 @@ export class SubscriptionService {
 
     // Sans Paystack (dev) : activation immédiate
     if (!this.paystack.enabled) {
-      await this.recordPayment(shop.id, input.plan, period, amountEur, 'EUR', 'mock', reference, 'PAID', appliedCode, discountEur);
+      await this.recordPayment(shop.id, input.plan, period, amount, PLATFORM_CURRENCY, 'mock', reference, 'PAID', appliedCode, discount);
       await this.activate(shop.id, input.plan, period);
-      if (appliedCode) await this.coupons.redeem(appliedCode, shop.id, `subscription:${input.plan}`, discountEur);
+      if (appliedCode) await this.coupons.redeem(appliedCode, shop.id, `subscription:${input.plan}`, discount);
       return { link: null, activated: true };
     }
 
     try {
       const ps = await this.paystack.createGenericLink({
         reference,
-        amountEur,
+        amount,
         email: shop.owner.email,
         kind: 'subscription',
         metadata: { shopId: shop.id, plan: input.plan, period, couponCode: appliedCode ?? '' },
       });
-      await this.recordPayment(shop.id, input.plan, period, amountEur, ps.currency, 'paystack', ps.txRef, 'PENDING', appliedCode, discountEur);
+      await this.recordPayment(shop.id, input.plan, period, amount, ps.currency, 'paystack', ps.txRef, 'PENDING', appliedCode, discount);
       return { link: ps.link, activated: false };
     } catch (err) {
       const unreachable = err instanceof PaystackUnreachableError;
@@ -225,7 +226,7 @@ export class SubscriptionService {
     const nameById = new Map(shops.map((s) => [s.id, s.name]));
 
     const paid = payments.filter((p) => p.status === 'PAID');
-    const totalEur = paid.reduce((sum, p) => sum + Number(p.amount), 0);
+    const total = paid.reduce((sum, p) => sum + Number(p.amount), 0);
     const byPlan: Record<string, { count: number; eur: number }> = {};
     for (const p of paid) {
       byPlan[p.plan] = byPlan[p.plan] ?? { count: 0, eur: 0 };
@@ -240,7 +241,7 @@ export class SubscriptionService {
 
     return {
       summary: {
-        totalEur: Math.round(totalEur * 100) / 100,
+        total: Math.round(total * 100) / 100,
         paidCount: paid.length,
         pendingCount: payments.filter((p) => p.status === 'PENDING').length,
         activeSubscriptions: activePaid,
@@ -315,7 +316,7 @@ export class SubscriptionService {
     providerRef: string,
     status: string,
     couponCode?: string,
-    discountEur?: number,
+    discount?: number,
   ) {
     return this.prisma.subscriptionPayment.create({
       data: {
@@ -328,7 +329,7 @@ export class SubscriptionService {
         providerRef,
         status,
         couponCode: couponCode ?? null,
-        discountEur: couponCode ? new Prisma.Decimal(discountEur ?? 0) : null,
+        discountEur: couponCode ? new Prisma.Decimal(discount ?? 0) : null,
       },
     });
   }

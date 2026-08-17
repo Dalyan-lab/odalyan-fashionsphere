@@ -8,15 +8,15 @@ export class CouponsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Remise en EUR appliquée par un coupon sur un montant de base (plafonnée au montant). */
-  static discountFor(coupon: Coupon, baseEur: number): number {
+  static discountFor(coupon: Coupon, base: number): number {
     let off = 0;
-    if (coupon.percentOff) off = (baseEur * coupon.percentOff) / 100;
+    if (coupon.percentOff) off = (base * coupon.percentOff) / 100;
     else if (coupon.amountOffEur) off = Number(coupon.amountOffEur);
-    return Math.min(baseEur, Math.round(off * 100) / 100);
+    return Math.min(base, Math.round(off * 100) / 100);
   }
 
   private label(coupon: Coupon): string {
-    return coupon.percentOff ? `-${coupon.percentOff}%` : `-${Number(coupon.amountOffEur)} €`;
+    return coupon.percentOff ? `-${coupon.percentOff}%` : `-${Number(coupon.amountOffEur)} FCFA`;
   }
 
   /**
@@ -49,18 +49,18 @@ export class CouponsService {
   async preview(
     code: string,
     shopId: string,
-    baseEur: number,
+    base: number,
     scope: 'credits' | 'order' | 'subscription',
   ): Promise<CouponPreview> {
     const res = await this.check(code, shopId, scope);
     if ('reason' in res) return { code: code.trim().toUpperCase(), valid: false, reason: res.reason };
-    const discountEur = CouponsService.discountFor(res.coupon, baseEur);
+    const discount = CouponsService.discountFor(res.coupon, base);
     return {
       code: res.coupon.code,
       valid: true,
-      originalEur: baseEur,
-      discountEur,
-      finalEur: Math.max(0, Math.round((baseEur - discountEur) * 100) / 100),
+      original: base,
+      discount,
+      final: Math.max(0, Math.round((base - discount) * 100) / 100),
       label: this.label(res.coupon),
     };
   }

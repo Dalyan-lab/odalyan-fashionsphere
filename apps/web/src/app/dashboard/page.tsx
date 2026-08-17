@@ -6,6 +6,7 @@ import { type AuthUser } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { convertAndFormat, useLocale, useT } from '@/lib/i18n';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import type { Product, Shop } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
@@ -118,7 +119,7 @@ export default function DashboardPage() {
 
           {/* STATS */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon="stats" label={t('dh.totalSales')} value={convertAndFormat(revenue, 'EUR', currency)} />
+            <StatCard icon="stats" label={t('dh.totalSales')} value={convertAndFormat(revenue, PLATFORM_CURRENCY, currency)} />
             <StatCard icon="orders" label={t('dh.orders')} value={String(shop._count?.orders ?? 0)} />
             <StatCard icon="clients" label={t('dash.nav.clients')} value={String(stats?.customersCount ?? 0)} />
             <StatCard icon="marketing" label={t('dh.conversion')} value={`${(stats?.conversionRate ?? 0).toFixed(1)}%`} />
@@ -333,6 +334,7 @@ function AiToolCard({
 }
 
 function ProductMini({ product }: { product: Product }) {
+  const currency = useLocale((c) => c.currency);
   const t = useT();
   const img = product.images[0] ?? 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=300';
   return (
@@ -343,7 +345,7 @@ function ProductMini({ product }: { product: Product }) {
       </div>
       <div className="p-2.5">
         <p className="line-clamp-1 text-xs font-medium">{product.name}</p>
-        <p className="mt-0.5 text-sm font-bold text-brand-violet">{Number(product.price).toFixed(2)} €</p>
+        <p className="mt-0.5 text-sm font-bold text-brand-violet">{convertAndFormat(Number(product.price), PLATFORM_CURRENCY, currency)}</p>
         <p className="mt-1 flex items-center gap-1 text-[10px] text-emerald-500">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {t('common.inStock')}
         </p>

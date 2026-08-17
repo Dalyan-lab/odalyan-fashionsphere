@@ -235,22 +235,24 @@ export const PLAN_AI_CREDITS: Record<SubscriptionPlan, number> = {
 };
 
 /**
- * Prix mensuel des plans en EUR (converti en FCFA par Paystack).
- * Paiement ponctuel par période (mensuel/annuel) — adapté au Mobile Money
- * qui ne gère pas le prélèvement récurrent. L'annuel = 10 mois (2 offerts).
+ * Prix mensuel des plans, dans la devise de la plateforme (FCFA).
+ *
+ * Montants ronds plutôt que convertis au centime : « 10 000 F » se lit comme
+ * un prix, « 9 839 F » comme une traduction. Paiement ponctuel par période —
+ * le Mobile Money ne gère pas le prélèvement récurrent. Annuel = 10 mois.
  */
-export const PLAN_PRICES_EUR: Record<SubscriptionPlan, number> = {
+export const PLAN_PRICES: Record<SubscriptionPlan, number> = {
   [SubscriptionPlan.STARTER]: 0,
-  [SubscriptionPlan.PRO]: 15,
-  [SubscriptionPlan.BUSINESS]: 49,
-  [SubscriptionPlan.ENTERPRISE]: 199,
+  [SubscriptionPlan.PRO]: 10_000,
+  [SubscriptionPlan.BUSINESS]: 32_000,
+  [SubscriptionPlan.ENTERPRISE]: 130_000,
 };
 
 export type BillingPeriod = 'monthly' | 'annual';
 
-/** Prix EUR d'un plan pour une période donnée (annuel = ×10). */
+/** Prix d'un plan pour une période donnée (annuel = ×10). */
 export function planPrice(plan: SubscriptionPlan, period: BillingPeriod): number {
-  const monthly = PLAN_PRICES_EUR[plan];
+  const monthly = PLAN_PRICES[plan];
   return period === 'annual' ? monthly * 10 : monthly;
 }
 
@@ -271,24 +273,33 @@ export type AiCreditKind = keyof typeof AI_CREDIT_COSTS;
 
 /**
  * Packs de recharge de crédits IA (achat ponctuel via Paystack).
- * Le prix est en EUR (converti en XOF par Paystack). Modifiable librement.
+ * Prix dans la devise de la plateforme (FCFA). Modifiable librement.
  * Les crédits achetés sont reportés d'un mois sur l'autre (jamais réinitialisés).
  */
 export interface CreditPack {
   id: string;
   credits: number;
-  priceEur: number;
+  price: number;
   label: string;
   popular?: boolean;
 }
 
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: 'pack-50', credits: 50, priceEur: 5, label: 'Recharge Découverte' },
-  { id: 'pack-150', credits: 150, priceEur: 12, label: 'Recharge Créateur', popular: true },
-  { id: 'pack-500', credits: 500, priceEur: 35, label: 'Recharge Studio' },
-  { id: 'pack-1500', credits: 1500, priceEur: 90, label: 'Recharge Agence' },
+  { id: 'pack-50', credits: 50, price: 3_000, label: 'Recharge Découverte' },
+  { id: 'pack-150', credits: 150, price: 8_000, label: 'Recharge Créateur', popular: true },
+  { id: 'pack-500', credits: 500, price: 23_000, label: 'Recharge Studio' },
+  { id: 'pack-1500', credits: 1500, price: 60_000, label: 'Recharge Agence' },
 ];
 
 export function getCreditPack(id: string): CreditPack | undefined {
   return CREDIT_PACKS.find((p) => p.id === id);
 }
+
+/**
+ * Devise de référence de la plateforme.
+ *
+ * Tous les montants sont stockés et saisis dans cette devise. Les autres ne
+ * servent qu'à l'affichage, converties à la volée. Faire saisir des euros à un
+ * vendeur qui pense en francs a déjà produit une erreur de facteur 656.
+ */
+export const PLATFORM_CURRENCY = 'XOF';

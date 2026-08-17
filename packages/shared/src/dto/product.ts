@@ -14,7 +14,7 @@ export const createProductSchema = z.object({
   description: z.string().max(5000).optional(),
   category: z.nativeEnum(ProductCategory),
   price: z.number().positive('Le prix doit être positif'),
-  currency: z.string().length(3).default('EUR'),
+  currency: z.string().length(3).default('XOF'),
   status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
   images: z.array(z.string().url()).default([]),
   videos: z.array(z.string().url()).default([]),

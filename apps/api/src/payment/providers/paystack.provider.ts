@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import { appUrl } from '../../common/app-url';
 
 export interface PsLinkInput {
@@ -6,7 +7,7 @@ export interface PsLinkInput {
   refId: string;
   /** Référence lisible, reprise dans le libellé de la transaction. */
   refNumber: string;
-  amountEur: number;
+  amount: number;
   email: string;
   name: string;
   phone?: string;
@@ -14,7 +15,7 @@ export interface PsLinkInput {
 
 export interface PsGenericLinkInput {
   reference: string;
-  amountEur: number;
+  amount: number;
   email: string;
   /** Suffixe ajouté au callback (?kind=…) pour router la vérification côté web. */
   kind?: string;
@@ -65,10 +66,23 @@ export class PaystackProvider {
     return process.env.PAYSTACK_CURRENCY ?? 'XOF';
   }
 
-  /** Convertit l'EUR vers la devise locale (défaut XOF, 1 EUR ≈ 655,957 XOF). */
-  private convert(amountEur: number): number {
+  /**
+   * Montant à facturer, dans la devise de Paystack.
+   *
+   * La plateforme stocke désormais ses montants en FCFA, soit la devise de
+   * facturation : plus aucune conversion. `PAYSTACK_EUR_RATE` n'est conservée
+   * que pour un compte configuré dans une autre devise que XOF — sans quoi
+   * une transaction partirait multipliée par 656.
+   */
+  private toChargeable(amount: number): number {
+    if (this.currency === PLATFORM_CURRENCY) return Math.max(1, Math.round(amount));
     const rate = Number(process.env.PAYSTACK_EUR_RATE ?? 655.957);
-    return Math.max(1, Math.round(amountEur * rate));
+    return Math.max(1, Math.round((amount / rate) * this.foreignRate()));
+  }
+
+  /** Taux vers la devise Paystack quand elle diffère de celle de la plateforme. */
+  private foreignRate(): number {
+    return Number(process.env.PAYSTACK_TARGET_RATE ?? 1);
   }
 
   /** Requête HTTP vers Paystack avec timeout ; convertit l'échec réseau en erreur typée. */
@@ -95,7 +109,7 @@ export class PaystackProvider {
   }
 
   async createLink(input: PsLinkInput): Promise<PsLinkResult> {
-    const localAmount = this.convert(input.amountEur);
+    const localAmount = this.toChargeable(input.amount);
     const txRef = `ODL-${input.refNumber}-${Date.now()}`;
     const webOrigin = appUrl();
 
@@ -139,7 +153,7 @@ export class PaystackProvider {
    * Réutilise le même flux hébergé Paystack ; la vérification passe par verify().
    */
   async createGenericLink(input: PsGenericLinkInput): Promise<PsLinkResult> {
-    const localAmount = this.convert(input.amountEur);
+    const localAmount = this.toChargeable(input.amount);
     const webOrigin = appUrl();
     const kind = input.kind ? `&kind=${encodeURIComponent(input.kind)}` : '';
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 
 interface Balance {
   available: number;
@@ -100,7 +101,7 @@ export default function RevenusPage() {
   };
 
   // La devise des versements suit celle des commandes ; à défaut, l'euro.
-  const currency = payouts[0]?.currency ?? 'EUR';
+  const currency = payouts[0]?.currency ?? PLATFORM_CURRENCY;
 
   return (
     <>

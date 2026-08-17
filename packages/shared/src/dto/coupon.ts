@@ -27,9 +27,9 @@ export interface CouponPreview {
   code: string;
   valid: boolean;
   reason?: string; // si invalide
-  originalEur?: number;
-  discountEur?: number;
-  finalEur?: number;
+  original?: number;
+  discount?: number;
+  final?: number;
   label?: string; // ex: "-40%"
 }
 

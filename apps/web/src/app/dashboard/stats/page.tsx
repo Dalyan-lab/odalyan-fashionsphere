@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { convertAndFormat, useLocale, useT } from '@/lib/i18n';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 
@@ -33,7 +34,7 @@ export default function StatsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const fmt = (eur: number) => convertAndFormat(eur, 'EUR', currency);
+  const fmt = (amount: number) => convertAndFormat(amount, PLATFORM_CURRENCY, currency);
 
   return (
     <>

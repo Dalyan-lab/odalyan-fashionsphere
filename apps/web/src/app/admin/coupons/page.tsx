@@ -52,7 +52,7 @@ export default function AdminCouponsPage() {
                   <div>
                     <p className="font-mono font-bold text-brand-violet">{c.code}</p>
                     <p className="text-xs text-faint">
-                      {c.percentOff ? `-${c.percentOff}%` : `-${c.amountOffEur} €`} · {c.appliesTo} ·{' '}
+                      {c.percentOff ? `-${c.percentOff}%` : `-${c.amountOffEur} FCFA`} · {c.appliesTo} ·{' '}
                       {c.timesRedeemed}
                       {c.maxRedemptions ? `/${c.maxRedemptions}` : ''} utilisés · exp. {date(c.expiresAt)}
                     </p>

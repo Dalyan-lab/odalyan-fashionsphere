@@ -58,7 +58,7 @@ const PLANS = [
   },
   {
     name: 'Créateur',
-    price: '9 800 FCFA',
+    price: '10 000 FCFA',
     eur: '≈ 15 € / mois',
     items: ['Produits illimités', 'Mannequins & avatars IA', 'Campagnes IA multi-réseaux', '150 crédits IA / mois'],
     highlight: true,

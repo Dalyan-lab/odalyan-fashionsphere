@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductCategory, ProductStatus } from '@prisma/client';
 import type { GenerateViralScriptInput } from '@odalyan/shared';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { ShopService } from '../shop/shop.service';
 import { CreditsService } from '../credits/credits.service';
@@ -97,7 +98,7 @@ export class ScriptGeneratorService {
         name: product.title,
         category: ProductCategory.ACCESSOIRES, // par défaut ; le vendeur peut affiner
         price: product.currentPrice ?? new Prisma.Decimal(0),
-        currency: product.currency ?? 'EUR',
+        currency: product.currency ?? PLATFORM_CURRENCY,
         status: ProductStatus.ACTIVE,
         images: product.imageUrl ? [product.imageUrl] : [],
         affiliateUrl,

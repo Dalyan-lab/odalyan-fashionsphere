@@ -6,7 +6,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma, SubscriptionPlan, UserRole } from '@prisma/client';
-import { CREDIT_PACKS, PLAN_AI_CREDITS, getCreditPack } from '@odalyan/shared';
+import { CREDIT_PACKS, PLAN_AI_CREDITS, getCreditPack,
+  PLATFORM_CURRENCY,
+} from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { CouponsService } from '../coupon/coupons.service';
 import {
@@ -148,7 +150,7 @@ export class CreditsService {
     if (!pack) throw new BadRequestException('Pack de crédits inconnu.');
     const shop = await this.prisma.shop.findUnique({ where: { ownerId: userId }, select: { id: true } });
     if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
-    return this.coupons.preview(code, shop.id, pack.priceEur, 'credits');
+    return this.coupons.preview(code, shop.id, pack.price, 'credits');
   }
 
   /**
@@ -171,14 +173,14 @@ export class CreditsService {
     if (!shop) throw new ForbiddenException('Vous devez d’abord créer une boutique.');
 
     // Application éventuelle d'un code promo
-    let amountEur = pack.priceEur;
-    let discountEur = 0;
+    let amount = pack.price;
+    let discount = 0;
     let appliedCode: string | undefined;
     if (couponCode?.trim()) {
       const res = await this.coupons.check(couponCode, shop.id, 'credits');
       if ('reason' in res) throw new BadRequestException(res.reason);
-      discountEur = CouponsService.discountFor(res.coupon, pack.priceEur);
-      amountEur = Math.max(0, Math.round((pack.priceEur - discountEur) * 100) / 100);
+      discount = CouponsService.discountFor(res.coupon, pack.price);
+      amount = Math.max(0, Math.round((pack.price - discount) * 100) / 100);
       appliedCode = res.coupon.code;
     }
 
@@ -192,13 +194,13 @@ export class CreditsService {
             shopId: shop.id,
             packId: pack.id,
             credits: pack.credits,
-            amount: new Prisma.Decimal(amountEur),
-            currency: 'EUR',
+            amount: new Prisma.Decimal(amount),
+            currency: PLATFORM_CURRENCY,
             provider: 'mock',
             providerRef: reference,
             status: 'PAID',
             couponCode: appliedCode ?? null,
-            discountEur: appliedCode ? new Prisma.Decimal(discountEur) : null,
+            discountEur: appliedCode ? new Prisma.Decimal(discount) : null,
           },
         }),
         this.prisma.shop.update({
@@ -206,14 +208,14 @@ export class CreditsService {
           data: { aiCreditsExtra: { increment: pack.credits } },
         }),
       ]);
-      if (appliedCode) await this.coupons.redeem(appliedCode, shop.id, `credits:${pack.id}`, discountEur);
+      if (appliedCode) await this.coupons.redeem(appliedCode, shop.id, `credits:${pack.id}`, discount);
       return { link: null, reference };
     }
 
     try {
       const ps = await this.paystack.createGenericLink({
         reference,
-        amountEur,
+        amount,
         email: shop.owner.email,
         kind: 'credits',
         metadata: { shopId: shop.id, packId: pack.id, credits: pack.credits, couponCode: appliedCode ?? '' },
@@ -223,13 +225,13 @@ export class CreditsService {
           shopId: shop.id,
           packId: pack.id,
           credits: pack.credits,
-          amount: new Prisma.Decimal(amountEur),
+          amount: new Prisma.Decimal(amount),
           currency: ps.currency,
           provider: 'paystack',
           providerRef: ps.txRef,
           status: 'PENDING',
           couponCode: appliedCode ?? null,
-          discountEur: appliedCode ? new Prisma.Decimal(discountEur) : null,
+          discountEur: appliedCode ? new Prisma.Decimal(discount) : null,
         },
       });
       return { link: ps.link, reference: ps.txRef };

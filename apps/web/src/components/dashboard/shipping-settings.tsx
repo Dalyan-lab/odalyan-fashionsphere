@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
 
 interface Rate {
   name: string;
@@ -44,10 +45,10 @@ function textToList(text: string): string[] {
  */
 function CurrencyHint({ value }: { value: number | null }) {
   const target = useLocale((s) => s.currency);
-  if (value === null || value === 0 || target === 'EUR') return null;
+  if (value === null || value === 0 || target === PLATFORM_CURRENCY) return null;
   return (
     <span className="mt-1 block text-xs text-brand-violet">
-      = {convertAndFormat(value, 'EUR', target)}
+      = {convertAndFormat(value, PLATFORM_CURRENCY, target)}
     </span>
   );
 }
