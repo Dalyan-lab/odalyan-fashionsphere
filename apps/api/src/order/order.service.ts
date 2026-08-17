@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
-import { type CheckoutInput } from '@odalyan/shared';
+import { type CheckoutInput, type UpdateOrderStatusInput } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentService } from '../payment/payment.service';
+import { MailService } from '../mail/mail.service';
+import { appUrl } from '../common/app-url';
 
 @Injectable()
 export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService,
+    private readonly mail: MailService,
   ) {}
 
   /**
@@ -98,10 +101,30 @@ export class OrderService {
     return { order, payment };
   }
 
+  /**
+   * Commandes du client, avec de quoi suivre chacune.
+   *
+   * Le délai annoncé par la boutique est renvoyé avec la commande : c'est la
+   * première question que se pose un acheteur, et la lui faire chercher sur la
+   * vitrine du vendeur serait la meilleure façon de le pousser à réclamer.
+   */
   async listMine(userId: string) {
     return this.prisma.order.findMany({
       where: { customerId: userId },
-      include: { items: true, payment: true, shop: { select: { name: true, slug: true } } },
+      include: {
+        items: true,
+        payment: true,
+        shop: {
+          select: {
+            name: true,
+            slug: true,
+            logoUrl: true,
+            deliveryDaysMin: true,
+            deliveryDaysMax: true,
+            deliveryNote: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -115,10 +138,60 @@ export class OrderService {
     });
   }
 
-  async updateStatus(shopId: string, orderId: string, status: 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED') {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+  /**
+   * Le vendeur fait avancer la commande, et le client en est informé.
+   *
+   * Les dates d'expédition et de livraison sont posées ici plutôt que laissées
+   * à la saisie : elles servent de référence au client comme au vendeur, et
+   * une date déclarative serait invérifiable.
+   */
+  async updateStatus(shopId: string, orderId: string, input: UpdateOrderStatusInput) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { customer: { select: { email: true } }, shop: { select: { name: true } } },
+    });
     if (!order || order.shopId !== shopId) throw new NotFoundException('Commande introuvable');
-    return this.prisma.order.update({ where: { id: orderId }, data: { status } });
+
+    const { status, carrier, trackingNumber, trackingUrl } = input;
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        // Seuls les champs envoyés sont touchés : corriger un numéro de suivi
+        // ne doit pas effacer le transporteur, et inversement.
+        ...(carrier !== undefined ? { carrier: carrier || null } : {}),
+        ...(trackingNumber !== undefined ? { trackingNumber: trackingNumber || null } : {}),
+        ...(trackingUrl !== undefined ? { trackingUrl: trackingUrl || null } : {}),
+        // Premier passage seulement : un aller-retour de statut ne doit pas
+        // réécrire la date d'expédition d'origine.
+        ...(status === 'SHIPPED' && !order.shippedAt ? { shippedAt: new Date() } : {}),
+        ...(status === 'DELIVERED' && !order.deliveredAt ? { deliveredAt: new Date() } : {}),
+      },
+    });
+
+    // Le vendeur marque d'abord la commande expédiée, puis saisit le suivi :
+    // prévenir au seul changement de statut enverrait un email sans le numéro,
+    // et plus rien ensuite. On prévient donc aussi à la première saisie du
+    // suivi — mais pas aux corrections suivantes, qui n'apprendraient rien.
+    const trackingJustAdded =
+      !order.trackingNumber && !order.carrier && Boolean(updated.trackingNumber || updated.carrier);
+
+    // L'email ne doit jamais faire échouer la mise à jour du statut.
+    if (status !== order.status || trackingJustAdded) {
+      void this.mail
+        .sendOrderStatusUpdate(order.customer.email, {
+          orderNumber: order.orderNumber,
+          shopName: order.shop.name,
+          status,
+          carrier: updated.carrier,
+          trackingNumber: updated.trackingNumber,
+          trackingUrl: updated.trackingUrl,
+          ordersUrl: `${appUrl()}/orders`,
+        })
+        .catch(() => undefined);
+    }
+
+    return updated;
   }
 
   private generateOrderNumber(): string {

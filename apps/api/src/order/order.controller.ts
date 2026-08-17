@@ -1,5 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { UserRole, checkoutSchema, type CheckoutInput } from '@odalyan/shared';
+import {
+  UserRole,
+  checkoutSchema,
+  updateOrderStatusSchema,
+  type CheckoutInput,
+  type UpdateOrderStatusInput,
+} from '@odalyan/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -43,9 +49,9 @@ export class OrderController {
   async updateStatus(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
-    @Body('status') status: 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED',
+    @Body(new ZodValidationPipe(updateOrderStatusSchema)) input: UpdateOrderStatusInput,
   ) {
     const shop = await this.shopService.requireOwnedShop(userId);
-    return this.orderService.updateStatus(shop.id, id, status);
+    return this.orderService.updateStatus(shop.id, id, input);
   }
 }

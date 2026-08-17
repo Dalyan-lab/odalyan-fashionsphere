@@ -290,6 +290,70 @@ export class MailService {
     return this.send(to, `Commande ${order.orderNumber} confirmée — Odalyan`, html);
   }
 
+  /**
+   * Informe le client que sa commande a changé d'état.
+   *
+   * Envoyé à chaque étape — préparation, expédition, livraison, annulation —
+   * parce qu'un acheteur sans nouvelles suppose le pire, puis réclame.
+   */
+  async sendOrderStatusUpdate(
+    to: string,
+    info: {
+      orderNumber: string;
+      shopName: string;
+      status: 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+      carrier?: string | null;
+      trackingNumber?: string | null;
+      trackingUrl?: string | null;
+      ordersUrl: string;
+    },
+  ): Promise<boolean> {
+    const wording = {
+      PROCESSING: {
+        subject: 'est en préparation',
+        title: 'Votre commande est en préparation 📦',
+        lead: `<strong>${info.shopName}</strong> prépare votre commande. Vous serez prévenu dès son expédition.`,
+      },
+      SHIPPED: {
+        subject: 'a été expédiée',
+        title: 'Votre commande est en route 🚚',
+        lead: `<strong>${info.shopName}</strong> a expédié votre commande.`,
+      },
+      DELIVERED: {
+        subject: 'a été livrée',
+        title: 'Votre commande est livrée ✅',
+        lead: `Votre commande a été marquée comme livrée par <strong>${info.shopName}</strong>. Un problème ? Répondez à cet email.`,
+      },
+      CANCELLED: {
+        subject: 'a été annulée',
+        title: 'Votre commande a été annulée',
+        lead: `<strong>${info.shopName}</strong> a annulé votre commande. Si elle avait été réglée, le remboursement vous sera adressé.`,
+      },
+    }[info.status];
+
+    // Le suivi n'est affiché que s'il existe : une section vide inquiéterait
+    // plus qu'elle n'informerait.
+    const tracking =
+      info.carrier || info.trackingNumber
+        ? `<p style="background:#f4f1f8;border-radius:10px;padding:12px 16px;color:#333">
+             ${info.carrier ? `Transporteur : <strong>${info.carrier}</strong><br>` : ''}
+             ${info.trackingNumber ? `Numéro de suivi : <strong>${info.trackingNumber}</strong>` : ''}
+             ${info.trackingUrl ? `<br><a href="${info.trackingUrl}" style="color:#7c3aed">Suivre mon colis</a>` : ''}
+           </p>`
+        : '';
+
+    const html = this.wrap(
+      wording.title,
+      `<p style="color:#555">${wording.lead}</p>
+       <p style="color:#555">Commande <strong>${info.orderNumber}</strong>.</p>
+       ${tracking}
+       <p style="text-align:center;margin:28px 0">
+         <a href="${info.ordersUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Voir ma commande</a>
+       </p>`,
+    );
+    return this.send(to, `Commande ${info.orderNumber} ${wording.subject} — Odalyan`, html);
+  }
+
   /** Notification envoyée au vendeur quand une commande est payée. */
   async sendNewOrderNotification(
     to: string,

@@ -21,7 +21,14 @@ export interface Product {
   variants?: Variant[];
   affiliateUrl?: string | null;
   sourceMarketplace?: string | null;
-  shop?: { name: string; slug: string; logoUrl?: string | null };
+  shop?: {
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+    deliveryDaysMin?: number | null;
+    deliveryDaysMax?: number | null;
+    deliveryNote?: string | null;
+  };
 }
 
 export interface MarketplaceResponse {
@@ -47,6 +54,10 @@ export interface Shop {
   showSloganOnBanner?: boolean;
   logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   bannerPosition?: string; // "top"|"center"|"bottom" (héritage) ou "0%"…"100%"
+  // Délai de livraison annoncé, en jours ouvrés
+  deliveryDaysMin?: number | null;
+  deliveryDaysMax?: number | null;
+  deliveryNote?: string | null;
   products?: Product[];
   subscription?: { plan: string } | null;
   _count?: { products: number; orders: number };

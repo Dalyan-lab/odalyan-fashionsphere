@@ -16,9 +16,73 @@ interface ShopOrder {
   customer?: { firstName: string; lastName: string; email: string };
   items: { id: string; productName: string; quantity: number }[];
   payment?: { paid: boolean } | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
 }
 
 const STATUSES = ['PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const;
+
+interface Tracking {
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+}
+
+/**
+ * Saisie du suivi, dépliée au passage à « expédiée ».
+ *
+ * Rien n'est obligatoire : beaucoup de livraisons se font par coursier local,
+ * sans numéro. Le transporteur seul suffit alors à rassurer l'acheteur.
+ */
+function TrackingForm({
+  order,
+  onSave,
+}: {
+  order: ShopOrder;
+  onSave: (t: Tracking) => Promise<void> | void;
+}) {
+  const t = useT();
+  const [carrier, setCarrier] = useState(order.carrier ?? '');
+  const [trackingNumber, setNumber] = useState(order.trackingNumber ?? '');
+  const [trackingUrl, setUrl] = useState(order.trackingUrl ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    await onSave({ carrier, trackingNumber, trackingUrl });
+    setSaving(false);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl bg-surface-2 p-3">
+      <p className="mb-2 text-xs text-faint">{t('ord.trackingHint')}</p>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={carrier}
+          onChange={(e) => setCarrier(e.target.value)}
+          placeholder={t('ord.carrierPh')}
+          className="input min-w-[140px] flex-1 py-1.5 text-sm"
+        />
+        <input
+          value={trackingNumber}
+          onChange={(e) => setNumber(e.target.value)}
+          placeholder={t('ord.trackingPh')}
+          className="input min-w-[140px] flex-1 py-1.5 text-sm"
+        />
+        <input
+          value={trackingUrl}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder={t('ord.trackingUrlPh')}
+          className="input min-w-[180px] flex-1 py-1.5 text-sm"
+        />
+        <button onClick={save} disabled={saving} className="btn-primary py-1.5 text-sm disabled:opacity-40">
+          {saving ? '…' : t('common.save')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'bg-yellow-500/15 text-yellow-500',
@@ -50,10 +114,11 @@ export default function OrdersPage() {
     load();
   }, []);
 
-  const updateStatus = async (id: string, status: string) => {
-    await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }).catch(
-      () => undefined,
-    );
+  const updateStatus = async (id: string, status: string, tracking?: Tracking) => {
+    await apiFetch(`/orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, ...tracking }),
+    }).catch(() => undefined);
     load();
   };
 
@@ -105,6 +170,10 @@ export default function OrdersPage() {
                       </select>
                     </div>
                   </div>
+
+                  {(o.status === 'SHIPPED' || o.status === 'DELIVERED') && (
+                    <TrackingForm order={o} onSave={(tr) => updateStatus(o.id, o.status, tr)} />
+                  )}
                 </div>
               ))}
             </div>

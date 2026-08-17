@@ -57,6 +57,9 @@ export function Navbar() {
                   🛡️ Admin
                 </Link>
               )}
+              <Link href="/orders" className="btn-ghost px-4 py-2 text-sm">
+                {t('nav.myOrders')}
+              </Link>
               <Link href="/dashboard" className="btn-ghost px-4 py-2 text-sm">
                 {t('nav.dashboard')}
               </Link>

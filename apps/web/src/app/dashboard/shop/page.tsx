@@ -41,6 +41,9 @@ export default function ShopSettingsPage() {
     showSloganOnBanner: true,
     logoPosition: 'top-left',
     bannerPosition: 'center',
+    deliveryDaysMin: '',
+    deliveryDaysMax: '',
+    deliveryNote: '',
   });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -64,6 +67,9 @@ export default function ShopSettingsPage() {
             showSloganOnBanner: s.showSloganOnBanner !== false,
             logoPosition: s.logoPosition ?? 'top-left',
             bannerPosition: s.bannerPosition ?? 'center',
+            deliveryDaysMin: s.deliveryDaysMin?.toString() ?? '',
+            deliveryDaysMax: s.deliveryDaysMax?.toString() ?? '',
+            deliveryNote: s.deliveryNote ?? '',
           });
       })
       .catch(() => setShop(null))
@@ -79,7 +85,7 @@ export default function ShopSettingsPage() {
       // Tous les champs sont envoyés, y compris vides : une chaîne vide efface
       // la valeur. Ne pas les envoyer rendrait un champ impossible à vider —
       // l'ancienne valeur restait en base malgré l'effacement à l'écran.
-      const payload: Record<string, string | boolean> = { name: form.name };
+      const payload: Record<string, string | boolean | number | null> = { name: form.name };
       payload.slogan = form.slogan;
       payload.description = form.description;
       payload.logoUrl = form.logoUrl;
@@ -91,6 +97,11 @@ export default function ShopSettingsPage() {
       payload.showSloganOnBanner = form.showSloganOnBanner;
       payload.logoPosition = form.logoPosition;
       payload.bannerPosition = form.bannerPosition;
+      // Champ vidé -> null explicite : le schema accepte null pour retirer le
+      // delai, la chaine vide serait refusee par la validation numerique.
+      payload.deliveryDaysMin = form.deliveryDaysMin === '' ? null : Number(form.deliveryDaysMin);
+      payload.deliveryDaysMax = form.deliveryDaysMax === '' ? null : Number(form.deliveryDaysMax);
+      payload.deliveryNote = form.deliveryNote;
       await apiFetch('/shops/me', { method: 'PATCH', body: JSON.stringify(payload) });
       setMsg(t('shop.updated'));
     } catch (err) {
@@ -145,6 +156,44 @@ export default function ShopSettingsPage() {
             <div>
               <label className="label">{t('shop.description')}</label>
               <textarea className="input min-h-[90px]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            </div>
+
+            <div className="rounded-xl border border-border p-4">
+              <p className="font-semibold">🚚 {t('shop.deliveryTitle')}</p>
+              <p className="mb-3 text-xs text-muted">{t('shop.deliveryHelp')}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">{t('shop.deliveryMin')}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    className="input"
+                    value={form.deliveryDaysMin}
+                    onChange={(e) => setForm({ ...form, deliveryDaysMin: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">{t('shop.deliveryMax')}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    className="input"
+                    value={form.deliveryDaysMax}
+                    onChange={(e) => setForm({ ...form, deliveryDaysMax: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className="label">{t('shop.deliveryNote')}</label>
+                <input
+                  className="input"
+                  placeholder={t('shop.deliveryNotePh')}
+                  value={form.deliveryNote}
+                  onChange={(e) => setForm({ ...form, deliveryNote: e.target.value })}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

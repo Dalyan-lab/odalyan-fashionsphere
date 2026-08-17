@@ -73,7 +73,21 @@ export class ProductService {
   async findOne(id: string) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { variants: true, shop: { select: { name: true, slug: true, logoUrl: true } } },
+      include: {
+        variants: true,
+        shop: {
+          select: {
+            name: true,
+            slug: true,
+            logoUrl: true,
+            // Le délai se lit avant l'achat, pas après : c'est un critère de
+            // décision au moins aussi fort que le prix.
+            deliveryDaysMin: true,
+            deliveryDaysMax: true,
+            deliveryNote: true,
+          },
+        },
+      },
     });
     if (!product) throw new NotFoundException('Produit introuvable');
     return product;

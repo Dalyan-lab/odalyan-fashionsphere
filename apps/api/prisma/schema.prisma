@@ -189,6 +189,13 @@ model Shop {
   // Placement du logo (top-left|top-right|bottom-left|bottom-right) et cadrage bannière (top|center|bottom)
   logoPosition       String  @default("top-left")
   bannerPosition     String  @default("center")
+
+  // Délai de livraison annoncé au client, en jours ouvrés. Affiché sur la fiche
+  // produit et rappelé dans le suivi de commande : un acheteur qui ignore quand
+  // il sera livré s'inquiète, puis réclame, puis renonce.
+  deliveryDaysMin Int?
+  deliveryDaysMax Int?
+  deliveryNote    String? // précision libre (zones desservies, retrait en boutique…)
   // Crédits IA : solde mensuel (réinitialisé chaque mois selon le plan) + date du dernier renouvellement
   aiCredits          Int      @default(0)
   creditsRenewedAt   DateTime?
@@ -412,6 +419,15 @@ model Order {
   payment Payment?
 
   shippingAddress Json?
+
+  // Suivi de livraison, renseigné par le vendeur au passage en SHIPPED.
+  // Sans ces champs, un client qui a payé n'a aucun moyen de savoir où en est
+  // son colis — c'était le principal angle mort du parcours d'achat.
+  carrier        String? // transporteur (DHL, Poste, livreur local…)
+  trackingNumber String?
+  trackingUrl    String? // page de suivi du transporteur, si elle existe
+  shippedAt      DateTime?
+  deliveredAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

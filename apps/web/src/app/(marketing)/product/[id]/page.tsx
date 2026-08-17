@@ -123,6 +123,25 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         </p>
         {product.description && <p className="mt-6 text-muted">{product.description}</p>}
 
+        {product.shop && (product.shop.deliveryDaysMin != null || product.shop.deliveryDaysMax != null) && (
+          <p className="mt-4 flex items-start gap-2 text-sm text-muted">
+            <span aria-hidden>🚚</span>
+            <span>
+              Livraison sous{' '}
+              <strong className="text-content">
+                {product.shop.deliveryDaysMin != null &&
+                product.shop.deliveryDaysMax != null &&
+                product.shop.deliveryDaysMin !== product.shop.deliveryDaysMax
+                  ? `${product.shop.deliveryDaysMin} à ${product.shop.deliveryDaysMax} jours`
+                  : `${product.shop.deliveryDaysMax ?? product.shop.deliveryDaysMin} jours`}
+              </strong>
+              {product.shop.deliveryNote && (
+                <span className="block text-xs text-faint">{product.shop.deliveryNote}</span>
+              )}
+            </span>
+          </p>
+        )}
+
         {product.variants && product.variants.length > 0 && (
           <div className="mt-8">
             <p className="label">Variantes</p>
