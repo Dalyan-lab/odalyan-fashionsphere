@@ -1,5 +1,7 @@
 'use client';
 
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
@@ -31,7 +33,14 @@ interface OrderRow {
 }
 
 const ROLES = ['ADMIN', 'SELLER', 'CUSTOMER', 'MARKETING_AGENCY'];
-const eur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
+// Les montants de la plateforme sont en francs : les formater en euros
+// afficherait un chiffre 656 fois trop petit.
+const money = (n: number) =>
+  new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: PLATFORM_CURRENCY,
+    maximumFractionDigits: 0,
+  }).format(n);
 const date = (s: string) => new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
 
 type Tab = 'shops' | 'users' | 'orders';
@@ -87,7 +96,7 @@ export default function AdminPage() {
 
       {/* KPIs */}
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Kpi emoji="💰" label="Revenus plateforme" value={ov ? eur(ov.revenue) : '…'} wide />
+        <Kpi emoji="💰" label="Revenus plateforme" value={ov ? money(ov.revenue) : '…'} wide />
         <Kpi emoji="🏬" label="Boutiques" value={ov ? String(ov.shopsCount) : '…'} />
         <Kpi emoji="👥" label="Utilisateurs" value={ov ? String(ov.usersCount) : '…'} />
         <Kpi emoji="📦" label="Produits" value={ov ? String(ov.productsCount) : '…'} />
@@ -109,7 +118,7 @@ export default function AdminPage() {
           <div className="flex h-40 items-end justify-between gap-2">
             {(ov?.monthlyRevenue ?? []).map((m) => (
               <div key={m.label} className="flex flex-1 flex-col items-center gap-1">
-                <span className="text-[10px] text-faint">{m.revenue > 0 ? eur(m.revenue) : ''}</span>
+                <span className="text-[10px] text-faint">{m.revenue > 0 ? money(m.revenue) : ''}</span>
                 <div className="flex w-full flex-1 items-end">
                   <div className="w-full rounded-t-lg bg-brand-violet-magenta transition-all" style={{ height: `${Math.max(2, (m.revenue / maxRev) * 100)}%` }} />
                 </div>
@@ -196,7 +205,7 @@ function ShopsTable({ rows }: { rows: ShopRow[] | null }) {
             <Td><span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs">{s.plan}</span></Td>
             <Td>{s.productsCount}</Td>
             <Td>{s.ordersCount}</Td>
-            <Td><span className="font-semibold text-brand-violet">{eur(s.revenue)}</span></Td>
+            <Td><span className="font-semibold text-brand-violet">{money(s.revenue)}</span></Td>
             <Td><span className="text-faint">{date(s.createdAt)}</span></Td>
           </tr>
         ))}
@@ -249,7 +258,7 @@ function OrdersTable({ rows }: { rows: OrderRow[] | null }) {
             <Td><span className="font-mono text-xs">{o.orderNumber}</span></Td>
             <Td><span className="text-muted">{o.shop}</span></Td>
             <Td><span className="text-muted">{o.customer}</span><br /><span className="text-xs text-faint">{o.customerEmail}</span></Td>
-            <Td><span className="font-semibold">{eur(o.total)}</span></Td>
+            <Td><span className="font-semibold">{money(o.total)}</span></Td>
             <Td>{badge(o.status)}</Td>
             <Td><span className="text-faint">{date(o.createdAt)}</span></Td>
           </tr>

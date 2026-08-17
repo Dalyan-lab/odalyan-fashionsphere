@@ -166,7 +166,7 @@ function CouponForm({ onCreated }: { onCreated: () => void }) {
         </div>
       ) : (
         <div>
-          <label className="label">Réduction (€)</label>
+          <label className="label">Réduction (FCFA)</label>
           <input
             className="input"
             type="number"

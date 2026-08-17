@@ -1,5 +1,7 @@
 'use client';
 
+import { PLATFORM_CURRENCY } from '@odalyan/shared';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
@@ -17,16 +19,23 @@ interface PaymentRow {
 }
 interface Data {
   summary: {
-    totalEur: number;
+    total: number;
     paidCount: number;
     pendingCount: number;
     activeSubscriptions: number;
-    byPlan: Record<string, { count: number; eur: number }>;
+    byPlan: Record<string, { count: number; amount: number }>;
   };
   payments: PaymentRow[];
 }
 
-const eur = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
+// Les montants de la plateforme sont en francs : les formater en euros
+// afficherait un chiffre 656 fois trop petit.
+const money = (n: number) =>
+  new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: PLATFORM_CURRENCY,
+    maximumFractionDigits: 0,
+  }).format(n);
 const date = (s: string) => new Date(s).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const STATUS_STYLE: Record<string, string> = {
@@ -64,7 +73,7 @@ export default function AdminSubscriptionsPage() {
         <>
           {/* Synthèse */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Revenu encaissé" value={eur(data.summary.totalEur)} accent />
+            <StatCard label="Revenu encaissé" value={money(data.summary.total)} accent />
             <StatCard label="Paiements réglés" value={String(data.summary.paidCount)} />
             <StatCard label="Abonnements actifs" value={String(data.summary.activeSubscriptions)} />
             <StatCard label="En attente" value={String(data.summary.pendingCount)} />
@@ -75,7 +84,7 @@ export default function AdminSubscriptionsPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               {Object.entries(data.summary.byPlan).map(([plan, v]) => (
                 <span key={plan} className="rounded-full border border-border bg-surface-2 px-3 py-1 text-xs">
-                  <strong className="text-brand-violet">{plan}</strong> · {v.count} × · {eur(v.eur)}
+                  <strong className="text-brand-violet">{plan}</strong> · {v.count} × · {money(v.amount)}
                 </span>
               ))}
             </div>
@@ -105,7 +114,7 @@ export default function AdminSubscriptionsPage() {
                       <td className="p-3 font-medium">{p.shop}</td>
                       <td className="p-3">{p.plan}</td>
                       <td className="p-3 text-muted">{p.period === 'annual' ? 'Annuel' : 'Mensuel'}</td>
-                      <td className="p-3 tabular-nums">{eur(p.amount)}</td>
+                      <td className="p-3 tabular-nums">{money(p.amount)}</td>
                       <td className="p-3 font-mono text-xs text-brand-violet">{p.couponCode ?? '—'}</td>
                       <td className="p-3">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLE[p.status] ?? ''}`}>

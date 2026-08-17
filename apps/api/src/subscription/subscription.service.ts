@@ -227,11 +227,11 @@ export class SubscriptionService {
 
     const paid = payments.filter((p) => p.status === 'PAID');
     const total = paid.reduce((sum, p) => sum + Number(p.amount), 0);
-    const byPlan: Record<string, { count: number; eur: number }> = {};
+    const byPlan: Record<string, { count: number; amount: number }> = {};
     for (const p of paid) {
-      byPlan[p.plan] = byPlan[p.plan] ?? { count: 0, eur: 0 };
+      byPlan[p.plan] = byPlan[p.plan] ?? { count: 0, amount: 0 };
       byPlan[p.plan]!.count += 1;
-      byPlan[p.plan]!.eur += Number(p.amount);
+      byPlan[p.plan]!.amount += Number(p.amount);
     }
 
     // Abonnements actifs (revenu récurrent potentiel)
