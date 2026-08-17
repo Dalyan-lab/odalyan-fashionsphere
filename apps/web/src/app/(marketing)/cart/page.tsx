@@ -15,6 +15,14 @@ interface CheckoutResult {
   payment: { rawPayload?: { clientSecret?: string; link?: string } | null };
 }
 
+interface Quote {
+  currency: string;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  shops: { shopId: string; shopName: string; subtotal: number; shipping: number }[];
+}
+
 /** Panier enregistré avant que la boutique ne soit mémorisée sur l'article. */
 const UNKNOWN_SHOP = '__sans_boutique__';
 
@@ -29,12 +37,46 @@ export default function CartPage() {
   const [error, setError] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [provider, setProvider] = useState<'paystack' | 'stripe' | 'mock'>('mock');
+  const [quote, setQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
     apiFetch<{ provider: 'paystack' | 'stripe' | 'mock' }>('/payments/config', { auth: false })
       .then((c) => setProvider(c.provider))
       .catch(() => undefined);
   }, []);
+
+  // Estimation des frais de livraison, recalculée quand la destination change.
+  // Les découvrir sur la page du prestataire de paiement est la première cause
+  // d'abandon de panier — ils doivent être visibles ici.
+  useEffect(() => {
+    if (items.length === 0) return;
+    const payload = {
+      items: items.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId,
+        quantity: i.quantity,
+      })),
+      shippingAddress: {
+        fullName: address.fullName || '—',
+        line1: address.line1 || '—',
+        city: address.city || '—',
+        postalCode: address.postalCode || '—',
+        country: address.country,
+      },
+    };
+    // Petit délai : l'acheteur tape sa ville lettre par lettre, une requête
+    // par frappe serait inutile.
+    const timer = setTimeout(() => {
+      apiFetch<Quote>('/shipping/quote', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        auth: false,
+      })
+        .then(setQuote)
+        .catch(() => setQuote(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [items, address.city, address.country, address.fullName, address.line1, address.postalCode]);
 
   const fmt = (eur: number) => convertAndFormat(eur, 'EUR', currency);
   const payNote =
@@ -159,10 +201,34 @@ export default function CartPage() {
 
       <div className="card h-fit space-y-3 p-6">
         <h2 className="font-display text-2xl font-bold">Paiement</h2>
+        {quote ? (
+          <div className="space-y-1.5 border-b border-border pb-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted">Sous-total</span>
+              <span>{fmt(quote.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted">Livraison</span>
+              <span>{quote.shipping > 0 ? fmt(quote.shipping) : 'Offerte'}</span>
+            </div>
+            {quote.shops.length > 1 &&
+              quote.shops.map((s) => (
+                <div key={s.shopId} className="flex justify-between pl-3 text-xs text-faint">
+                  <span>{s.shopName}</span>
+                  <span>{s.shipping > 0 ? fmt(s.shipping) : 'offerte'}</span>
+                </div>
+              ))}
+          </div>
+        ) : null}
         <div className="flex justify-between text-lg">
           <span className="text-muted">Total</span>
-          <span className="font-bold text-brand-coral">{fmt(total())}</span>
+          <span className="font-bold text-brand-coral">{fmt(quote ? quote.total : total())}</span>
         </div>
+        {!quote && (
+          <p className="text-xs text-faint">
+            Les frais de livraison s’affichent dès que vous renseignez votre ville et votre pays.
+          </p>
+        )}
         {error && <p className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200">{error}</p>}
 
         {status === 'pay' && clientSecret && stripePromise ? (

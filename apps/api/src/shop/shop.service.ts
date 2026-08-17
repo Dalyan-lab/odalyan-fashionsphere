@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
-import { SubscriptionPlan, type CreateShopInput, type UpdateShopInput } from '@odalyan/shared';
+import {
+  SubscriptionPlan,
+  type CreateShopInput,
+  type ShippingSettingsInput,
+  type UpdateShopInput,
+} from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -180,6 +185,68 @@ export class ShopService {
   }
 
   /** Récupère la boutique d'un vendeur ou lève une erreur (utilitaire interne). */
+  /** Réglages de livraison de la boutique du vendeur. */
+  async getShipping(userId: string) {
+    const shop = await this.requireOwnedShop(userId);
+    const full = await this.prisma.shop.findUnique({
+      where: { id: shop.id },
+      select: {
+        shippingFee: true,
+        freeShippingFrom: true,
+        shippingRates: { orderBy: { position: 'asc' } },
+      },
+    });
+    return {
+      shippingFee: full?.shippingFee != null ? Number(full.shippingFee) : null,
+      freeShippingFrom: full?.freeShippingFrom != null ? Number(full.freeShippingFrom) : null,
+      rates: (full?.shippingRates ?? []).map((r) => ({
+        name: r.name,
+        cities: r.cities,
+        countries: r.countries,
+        fee: Number(r.fee),
+      })),
+    };
+  }
+
+  /**
+   * Enregistre les réglages de livraison.
+   *
+   * Les zones sont remplacées en bloc, dans une transaction : un remplacement
+   * partiel laisserait des tarifs fantômes qui s'appliqueraient aux clients.
+   * `position` reprend l'ordre d'envoi, car la première zone qui correspond
+   * l'emporte — c'est ce qui permet de placer « Abidjan » avant « Côte d'Ivoire ».
+   */
+  async updateShipping(userId: string, input: ShippingSettingsInput) {
+    const shop = await this.requireOwnedShop(userId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.shop.update({
+        where: { id: shop.id },
+        data: {
+          ...(input.shippingFee !== undefined ? { shippingFee: input.shippingFee } : {}),
+          ...(input.freeShippingFrom !== undefined
+            ? { freeShippingFrom: input.freeShippingFrom }
+            : {}),
+        },
+      });
+      if (input.rates) {
+        await tx.shippingRate.deleteMany({ where: { shopId: shop.id } });
+        for (const [i, rate] of input.rates.entries()) {
+          await tx.shippingRate.create({
+            data: {
+              shopId: shop.id,
+              name: rate.name,
+              cities: rate.cities,
+              countries: rate.countries,
+              fee: rate.fee,
+              position: i,
+            },
+          });
+        }
+      }
+    });
+    return this.getShipping(userId);
+  }
+
   async requireOwnedShop(userId: string) {
     const shop = await this.prisma.shop.findUnique({
       where: { ownerId: userId },

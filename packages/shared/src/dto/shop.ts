@@ -56,5 +56,31 @@ const coherentDeliveryRange = (
 export const createShopSchema = shopFields.superRefine(coherentDeliveryRange);
 export const updateShopSchema = shopFields.partial().superRefine(coherentDeliveryRange);
 
+/**
+ * Réglages de livraison d'une boutique.
+ *
+ * `null` remet un montant à vide, ce qui signifie « livraison offerte » — un
+ * vendeur doit pouvoir revenir en arrière, pas seulement changer de tarif.
+ * Les zones sont envoyées en bloc et remplacent les précédentes : gérer des
+ * créations, modifications et suppressions séparées pour trois lignes de
+ * tarifs coûterait plus cher que de tout réécrire.
+ */
+export const shippingRateSchema = z.object({
+  name: z.string().min(1, 'Nom de la zone requis').max(60),
+  // Listes vides = « toutes les villes » / « tous les pays ».
+  cities: z.array(z.string().max(80)).max(50).default([]),
+  countries: z.array(z.string().max(80)).max(50).default([]),
+  fee: z.number().min(0).max(10_000_000),
+});
+
+export const shippingSettingsSchema = z.object({
+  shippingFee: z.number().min(0).max(10_000_000).nullable().optional(),
+  freeShippingFrom: z.number().min(0).max(10_000_000).nullable().optional(),
+  rates: z.array(shippingRateSchema).max(20).optional(),
+});
+
+export type ShippingRateInput = z.infer<typeof shippingRateSchema>;
+export type ShippingSettingsInput = z.infer<typeof shippingSettingsSchema>;
+
 export type CreateShopInput = z.infer<typeof createShopSchema>;
 export type UpdateShopInput = z.infer<typeof updateShopSchema>;

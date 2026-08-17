@@ -52,9 +52,13 @@ export class PayoutService {
         : platformCommissionRate();
 
       const total = new Prisma.Decimal(order.totalAmount);
+      // La livraison revient intégralement au vendeur : c'est lui qui paie le
+      // transport, prélever une commission dessus reviendrait à le taxer sur
+      // une dépense. La commission ne porte donc que sur les articles.
+      const commissionBase = total.sub(order.shippingAmount ?? 0);
       // La commission est arrondie, et le vendeur reçoit le reste : ainsi la
       // somme des deux parts égale toujours le montant encaissé, au centime.
-      const platformAmount = total.mul(rate).toDecimalPlaces(2);
+      const platformAmount = commissionBase.mul(rate).toDecimalPlaces(2);
       const sellerAmount = total.sub(platformAmount);
 
       await this.prisma.order.update({

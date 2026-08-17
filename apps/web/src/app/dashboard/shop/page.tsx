@@ -6,6 +6,7 @@ import { apiFetch, uploadFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import type { Shop } from '@/lib/types';
 import { Topbar } from '@/components/dashboard/topbar';
+import { ShippingSettings } from '@/components/dashboard/shipping-settings';
 import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
 
 const PREVIEW_LOGO_POS: Record<string, string> = {
@@ -195,6 +196,8 @@ export default function ShopSettingsPage() {
                 />
               </div>
             </div>
+
+            <ShippingSettings />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="label">{t('shop.primaryColor')}</label>

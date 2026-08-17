@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import {
   UserRole,
   createShopSchema,
   updateShopSchema,
+  shippingSettingsSchema,
   type CreateShopInput,
+  type ShippingSettingsInput,
   type UpdateShopInput,
 } from '@odalyan/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -62,6 +64,22 @@ export class ShopController {
     @Body(new ZodValidationPipe(createShopSchema)) input: CreateShopInput,
   ) {
     return this.shopService.createShop(userId, input);
+  }
+
+  /** Réglages de livraison : tarif de base, seuil de gratuité et zones. */
+  @Get('me/shipping')
+  @UseGuards(JwtAuthGuard)
+  getShipping(@CurrentUser('id') userId: string) {
+    return this.shopService.getShipping(userId);
+  }
+
+  @Put('me/shipping')
+  @UseGuards(JwtAuthGuard)
+  updateShipping(
+    @CurrentUser('id') userId: string,
+    @Body(new ZodValidationPipe(shippingSettingsSchema)) input: ShippingSettingsInput,
+  ) {
+    return this.shopService.updateShipping(userId, input);
   }
 
   @Patch('me')

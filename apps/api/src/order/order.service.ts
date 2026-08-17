@@ -5,6 +5,7 @@ import { type CheckoutInput, type UpdateOrderStatusInput } from '@odalyan/shared
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentService } from '../payment/payment.service';
 import { MailService } from '../mail/mail.service';
+import { ShippingService } from './shipping.service';
 import { appUrl } from '../common/app-url';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly paymentService: PaymentService,
     private readonly mail: MailService,
+    private readonly shipping: ShippingService,
   ) {}
 
   /**
@@ -91,6 +93,20 @@ export class OrderService {
       byShop.set(product.shopId, lines);
     }
 
+    // Frais de livraison, résolus par boutique avant l'écriture : la
+    // transaction doit rester courte, et ces lectures n'ont pas à s'y trouver.
+    const dest = { country: input.shippingAddress.country, city: input.shippingAddress.city };
+    const shipping = new Map<string, Prisma.Decimal>();
+    for (const [shopId, lines] of byShop) {
+      const subtotal = lines.reduce(
+        (sum, l) => sum.add(l.unitPrice.mul(l.quantity)),
+        new Prisma.Decimal(0),
+      );
+      const fee = await this.shipping.feeFor(shopId, subtotal, dest);
+      shipping.set(shopId, fee);
+      grandTotal = grandTotal.add(fee);
+    }
+
     // Groupe, commandes et décrément de stock dans une seule transaction :
     // une commande créée sans son groupe, ou du stock décrémenté sans commande,
     // laisserait la base dans un état impossible à rattraper.
@@ -105,17 +121,19 @@ export class OrderService {
       });
 
       for (const [shopId, lines] of byShop) {
-        const total = lines.reduce(
+        const subtotal = lines.reduce(
           (sum, l) => sum.add(l.unitPrice.mul(l.quantity)),
           new Prisma.Decimal(0),
         );
+        const fee = shipping.get(shopId) ?? new Prisma.Decimal(0);
         await tx.order.create({
           data: {
             orderNumber: this.generateReference('ODL'),
             customerId: userId,
             shopId,
             groupId: created.id,
-            totalAmount: total,
+            totalAmount: subtotal.add(fee),
+            shippingAmount: fee,
             currency,
             shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
             items: { create: lines },
@@ -144,6 +162,64 @@ export class OrderService {
     // `order` est conservé pour les appelants existants : le panier attend
     // encore un objet commande unique.
     return { group, orders, order: orders[0], payment };
+  }
+
+  /**
+   * Estime le panier sans rien créer : sous-total, livraison par boutique, total.
+   *
+   * Indispensable pour annoncer les frais avant le paiement. Les découvrir sur
+   * la page du prestataire de paiement est la première cause d'abandon de panier.
+   */
+  async quote(input: CheckoutInput) {
+    const productIds = [...new Set(input.items.map((i) => i.productId))];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, status: 'ACTIVE' },
+      include: { variants: true, shop: { select: { id: true, name: true } } },
+    });
+    if (products.length === 0) {
+      return { currency: 'EUR', subtotal: 0, shipping: 0, total: 0, shops: [] };
+    }
+
+    const dest = { country: input.shippingAddress.country, city: input.shippingAddress.city };
+    const perShop = new Map<string, { name: string; subtotal: Prisma.Decimal }>();
+
+    for (const item of input.items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (!product) continue;
+      const variant = item.variantId
+        ? product.variants.find((v) => v.id === item.variantId)
+        : undefined;
+      const unitPrice = variant?.priceOverride ?? product.price;
+      const entry = perShop.get(product.shopId) ?? {
+        name: product.shop.name,
+        subtotal: new Prisma.Decimal(0),
+      };
+      entry.subtotal = entry.subtotal.add(unitPrice.mul(item.quantity));
+      perShop.set(product.shopId, entry);
+    }
+
+    const shops = [];
+    let subtotal = new Prisma.Decimal(0);
+    let shipping = new Prisma.Decimal(0);
+    for (const [shopId, entry] of perShop) {
+      const fee = await this.shipping.feeFor(shopId, entry.subtotal, dest);
+      subtotal = subtotal.add(entry.subtotal);
+      shipping = shipping.add(fee);
+      shops.push({
+        shopId,
+        shopName: entry.name,
+        subtotal: Number(entry.subtotal),
+        shipping: Number(fee),
+      });
+    }
+
+    return {
+      currency: products[0]!.currency,
+      subtotal: Number(subtotal),
+      shipping: Number(shipping),
+      total: Number(subtotal.add(shipping)),
+      shops,
+    };
   }
 
   /**

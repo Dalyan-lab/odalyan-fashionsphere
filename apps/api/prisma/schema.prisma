@@ -209,6 +209,11 @@ model Shop {
   deliveryDaysMax Int?
   deliveryNote    String? // précision libre (zones desservies, retrait en boutique…)
 
+  // Livraison : tarif appliqué par défaut, et seuil au-delà duquel elle est
+  // offerte. `null` = livraison gratuite ou incluse dans les prix.
+  shippingFee      Decimal? @db.Decimal(10, 2)
+  freeShippingFrom Decimal? @db.Decimal(10, 2)
+
   // Où reverser au vendeur ce que la plateforme a encaissé pour lui.
   payoutMethod     PayoutMethod?
   payoutOperator   String? // Wave, Orange Money, MTN, Moov, ou nom de la banque
@@ -245,6 +250,7 @@ model Shop {
   socialConnections SocialConnection[]
   reviews      Review[]
   payouts      Payout[]
+  shippingRates ShippingRate[]
   scheduledPosts    ScheduledPost[]
   creditPurchases   CreditPurchase[]
   viralScripts      ViralScript[]
@@ -477,6 +483,10 @@ model Order {
   shippedAt      DateTime?
   deliveredAt    DateTime?
 
+  // Part du total correspondant à la livraison. Isolée parce qu'elle revient
+  // entièrement au vendeur : la commission ne porte que sur les articles.
+  shippingAmount Decimal? @db.Decimal(10, 2)
+
   // Répartition figée au moment de l'encaissement.
   //
   // Recalculer la part du vendeur à l'affichage serait une faute : changer le
@@ -503,6 +513,31 @@ model Order {
   @@index([status])
   @@index([payoutId])
   @@index([groupId])
+}
+
+/**
+ * Tarif de livraison d'une boutique pour une zone donnée.
+ *
+ * Une zone se définit par des villes et/ou des pays. Les listes vides valent
+ * « toutes » : une zone sans ville et sans pays est un tarif attrape-tout,
+ * utile en dernière position. Les zones sont évaluées dans l'ordre de
+ * `position` et la première correspondance l'emporte — c'est ce qui permet
+ * d'écrire « Abidjan » avant « Côte d'Ivoire » sans ambiguïté.
+ */
+model ShippingRate {
+  id       String   @id @default(cuid())
+  name     String
+  cities   String[]
+  countries String[]
+  fee      Decimal  @db.Decimal(10, 2)
+  position Int      @default(0)
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
 }
 
 /**
