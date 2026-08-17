@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
 
 interface Rate {
   name: string;
@@ -35,19 +35,46 @@ function textToList(text: string): string[] {
  * qu'à ceux qui livrent à des prix différents selon l'endroit — elles restent
  * donc repliées derrière un bouton plutôt que d'alourdir le formulaire.
  */
+/**
+ * Équivalent du montant dans la devise d'affichage du vendeur.
+ *
+ * Les montants de la plateforme sont stockés en euros, mais un vendeur
+ * ivoirien pense en francs CFA. Sans ce repère, saisir « 1000 » pour mille
+ * francs revient à facturer mille euros de livraison — l'erreur a été commise.
+ */
+function CurrencyHint({ value }: { value: number | null }) {
+  const target = useLocale((s) => s.currency);
+  if (value === null || value === 0 || target === 'EUR') return null;
+  return (
+    <span className="mt-1 block text-xs text-brand-violet">
+      = {convertAndFormat(value, 'EUR', target)}
+    </span>
+  );
+}
+
 export function ShippingSettings() {
   const t = useT();
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
     apiFetch<Settings>('/shops/me/shipping')
       .then(setSettings)
-      .catch(() => setSettings(null));
+      .catch(() => setLoadFailed(true));
   }, []);
 
-  if (!settings) return null;
+  // Un bloc qui disparaît en silence après un échec de chargement laisserait
+  // croire que les réglages ont été effacés. On le dit.
+  if (loadFailed) {
+    return (
+      <p className="rounded-xl border border-border p-4 text-sm text-amber-500">
+        {t('ship.loadFailed')}
+      </p>
+    );
+  }
+  if (!settings) return <p className="text-sm text-muted">{t('common.loading')}</p>;
 
   const save = async () => {
     setSaving(true);
@@ -83,6 +110,7 @@ export function ShippingSettings() {
           <input
             type="number"
             min={0}
+            step="0.01"
             className="input"
             value={settings.shippingFee ?? ''}
             onChange={(e) =>
@@ -92,12 +120,14 @@ export function ShippingSettings() {
               })
             }
           />
+          <CurrencyHint value={settings.shippingFee} />
         </div>
         <div>
           <label className="label">{t('ship.freeFrom')}</label>
           <input
             type="number"
             min={0}
+            step="0.01"
             className="input"
             value={settings.freeShippingFrom ?? ''}
             onChange={(e) =>
@@ -107,6 +137,7 @@ export function ShippingSettings() {
               })
             }
           />
+          <CurrencyHint value={settings.freeShippingFrom} />
         </div>
       </div>
 
@@ -139,6 +170,7 @@ export function ShippingSettings() {
                 <input
                   type="number"
                   min={0}
+                  step="0.01"
                   className="input py-1.5 text-sm"
                   placeholder={t('ship.fee')}
                   value={rate.fee}
@@ -156,6 +188,7 @@ export function ShippingSettings() {
                 </button>
               </div>
             </div>
+            <CurrencyHint value={rate.fee} />
           </div>
         ))}
       </div>
