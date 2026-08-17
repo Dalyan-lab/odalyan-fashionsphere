@@ -16,8 +16,10 @@ export class OrderService {
   ) {}
 
   /**
-   * Crée une commande à partir d'un panier.
-   * Note MVP : les articles doivent appartenir à une même boutique.
+   * Transforme un panier en commandes : une par boutique, un seul paiement.
+   *
+   * Le client paie une fois, mais chaque vendeur reçoit sa propre commande —
+   * il l'expédie, la suit et s'en fait reverser indépendamment des autres.
    */
   async checkout(userId: string, input: CheckoutInput) {
     const productIds = [...new Set(input.items.map((i) => i.productId))];
@@ -37,16 +39,30 @@ export class OrderService {
       );
     }
 
-    const shopIds = new Set(products.map((p) => p.shopId));
-    if (shopIds.size > 1) {
+    // Un panier mêlant plusieurs devises ne peut pas donner un montant unique
+    // à encaisser. Le cas n'existe pas aujourd'hui, mais le laisser passer
+    // silencieusement produirait un total faux.
+    const currencies = new Set(products.map((p) => p.currency));
+    if (currencies.size > 1) {
       throw new BadRequestException(
-        'Le panier contient des produits de plusieurs boutiques. Commandez boutique par boutique pour le MVP.',
+        'Le panier mélange plusieurs devises. Commandez séparément les articles concernés.',
       );
     }
-    const shopId = products[0]!.shopId;
+    const currency = products[0]!.currency;
 
-    let total = new Prisma.Decimal(0);
-    const orderItems = input.items.map((item) => {
+    interface Line {
+      productId: string;
+      variantId?: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      productName: string;
+    }
+
+    // Regroupement par boutique : chaque vendeur aura sa commande.
+    const byShop = new Map<string, Line[]>();
+    let grandTotal = new Prisma.Decimal(0);
+
+    for (const item of input.items) {
       const product = products.find((p) => p.id === item.productId)!;
       let unitPrice = product.price;
       let variantId: string | undefined;
@@ -55,50 +71,79 @@ export class OrderService {
         const variant = product.variants.find((v) => v.id === item.variantId);
         if (!variant) throw new BadRequestException(`Variante invalide pour ${product.name}`);
         if (variant.stock < item.quantity) {
-          throw new BadRequestException(`Stock insuffisant pour ${product.name} (${variant.size}/${variant.color})`);
+          throw new BadRequestException(
+            `Stock insuffisant pour ${product.name} (${variant.size}/${variant.color})`,
+          );
         }
         unitPrice = variant.priceOverride ?? product.price;
         variantId = variant.id;
       }
 
-      total = total.add(unitPrice.mul(item.quantity));
-      return {
+      grandTotal = grandTotal.add(unitPrice.mul(item.quantity));
+      const lines = byShop.get(product.shopId) ?? [];
+      lines.push({
         productId: product.id,
         variantId,
         quantity: item.quantity,
         unitPrice,
         productName: product.name,
-      };
+      });
+      byShop.set(product.shopId, lines);
+    }
+
+    // Groupe, commandes et décrément de stock dans une seule transaction :
+    // une commande créée sans son groupe, ou du stock décrémenté sans commande,
+    // laisserait la base dans un état impossible à rattraper.
+    const group = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.orderGroup.create({
+        data: {
+          reference: this.generateReference('ODLG'),
+          customerId: userId,
+          totalAmount: grandTotal,
+          currency,
+        },
+      });
+
+      for (const [shopId, lines] of byShop) {
+        const total = lines.reduce(
+          (sum, l) => sum.add(l.unitPrice.mul(l.quantity)),
+          new Prisma.Decimal(0),
+        );
+        await tx.order.create({
+          data: {
+            orderNumber: this.generateReference('ODL'),
+            customerId: userId,
+            shopId,
+            groupId: created.id,
+            totalAmount: total,
+            currency,
+            shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
+            items: { create: lines },
+          },
+        });
+      }
+
+      for (const line of [...byShop.values()].flat()) {
+        if (!line.variantId) continue;
+        await tx.productVariant.update({
+          where: { id: line.variantId },
+          data: { stock: { decrement: line.quantity } },
+        });
+      }
+
+      return created;
     });
 
-    const order = await this.prisma.order.create({
-      data: {
-        orderNumber: this.generateOrderNumber(),
-        customerId: userId,
-        shopId,
-        totalAmount: total,
-        currency: products[0]!.currency,
-        shippingAddress: input.shippingAddress as unknown as Prisma.InputJsonValue,
-        items: { create: orderItems },
-      },
-      include: { items: true },
+    const orders = await this.prisma.order.findMany({
+      where: { groupId: group.id },
+      include: { items: true, shop: { select: { name: true, slug: true } } },
     });
 
-    // Décrémente le stock des variantes commandées
-    await this.prisma.$transaction(
-      orderItems
-        .filter((i) => i.variantId)
-        .map((i) =>
-          this.prisma.productVariant.update({
-            where: { id: i.variantId! },
-            data: { stock: { decrement: i.quantity } },
-          }),
-        ),
-    );
+    const payment = await this.paymentService.createPaymentForGroup(group.id, grandTotal, currency);
 
-    const payment = await this.paymentService.createPaymentForOrder(order.id, total, order.currency);
-
-    return { order, payment };
+    // `order` est conservé pour les appelants existants : le panier attend
+    // encore un objet commande unique.
+    return { group, orders, order: orders[0], payment };
   }
 
   /**
@@ -194,9 +239,10 @@ export class OrderService {
     return updated;
   }
 
-  private generateOrderNumber(): string {
+  /** Référence lisible et datée, pour les commandes comme pour les paniers. */
+  private generateReference(prefix: string): string {
     const date = new Date();
     const ymd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-    return `ODL-${ymd}-${randomBytes(3).toString('hex').toUpperCase()}`;
+    return `${prefix}-${ymd}-${randomBytes(3).toString('hex').toUpperCase()}`;
   }
 }

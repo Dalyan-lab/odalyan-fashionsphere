@@ -43,26 +43,26 @@ export class PaymentService {
    * Crée l'enregistrement de paiement.
    * Priorité : Paystack > Stripe > simulé.
    */
-  async createPaymentForOrder(orderId: string, amount: Prisma.Decimal, currency: string) {
+  async createPaymentForGroup(groupId: string, amount: Prisma.Decimal, currency: string) {
     // ----- Paystack (carte + Mobile Money Wave/Orange/MTN/Moov, XOF) -----
     if (this.paystack.enabled) {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: { customer: true },
+      const group = await this.prisma.orderGroup.findUnique({
+        where: { id: groupId },
+        include: { customer: true, orders: { take: 1, select: { shippingAddress: true } } },
       });
-      const addr = (order!.shippingAddress ?? {}) as Record<string, unknown>;
+      const addr = (group!.orders[0]?.shippingAddress ?? {}) as Record<string, unknown>;
       try {
         const ps = await this.paystack.createLink({
-          orderId,
-          orderNumber: order!.orderNumber,
+          refId: groupId,
+          refNumber: group!.reference,
           amountEur: Number(amount),
-          email: order!.customer.email,
-          name: `${order!.customer.firstName} ${order!.customer.lastName}`,
+          email: group!.customer.email,
+          name: `${group!.customer.firstName} ${group!.customer.lastName}`,
           phone: typeof addr.phone === 'string' ? addr.phone : undefined,
         });
         return await this.prisma.payment.create({
           data: {
-            orderId,
+            orderGroupId: groupId,
             provider: PaymentProvider.PAYSTACK,
             providerRef: ps.txRef,
             amount,
@@ -84,7 +84,7 @@ export class PaymentService {
           this.logger.warn(
             'Paystack injoignable en dev — repli sur paiement simulé pour cette commande.',
           );
-          return this.createMockPayment(orderId, amount, currency);
+          return this.createMockPayment(groupId, amount, currency);
         }
         this.logger.error(`Échec du paiement Paystack : ${(err as Error).message}`);
         throw new ServiceUnavailableException(
@@ -99,13 +99,13 @@ export class PaymentService {
       const intent = await this.stripe.paymentIntents.create({
         amount: Math.round(Number(amount) * 100),
         currency: currency.toLowerCase(),
-        metadata: { orderId },
+        metadata: { groupId },
         automatic_payment_methods: { enabled: true },
       });
 
       return this.prisma.payment.create({
         data: {
-          orderId,
+          orderGroupId: groupId,
           provider: PaymentProvider.STRIPE,
           providerRef: intent.id,
           amount,
@@ -116,25 +116,42 @@ export class PaymentService {
     }
 
     // Mode mock — paiement marqué payé immédiatement (dev uniquement)
-    return this.createMockPayment(orderId, amount, currency);
+    return this.createMockPayment(groupId, amount, currency);
   }
 
   /** Paiement simulé : marqué payé immédiatement et commande passée en PAID (dev). */
-  private async createMockPayment(orderId: string, amount: Prisma.Decimal, currency: string) {
+  private async createMockPayment(groupId: string, amount: Prisma.Decimal, currency: string) {
     const payment = await this.prisma.payment.create({
       data: {
-        orderId,
+        orderGroupId: groupId,
         provider: PaymentProvider.STRIPE,
-        providerRef: `mock_${orderId}`,
+        providerRef: `mock_${groupId}`,
         amount,
         currency,
         paid: true,
         rawPayload: { mock: true } as Prisma.InputJsonValue,
       },
     });
-    await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
-    void this.settleOrderPaid(orderId);
+    await this.markGroupPaid(groupId);
     return payment;
+  }
+
+  /**
+   * Passe toutes les commandes d'un panier en payées, puis traite chacune.
+   *
+   * Le paiement est unique mais les suites ne le sont pas : chaque vendeur a
+   * sa commande à préparer, sa répartition à figer et son email à recevoir.
+   */
+  private async markGroupPaid(groupId: string): Promise<void> {
+    const orders = await this.prisma.order.findMany({
+      where: { groupId },
+      select: { id: true },
+    });
+    await this.prisma.order.updateMany({
+      where: { groupId },
+      data: { status: 'PAID' },
+    });
+    for (const o of orders) void this.settleOrderPaid(o.id);
   }
 
   /**
@@ -197,14 +214,24 @@ export class PaymentService {
 
     if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object as Stripe.PaymentIntent;
-      const orderId = intent.metadata?.orderId;
-      if (orderId) {
+      const groupId = intent.metadata?.groupId;
+      // `orderId` : intentions créées avant le panier multi-boutiques, qui
+      // peuvent encore aboutir.
+      const legacyOrderId = intent.metadata?.orderId;
+
+      if (groupId) {
         await this.prisma.payment.updateMany({
-          where: { orderId },
+          where: { orderGroupId: groupId },
           data: { paid: true, rawPayload: intent as unknown as Prisma.InputJsonValue },
         });
-        await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
-        void this.settleOrderPaid(orderId);
+        await this.markGroupPaid(groupId);
+      } else if (legacyOrderId) {
+        await this.prisma.payment.updateMany({
+          where: { orderId: legacyOrderId },
+          data: { paid: true, rawPayload: intent as unknown as Prisma.InputJsonValue },
+        });
+        await this.prisma.order.update({ where: { id: legacyOrderId }, data: { status: 'PAID' } });
+        void this.settleOrderPaid(legacyOrderId);
       }
     }
 
@@ -231,8 +258,13 @@ export class PaymentService {
         where: { id: payment.id },
         data: { paid: true, rawPayload: { reference, verified: true } as Prisma.InputJsonValue },
       });
-      await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
-      if (firstConfirmation) void this.settleOrderPaid(payment.orderId);
+      if (payment.orderGroupId) {
+        if (firstConfirmation) await this.markGroupPaid(payment.orderGroupId);
+        return { status: 'PAID', groupId: payment.orderGroupId };
+      }
+      // Paiement antérieur au panier multi-boutiques : une seule commande.
+      await this.prisma.order.update({ where: { id: payment.orderId! }, data: { status: 'PAID' } });
+      if (firstConfirmation) void this.settleOrderPaid(payment.orderId!);
       return { status: 'PAID', orderId: payment.orderId };
     }
     return { status: 'FAILED' };

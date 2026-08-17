@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { appUrl } from '../../common/app-url';
 
 export interface PsLinkInput {
-  orderId: string;
-  orderNumber: string;
+  /** Identifiant du panier payé (groupe de commandes). */
+  refId: string;
+  /** Référence lisible, reprise dans le libellé de la transaction. */
+  refNumber: string;
   amountEur: number;
   email: string;
   name: string;
@@ -94,7 +96,7 @@ export class PaystackProvider {
 
   async createLink(input: PsLinkInput): Promise<PsLinkResult> {
     const localAmount = this.convert(input.amountEur);
-    const txRef = `ODL-${input.orderNumber}-${Date.now()}`;
+    const txRef = `ODL-${input.refNumber}-${Date.now()}`;
     const webOrigin = appUrl();
 
     const res = await this.request('/transaction/initialize', {
@@ -106,8 +108,8 @@ export class PaystackProvider {
         reference: txRef,
         callback_url: `${webOrigin}/payment/callback?provider=paystack`,
         metadata: {
-          orderId: input.orderId,
-          orderNumber: input.orderNumber,
+          groupId: input.refId,
+          reference: input.refNumber,
           customer_name: input.name,
           phone: input.phone ?? '',
         },

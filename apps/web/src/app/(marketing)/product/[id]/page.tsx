@@ -52,6 +52,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       price,
       image: coverImage,
       quantity: 1,
+      shopName: product.shop?.name,
+      shopSlug: product.shop?.slug,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);

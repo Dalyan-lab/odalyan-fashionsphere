@@ -10,9 +10,13 @@ import { stripePromise, stripeConfigured } from '@/lib/stripe';
 import { convertAndFormat, useLocale } from '@/lib/i18n';
 
 interface CheckoutResult {
-  order: { id: string; orderNumber: string; totalAmount: string };
+  group: { id: string; reference: string; totalAmount: string };
+  orders: { id: string; orderNumber: string; shop?: { name: string } }[];
   payment: { rawPayload?: { clientSecret?: string; link?: string } | null };
 }
+
+/** Panier enregistré avant que la boutique ne soit mémorisée sur l'article. */
+const UNKNOWN_SHOP = '__sans_boutique__';
 
 export default function CartPage() {
   const router = useRouter();
@@ -98,24 +102,56 @@ export default function CartPage() {
     );
   }
 
+  // Regroupement par boutique : le panier devient une commande par vendeur, et
+  // le client doit le savoir avant de payer, pas en découvrant deux suivis.
+  const grouped = new Map<string, typeof items>();
+  for (const i of items) {
+    const key = i.shopName ?? UNKNOWN_SHOP;
+    grouped.set(key, [...(grouped.get(key) ?? []), i]);
+  }
+  const groups = [...grouped.entries()];
+
   return (
     <main className="mx-auto grid max-w-6xl gap-10 px-6 py-12 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <h1 className="font-display text-4xl font-bold">Mon panier</h1>
-        <div className="mt-6 space-y-3">
-          {items.map((i) => (
-            <div key={`${i.productId}-${i.variantId}`} className="card flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {i.image && <img src={i.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
-                <div>
-                  <p className="font-medium">{i.name}</p>
-                  <p className="text-sm text-faint">{i.quantity} × {fmt(i.price)}</p>
-                </div>
-              </div>
-              {status !== 'pay' && (
-                <button onClick={() => remove(i.productId, i.variantId)} className="text-sm text-red-300">Retirer</button>
+
+        {groups.length > 1 && (
+          <p className="mt-4 rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
+            Votre panier réunit <strong className="text-content">{groups.length} boutiques</strong>. Vous
+            payez une seule fois, et chaque vendeur vous expédie sa part séparément — vous suivrez donc{' '}
+            {groups.length} commandes distinctes.
+          </p>
+        )}
+
+        <div className="mt-6 space-y-6">
+          {groups.map(([shopName, lines]) => (
+            <div key={shopName}>
+              {groups.length > 1 && (
+                <p className="mb-2 text-sm font-semibold text-muted">
+                  {shopName === UNKNOWN_SHOP ? 'Autres articles' : shopName}
+                </p>
               )}
+              <div className="space-y-3">
+                {lines.map((i) => (
+                  <div
+                    key={`${i.productId}-${i.variantId}`}
+                    className="card flex items-center justify-between p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {i.image && <img src={i.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
+                      <div>
+                        <p className="font-medium">{i.name}</p>
+                        <p className="text-sm text-faint">{i.quantity} × {fmt(i.price)}</p>
+                      </div>
+                    </div>
+                    {status !== 'pay' && (
+                      <button onClick={() => remove(i.productId, i.variantId)} className="text-sm text-red-300">Retirer</button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

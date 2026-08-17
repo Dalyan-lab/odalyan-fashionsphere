@@ -66,6 +66,11 @@ interface CartItem {
   price: number;
   image?: string;
   quantity: number;
+  // Boutique d'origine, pour annoncer au client qu'un panier mêlant plusieurs
+  // vendeurs donnera plusieurs commandes. Facultatif : les paniers enregistrés
+  // avant cette évolution n'en ont pas.
+  shopName?: string;
+  shopSlug?: string;
 }
 
 interface CartState {
