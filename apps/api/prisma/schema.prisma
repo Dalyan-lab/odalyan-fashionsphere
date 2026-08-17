@@ -755,6 +755,33 @@ model AmazonProduct {
 }
 
 /** Relevé horodaté du rang de vente — série temporelle pour le calcul de vélocité. */
+/**
+ * Rayon Amazon dont on suit automatiquement les meilleures ventes.
+ *
+ * Remplace la curation manuelle : au lieu d'ajouter les ASIN un par un, on
+ * déclare un rayon et la plateforme y pioche le haut du classement à chaque
+ * passage. `category` accepte un identifiant de nœud Amazon ou un nom de
+ * groupe d'affichage (« beauty »), ce dernier étant portable entre pays.
+ */
+model TrendWatch {
+  id          String  @id @default(cuid())
+  label       String
+  marketplace String
+  category    String
+  /// Combien de produits reprendre en tête de classement à chaque passage.
+  topN        Int     @default(10)
+  active      Boolean @default(true)
+
+  lastRunAt   DateTime?
+  lastCount   Int?
+  lastError   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([marketplace, category])
+  @@index([active])
+}
+
 model AmazonRankSnapshot {
   id          String        @id @default(cuid())
   product     AmazonProduct @relation(fields: [productId], references: [id], onDelete: Cascade)

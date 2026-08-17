@@ -83,3 +83,19 @@ export interface ViralScriptDto {
   provider: string;
   createdAt: string;
 }
+
+/**
+ * Rayon Amazon dont on suit automatiquement les meilleures ventes.
+ *
+ * `category` accepte un identifiant de nœud Amazon (« 2475895011 ») ou un nom
+ * de groupe d'affichage (« beauty ») : le second est portable d'un pays à
+ * l'autre, là où les identifiants de nœud changent pour chaque marketplace.
+ */
+export const trendWatchSchema = z.object({
+  label: z.string().min(2, 'Donnez un nom à ce rayon').max(60),
+  marketplace: z.string().min(4).max(40),
+  category: z.string().min(1, 'Catégorie requise').max(60),
+  topN: z.number().int().min(1).max(50).optional(),
+});
+
+export type TrendWatchInput = z.infer<typeof trendWatchSchema>;

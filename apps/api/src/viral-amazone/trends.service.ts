@@ -120,6 +120,105 @@ export class TrendsService {
   }
 
   /** Retire un produit du tracker (curation admin) — supprime aussi son historique et ses scripts liés. */
+  // ---------------------------------------------------------------------------
+  // Découverte automatique des meilleures ventes
+  // ---------------------------------------------------------------------------
+
+  /** Rayons surveillés, avec le résultat de leur dernier passage. */
+  async listWatches() {
+    return this.prisma.trendWatch.findMany({ orderBy: { createdAt: 'asc' } });
+  }
+
+  /**
+   * Déclare un rayon à surveiller.
+   *
+   * `category` accepte un identifiant de nœud Amazon ou un nom de groupe
+   * d'affichage (« beauty »). Le couple marketplace + catégorie est unique :
+   * réenregistrer le même rayon le met à jour plutôt que de le dupliquer.
+   */
+  async addWatch(input: {
+    label: string;
+    marketplace: string;
+    category: string;
+    topN?: number;
+  }) {
+    const data = {
+      label: input.label.trim(),
+      marketplace: input.marketplace,
+      category: input.category.trim(),
+      topN: Math.max(1, Math.min(50, input.topN ?? 10)),
+    };
+    return this.prisma.trendWatch.upsert({
+      where: { marketplace_category: { marketplace: data.marketplace, category: data.category } },
+      create: data,
+      update: { label: data.label, topN: data.topN, active: true },
+    });
+  }
+
+  async setWatchActive(id: string, active: boolean) {
+    return this.prisma.trendWatch.update({ where: { id }, data: { active } });
+  }
+
+  async removeWatch(id: string): Promise<{ deleted: boolean }> {
+    await this.prisma.trendWatch.delete({ where: { id } }).catch(() => undefined);
+    return { deleted: true };
+  }
+
+  /**
+   * Reprend le haut du classement d'un rayon et met les produits sous suivi.
+   *
+   * Les erreurs sont enregistrées sur le rayon plutôt que propagées : un rayon
+   * mal configuré ne doit pas empêcher les autres de fonctionner, et
+   * l'administrateur doit pouvoir voir lequel pose problème.
+   */
+  async runWatch(id: string): Promise<{ found: number; tracked: number }> {
+    const watch = await this.prisma.trendWatch.findUnique({ where: { id } });
+    if (!watch) return { found: 0, tracked: 0 };
+
+    try {
+      const asins = await this.keepa.bestSellers(watch.category, watch.marketplace, watch.topN);
+      let tracked = 0;
+      for (const asin of asins) {
+        // Séquentiel volontairement : chaque ajout déclenche un appel PA-API et
+        // un appel Keepa. Les paralléliser ferait tomber les quotas.
+        await this.trackAsin(asin, watch.marketplace).catch((err) =>
+          this.logger.warn(`Suivi impossible pour ${asin} : ${String(err)}`),
+        );
+        tracked += 1;
+      }
+      await this.prisma.trendWatch.update({
+        where: { id },
+        data: { lastRunAt: new Date(), lastCount: tracked, lastError: null },
+      });
+      return { found: asins.length, tracked };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await this.prisma.trendWatch.update({
+        where: { id },
+        data: { lastRunAt: new Date(), lastError: message },
+      });
+      this.logger.error(`Rayon « ${watch.label} » en échec : ${message}`);
+      return { found: 0, tracked: 0 };
+    }
+  }
+
+  /**
+   * Passage quotidien sur tous les rayons actifs.
+   *
+   * Une fois par jour et non toutes les heures : un classement de meilleures
+   * ventes bouge lentement, et chaque appel consomme des jetons Keepa. La
+   * vélocité, elle, continue d'être recalculée toutes les 3 heures.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async discoverAll(): Promise<void> {
+    if (!this.keepa.enabled) return;
+    const watches = await this.prisma.trendWatch.findMany({ where: { active: true } });
+    for (const w of watches) {
+      await this.runWatch(w.id);
+    }
+    if (watches.length) this.logger.log(`Découverte terminée sur ${watches.length} rayon(s).`);
+  }
+
   async untrackProduct(productId: string): Promise<{ deleted: boolean }> {
     await this.prisma.amazonProduct.delete({ where: { id: productId } }).catch(() => null);
     return { deleted: true };

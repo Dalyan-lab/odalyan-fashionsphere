@@ -13,6 +13,7 @@ import {
   type LeaderboardEntryDto,
   type ViralScriptDto,
 } from '@odalyan/shared';
+import { TrendWatches } from '@/components/dashboard/trend-watches';
 import { apiFetch, ApiError, API_ORIGIN } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
@@ -109,6 +110,10 @@ export default function HotTrendsPage() {
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
           <ProgressCard progress={progress} />
           <LeaderboardCard entries={leaderboard} />
+        </div>
+
+        <div className="mt-6">
+          <TrendWatches />
         </div>
 
         {/* Filtres */}

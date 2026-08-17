@@ -1,11 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   AMAZON_MARKETPLACES,
   UserRole,
   generateViralScriptSchema,
   listTrendsQuerySchema,
+  trendWatchSchema,
   type GenerateViralScriptInput,
   type ListTrendsQuery,
+  type TrendWatchInput,
 } from '@odalyan/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -67,6 +69,41 @@ export class ViralAmazoneController {
   @Roles(UserRole.ADMIN)
   untrack(@Param('id') id: string) {
     return this.trends.untrackProduct(id);
+  }
+
+  // --- Rayons surveillés : découverte automatique des meilleures ventes -----
+
+  @Get('watches')
+  @Roles(UserRole.ADMIN)
+  listWatches() {
+    return this.trends.listWatches();
+  }
+
+  @Post('watches')
+  @Roles(UserRole.ADMIN)
+  addWatch(
+    @Body(new ZodValidationPipe(trendWatchSchema)) input: TrendWatchInput,
+  ) {
+    return this.trends.addWatch(input);
+  }
+
+  /** Lance immédiatement un rayon, sans attendre le passage quotidien. */
+  @Post('watches/:id/run')
+  @Roles(UserRole.ADMIN)
+  runWatch(@Param('id') id: string) {
+    return this.trends.runWatch(id);
+  }
+
+  @Patch('watches/:id')
+  @Roles(UserRole.ADMIN)
+  setWatchActive(@Param('id') id: string, @Body('active') active: boolean) {
+    return this.trends.setWatchActive(id, Boolean(active));
+  }
+
+  @Delete('watches/:id')
+  @Roles(UserRole.ADMIN)
+  removeWatch(@Param('id') id: string) {
+    return this.trends.removeWatch(id);
   }
 
   @Post('scripts/generate')

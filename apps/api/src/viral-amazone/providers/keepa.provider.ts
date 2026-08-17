@@ -52,6 +52,45 @@ export class KeepaProvider {
     return KEEPA_DOMAIN_BY_CODE[info.code] ?? null;
   }
 
+  /**
+   * Liste classée des meilleures ventes d'une catégorie.
+   *
+   * `category` accepte indifféremment un identifiant de nœud Amazon
+   * (« 2475895011 ») ou un nom de groupe d'affichage (« beauty ») — le second
+   * est portable d'un pays à l'autre, là où les identifiants de nœud changent
+   * pour chaque marketplace.
+   *
+   * C'est ce qui remplace la curation manuelle : plus besoin de saisir les
+   * ASIN un par un, la liste vient d'Amazon via une source autorisée.
+   */
+  async bestSellers(category: string, marketplaceDomain: string, limit = 20): Promise<string[]> {
+    if (!this.enabled || !category.trim()) return [];
+    const domain = this.domainId(marketplaceDomain);
+    if (domain === null) return [];
+
+    try {
+      const url = new URL('/bestsellers', this.base);
+      url.searchParams.set('key', process.env.KEEPA_API_KEY!);
+      url.searchParams.set('domain', String(domain));
+      url.searchParams.set('category', category.trim());
+
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        this.logger.error(`Keepa /bestsellers ${res.status}: ${await res.text().catch(() => '')}`);
+        return [];
+      }
+      const data = (await res.json()) as {
+        bestSellersList?: { asinList?: string[] };
+      };
+      // La liste peut contenir des dizaines de milliers d'entrées ; on ne garde
+      // que la tête du classement, seule pertinente pour du contenu viral.
+      return (data.bestSellersList?.asinList ?? []).slice(0, Math.max(1, Math.min(50, limit)));
+    } catch (err) {
+      this.logger.error(`Keepa /bestsellers erreur: ${String(err)}`);
+      return [];
+    }
+  }
+
   /** Récupère jusqu'à 100 ASIN avec leur historique de rang de vente complet. */
   async getProducts(asins: string[], marketplaceDomain: string): Promise<KeepaProduct[]> {
     if (!this.enabled || asins.length === 0) return [];
