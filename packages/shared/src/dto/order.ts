@@ -41,6 +41,24 @@ export const updateOrderStatusSchema = z.object({
 
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 
+export const PAYOUT_METHODS = ['MOBILE_MONEY', 'BANK_TRANSFER'] as const;
+export type PayoutMethod = (typeof PAYOUT_METHODS)[number];
+
+/**
+ * Coordonnées auxquelles la plateforme reverse ses ventes au vendeur.
+ *
+ * Tout est facultatif et la chaîne vide efface : un vendeur doit pouvoir
+ * retirer un numéro erroné, pas seulement le remplacer.
+ */
+export const payoutAccountSchema = z.object({
+  payoutMethod: z.enum(PAYOUT_METHODS).nullable().optional(),
+  payoutOperator: z.string().max(60).optional(),
+  payoutNumber: z.string().max(80).optional(),
+  payoutHolderName: z.string().max(120).optional(),
+});
+
+export type PayoutAccountInput = z.infer<typeof payoutAccountSchema>;
+
 export type CheckoutItemInput = z.infer<typeof checkoutItemSchema>;
 export type ShippingAddressInput = z.infer<typeof shippingAddressSchema>;
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { MailDiagnostic } from '@/components/dashboard/mail-diagnostic';
+import { PayoutsPanel } from '@/components/dashboard/payouts-panel';
 import { useAuth } from '@/lib/store';
 
 interface Overview {
@@ -96,6 +97,8 @@ export default function AdminPage() {
 
       {/* Santé de la messagerie : sans elle, aucune réinitialisation de mot de passe */}
       <div className="mt-6">
+        <PayoutsPanel />
+
         <MailDiagnostic />
       </div>
 

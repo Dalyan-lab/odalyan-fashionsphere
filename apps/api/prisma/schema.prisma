@@ -85,6 +85,17 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum PayoutMethod {
+  MOBILE_MONEY
+  BANK_TRANSFER
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 enum PaymentProvider {
   STRIPE
   PAYPAL
@@ -196,6 +207,16 @@ model Shop {
   deliveryDaysMin Int?
   deliveryDaysMax Int?
   deliveryNote    String? // précision libre (zones desservies, retrait en boutique…)
+
+  // Où reverser au vendeur ce que la plateforme a encaissé pour lui.
+  payoutMethod     PayoutMethod?
+  payoutOperator   String? // Wave, Orange Money, MTN, Moov, ou nom de la banque
+  payoutNumber     String? // numéro Mobile Money ou coordonnées bancaires
+  payoutHolderName String? // titulaire, pour éviter les virements à l'aveugle
+  // Commission de la plateforme sur ce vendeur. `null` = taux général
+  // (PLATFORM_COMMISSION_RATE) : un taux négocié se pose ici sans toucher
+  // aux autres boutiques.
+  commissionRate   Decimal? @db.Decimal(5, 4)
   // Crédits IA : solde mensuel (réinitialisé chaque mois selon le plan) + date du dernier renouvellement
   aiCredits          Int      @default(0)
   creditsRenewedAt   DateTime?
@@ -222,6 +243,7 @@ model Shop {
   generatedAssets GeneratedAsset[]
   socialConnections SocialConnection[]
   reviews      Review[]
+  payouts      Payout[]
   scheduledPosts    ScheduledPost[]
   creditPurchases   CreditPurchase[]
   viralScripts      ViralScript[]
@@ -429,10 +451,57 @@ model Order {
   shippedAt      DateTime?
   deliveredAt    DateTime?
 
+  // Répartition figée au moment de l'encaissement.
+  //
+  // Recalculer la part du vendeur à l'affichage serait une faute : changer le
+  // taux de commission réécrirait alors l'historique, y compris des ventes
+  // déjà réglées. Ces trois champs sont le seul enregistrement de ce qui a été
+  // réellement convenu sur cette commande.
+  commissionRate Decimal? @db.Decimal(5, 4)
+  platformAmount Decimal? @db.Decimal(10, 2)
+  sellerAmount   Decimal? @db.Decimal(10, 2)
+
+  payout   Payout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([customerId])
+  @@index([shopId])
+  @@index([status])
+  @@index([payoutId])
+}
+
+/**
+ * Versement d'un lot de commandes à un vendeur.
+ *
+ * Un versement regroupe les commandes livrées et sorties du délai de garantie.
+ * Le mouvement d'argent lui-même reste extérieur (Wave, Orange Money, virement) :
+ * ce modèle en est la trace comptable, consultable par les deux parties.
+ */
+model Payout {
+  id        String       @id @default(cuid())
+  reference String       @unique
+  amount    Decimal      @db.Decimal(10, 2)
+  currency  String       @default("EUR")
+  status    PayoutStatus @default(PENDING)
+
+  method PayoutMethod?
+  // Coordonnées recopiées au moment du versement : si le vendeur change de
+  // numéro ensuite, on doit toujours pouvoir dire où l'argent est parti.
+  destination String?
+  transferRef String? // référence du virement chez l'opérateur
+  note        String?
+
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  orders Order[]
+
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+
   @@index([shopId])
   @@index([status])
 }

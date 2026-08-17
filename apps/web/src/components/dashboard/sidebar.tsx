@@ -30,6 +30,7 @@ const SELLER_SECTIONS: NavSection[] = [
       { key: 'dash.nav.hotTrends', href: '/dashboard/hot-trends', icon: 'flame' },
       { key: 'dash.nav.orders', href: '/dashboard/orders', icon: 'orders' },
       { key: 'dash.nav.clients', href: '/dashboard/clients', icon: 'clients' },
+      { key: 'dash.nav.revenus', href: '/dashboard/revenus', icon: 'credits' },
       { key: 'dash.nav.stats', href: '/dashboard/stats', icon: 'stats' },
       { key: 'dash.nav.shop', href: '/dashboard/shop', icon: 'shop' },
     ],

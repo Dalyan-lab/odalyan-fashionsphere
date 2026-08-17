@@ -56,6 +56,18 @@ export class AdminService {
   }
 
   /** Toutes les boutiques avec propriétaire, plan, produits, commandes, CA. */
+  /** Tous les versements, du plus récent au plus ancien. */
+  async listPayouts() {
+    return this.prisma.payout.findMany({
+      include: {
+        shop: { select: { name: true } },
+        _count: { select: { orders: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
   async listShops() {
     const shops = await this.prisma.shop.findMany({
       include: {

@@ -17,6 +17,7 @@ import { MailModule } from './mail/mail.module';
 import { StorageModule } from './storage/storage.module';
 import { ViralAmazoneModule } from './viral-amazone/viral-amazone.module';
 import { CouponsModule } from './coupon/coupons.module';
+import { PayoutModule } from './payout/payout.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { HealthController } from './health.controller';
 
@@ -41,6 +42,7 @@ import { HealthController } from './health.controller';
     ViralAmazoneModule,
     CouponsModule,
     SubscriptionModule,
+    PayoutModule,
   ],
   controllers: [HealthController],
 })

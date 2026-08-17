@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { PaymentProvider } from '@odalyan/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { PayoutService } from '../payout/payout.service';
 import { CreditsService } from '../credits/credits.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import {
@@ -22,6 +23,7 @@ export class PaymentService {
     private readonly mail: MailService,
     private readonly credits: CreditsService,
     private readonly subscriptions: SubscriptionService,
+    private readonly payouts: PayoutService,
   ) {
     const key = process.env.STRIPE_SECRET_KEY;
     this.stripe = key ? new Stripe(key) : null;
@@ -131,7 +133,7 @@ export class PaymentService {
       },
     });
     await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
-    void this.notifyOrderPaid(orderId);
+    void this.settleOrderPaid(orderId);
     return payment;
   }
 
@@ -139,6 +141,18 @@ export class PaymentService {
    * Emails transactionnels après paiement réussi : confirmation au client +
    * notification au vendeur. Ne bloque jamais le flux de paiement (erreurs logguées).
    */
+  /**
+   * Suites d'un encaissement : figer la répartition, puis prévenir.
+   *
+   * La répartition passe avant et hors de l'envoi d'emails — `notifyOrderPaid`
+   * sort tôt quand la messagerie n'est pas configurée, et une plateforme sans
+   * email ne doit pas pour autant perdre la trace de ce qu'elle doit au vendeur.
+   */
+  private async settleOrderPaid(orderId: string): Promise<void> {
+    await this.payouts.recordOrderSplit(orderId);
+    await this.notifyOrderPaid(orderId);
+  }
+
   private async notifyOrderPaid(orderId: string): Promise<void> {
     if (!this.mail.enabled) return;
     try {
@@ -190,7 +204,7 @@ export class PaymentService {
           data: { paid: true, rawPayload: intent as unknown as Prisma.InputJsonValue },
         });
         await this.prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } });
-        void this.notifyOrderPaid(orderId);
+        void this.settleOrderPaid(orderId);
       }
     }
 
@@ -218,7 +232,7 @@ export class PaymentService {
         data: { paid: true, rawPayload: { reference, verified: true } as Prisma.InputJsonValue },
       });
       await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
-      if (firstConfirmation) void this.notifyOrderPaid(payment.orderId);
+      if (firstConfirmation) void this.settleOrderPaid(payment.orderId);
       return { status: 'PAID', orderId: payment.orderId };
     }
     return { status: 'FAILED' };

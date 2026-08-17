@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { UserRole } from '@odalyan/shared';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminService } from './admin.service';
 import { MailService } from '../mail/mail.service';
+import { PayoutService } from '../payout/payout.service';
 
 /** Back-office plateforme — toutes les routes sont réservées au rôle ADMIN. */
 @Controller('admin')
@@ -16,6 +17,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly mail: MailService,
+    private readonly payouts: PayoutService,
   ) {}
 
   /**
@@ -51,6 +53,40 @@ export class AdminController {
       throw new BadRequestException('Adresse de destination invalide.');
     }
     return this.mail.sendTest(to);
+  }
+
+  /** Boutiques ayant un montant versable, avec leurs coordonnées. */
+  @Get('payouts/pending')
+  pendingPayouts() {
+    return this.payouts.pending();
+  }
+
+  /** Tous les versements, du plus récent au plus ancien. */
+  @Get('payouts')
+  allPayouts() {
+    return this.admin.listPayouts();
+  }
+
+  /** Crée le versement d'une boutique en y rattachant ses commandes versables. */
+  @Post('payouts/:shopId')
+  createPayout(@Param('shopId') shopId: string) {
+    return this.payouts.create(shopId);
+  }
+
+  /** Confirme qu'un versement a bien été effectué, avec sa référence. */
+  @Patch('payouts/:id/paid')
+  markPayoutPaid(
+    @Param('id') id: string,
+    @Body('transferRef') transferRef?: string,
+    @Body('note') note?: string,
+  ) {
+    return this.payouts.markPaid(id, transferRef, note);
+  }
+
+  /** Annule un versement non payé et rend ses commandes au solde disponible. */
+  @Delete('payouts/:id')
+  cancelPayout(@Param('id') id: string) {
+    return this.payouts.cancel(id);
   }
 
   @Get('overview')
