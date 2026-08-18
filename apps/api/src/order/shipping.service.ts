@@ -1,25 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveShippingFee } from './shipping-rules';
 
 export interface ShippingDestination {
   country?: string;
   city?: string;
-}
-
-/**
- * Normalise un libellé de lieu pour la comparaison.
- *
- * Les acheteurs écrivent « ABIDJAN », « abidjan » ou « Abidjan  » ; les
- * vendeurs saisissent leurs zones tout aussi librement. Sans normalisation,
- * un tarif configuré ne s'appliquerait qu'à l'orthographe exacte du vendeur.
- */
-function normalize(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
 }
 
 @Injectable()
@@ -48,24 +34,18 @@ export class ShippingService {
     });
     if (!shop) return new Prisma.Decimal(0);
 
-    if (shop.freeShippingFrom && subtotal.gte(shop.freeShippingFrom)) {
-      return new Prisma.Decimal(0);
-    }
-
-    const city = to.city ? normalize(to.city) : null;
-    const country = to.country ? normalize(to.country) : null;
-
-    for (const rate of shop.shippingRates) {
-      // Liste vide = « toutes » : une zone sans ville ni pays est un
-      // attrape-tout, volontairement placé en dernière position.
-      const cityOk = rate.cities.length === 0 || (city !== null && rate.cities.some((c) => normalize(c) === city));
-      const countryOk =
-        rate.countries.length === 0 ||
-        (country !== null && rate.countries.some((c) => normalize(c) === country));
-      if (cityOk && countryOk) return new Prisma.Decimal(rate.fee);
-    }
-
-    return new Prisma.Decimal(shop.shippingFee ?? 0);
+    // Le choix du tarif vit dans un module pur, couvert par des tests : c'est
+    // ce qui est facturé au client, une erreur s'y voit tout de suite.
+    const fee = resolveShippingFee(
+      {
+        shippingFee: shop.shippingFee,
+        freeShippingFrom: shop.freeShippingFrom,
+        zones: shop.shippingRates,
+      },
+      subtotal,
+      to,
+    );
+    return new Prisma.Decimal(fee);
   }
 
   /** Tarif le plus bas affiché sur une fiche produit, à titre indicatif. */

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Prisma, PayoutStatus } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { computeOrderSplit } from './order-split';
 
 /** Commission de la plateforme quand la boutique n'a pas de taux négocié. */
 const DEFAULT_COMMISSION_RATE = 0.1;
@@ -51,19 +52,21 @@ export class PayoutService {
         ? Number(order.shop.commissionRate)
         : platformCommissionRate();
 
-      const total = new Prisma.Decimal(order.totalAmount);
-      // La livraison revient intégralement au vendeur : c'est lui qui paie le
-      // transport, prélever une commission dessus reviendrait à le taxer sur
-      // une dépense. La commission ne porte donc que sur les articles.
-      const commissionBase = total.sub(order.shippingAmount ?? 0);
-      // La commission est arrondie, et le vendeur reçoit le reste : ainsi la
-      // somme des deux parts égale toujours le montant encaissé, au centime.
-      const platformAmount = commissionBase.mul(rate).toDecimalPlaces(2);
-      const sellerAmount = total.sub(platformAmount);
+      // Le calcul lui-même vit dans un module pur, couvert par des tests :
+      // c'est le point où une erreur se traduirait en argent mal versé.
+      const split = computeOrderSplit({
+        total: order.totalAmount,
+        shipping: order.shippingAmount,
+        rate,
+      });
 
       await this.prisma.order.update({
         where: { id: orderId },
-        data: { commissionRate: new Prisma.Decimal(rate), platformAmount, sellerAmount },
+        data: {
+          commissionRate: new Prisma.Decimal(rate),
+          platformAmount: new Prisma.Decimal(split.platformAmount),
+          sellerAmount: new Prisma.Decimal(split.sellerAmount),
+        },
       });
     } catch (err) {
       // Ne doit jamais faire échouer un encaissement : la commande est payée,
