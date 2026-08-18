@@ -2,6 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { ShopModule } from '../shop/shop.module';
 import { PayoutController } from './payout.controller';
 import { PayoutService } from './payout.service';
+import { RefundService } from './refund.service';
+import { RefundController } from './refund.controller';
 
 /**
  * Global : PaymentModule doit figer la répartition à l'encaissement et
@@ -11,8 +13,8 @@ import { PayoutService } from './payout.service';
 @Global()
 @Module({
   imports: [ShopModule],
-  controllers: [PayoutController],
-  providers: [PayoutService],
-  exports: [PayoutService],
+  controllers: [PayoutController, RefundController],
+  providers: [PayoutService, RefundService],
+  exports: [PayoutService, RefundService],
 })
 export class PayoutModule {}

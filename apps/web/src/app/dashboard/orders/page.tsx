@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import { useT } from '@/lib/i18n';
+import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
 import { Topbar } from '@/components/dashboard/topbar';
+import { RefundRequests } from '@/components/dashboard/refund-requests';
 
 interface ShopOrder {
   id: string;
@@ -95,6 +96,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function OrdersPage() {
   const t = useT();
+  const currency = useLocale((s) => s.currency);
   const [orders, setOrders] = useState<ShopOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [noShop, setNoShop] = useState(false);
@@ -130,6 +132,8 @@ export default function OrdersPage() {
         <p className="text-muted">{t('ord.subtitle')}</p>
 
         <div className="mt-6">
+          <RefundRequests />
+
           {loading ? (
             <p className="text-muted">{t('common.loading')}</p>
           ) : noShop ? (
@@ -153,7 +157,7 @@ export default function OrdersPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="font-display text-lg font-bold text-brand-violet">
-                        {Number(o.totalAmount).toFixed(2)} {o.currency}
+                        {convertAndFormat(Number(o.totalAmount), o.currency, currency)}
                       </span>
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLOR[o.status] ?? 'bg-surface-2'}`}>
                         {t(`os.${o.status}`)}

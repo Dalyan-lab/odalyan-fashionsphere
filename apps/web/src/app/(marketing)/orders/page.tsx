@@ -5,6 +5,14 @@ import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
 
+interface Refund {
+  id: string;
+  status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  reason: string;
+  decisionNote: string | null;
+  order: { orderNumber: string };
+}
+
 interface MyOrder {
   id: string;
   orderNumber: string;
@@ -31,6 +39,15 @@ interface MyOrder {
 
 /** Étapes normales d'une commande. Annulation et remboursement sortent du fil. */
 const STEPS = ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'] as const;
+
+/** Une commande payée et pas encore remboursée peut faire l'objet d'une demande. */
+const REFUNDABLE = ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'];
+
+const REFUND_LABEL: Record<Refund['status'], string> = {
+  REQUESTED: '🔁 Remboursement demandé — en attente de réponse du vendeur',
+  APPROVED: '✅ Remboursement accordé',
+  REJECTED: '❌ Remboursement refusé',
+};
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING: 'bg-yellow-500/15 text-yellow-500',
@@ -107,16 +124,42 @@ export default function MyOrdersPage() {
   const t = useT();
   const currency = useLocale((s) => s.currency);
   const [orders, setOrders] = useState<MyOrder[] | null>(null);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = () => {
     apiFetch<MyOrder[]>('/orders/mine')
       .then(setOrders)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) setNeedsLogin(true);
         else setOrders([]);
       });
-  }, []);
+    apiFetch<Refund[]>('/refunds/mine')
+      .then(setRefunds)
+      .catch(() => setRefunds([]));
+  };
+
+  useEffect(load, []);
+
+  const askRefund = async (order: MyOrder) => {
+    const reason = window.prompt(
+      `Pourquoi souhaitez-vous être remboursé pour la commande ${order.orderNumber} ?`,
+    );
+    if (!reason?.trim()) return;
+    setBusy(order.id);
+    try {
+      await apiFetch('/refunds', {
+        method: 'POST',
+        body: JSON.stringify({ orderId: order.id, reason }),
+      });
+      load();
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -188,6 +231,30 @@ export default function MyOrdersPage() {
               </p>
 
               <EstimatedDelivery order={o} />
+
+              {(() => {
+                const refund = refunds.find((r) => r.order.orderNumber === o.orderNumber);
+                if (refund) {
+                  return (
+                    <div className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-sm">
+                      <p>{REFUND_LABEL[refund.status]}</p>
+                      {refund.decisionNote && (
+                        <p className="mt-1 text-xs text-faint">{refund.decisionNote}</p>
+                      )}
+                    </div>
+                  );
+                }
+                if (!REFUNDABLE.includes(o.status)) return null;
+                return (
+                  <button
+                    onClick={() => askRefund(o)}
+                    disabled={busy === o.id}
+                    className="mt-3 text-sm text-muted underline-offset-2 hover:text-content hover:underline disabled:opacity-40"
+                  >
+                    {busy === o.id ? '…' : 'Demander un remboursement'}
+                  </button>
+                );
+              })()}
 
               {(o.carrier || o.trackingNumber) && (
                 <div className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-sm">

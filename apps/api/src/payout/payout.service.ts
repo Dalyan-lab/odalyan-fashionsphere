@@ -3,6 +3,8 @@ import { Prisma, PayoutStatus } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeOrderSplit } from './order-split';
+import { computePayoutAmount } from './payout-amount';
+import { RefundService } from './refund.service';
 
 /** Commission de la plateforme quand la boutique n'a pas de taux négocié. */
 const DEFAULT_COMMISSION_RATE = 0.1;
@@ -29,7 +31,10 @@ function holdDays(): number {
 export class PayoutService {
   private readonly logger = new Logger(PayoutService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly refunds: RefundService,
+  ) {}
 
   /**
    * Fige la part du vendeur et celle de la plateforme sur une commande payée.
@@ -129,7 +134,15 @@ export class PayoutService {
     ]);
 
     const num = (d: Prisma.Decimal | null) => Number(d ?? 0);
+    // Remboursements accordés sur des commandes déjà versées : le vendeur
+    // détient de l'argent qui ne lui revient plus. On l'annonce plutôt que de
+    // le lui retirer sans prévenir au prochain versement.
+    const debts = await this.refunds.outstandingDebts(shopId);
+    const debt = debts.reduce((sum, d) => sum + Number(d.sellerShare), 0);
+
     return {
+      debt,
+      debtCount: debts.length,
       available: num(available._sum.sellerAmount),
       availableOrders: available._count,
       onHold: num(delivered._sum.sellerAmount),
@@ -212,10 +225,21 @@ export class PayoutService {
     });
     if (orders.length === 0) throw new BadRequestException('Aucune commande versable.');
 
-    const amount = orders.reduce(
+    const eligibleTotal = orders.reduce(
       (sum, o) => sum.add(o.sellerAmount!),
       new Prisma.Decimal(0),
     );
+
+    // Les remboursements accordés sur des commandes déjà versées sont retenus
+    // ici. Le calcul vit dans un module pur, couvert par des tests : il garantit
+    // qu'un versement ne devient jamais négatif et qu'une dette est absorbée
+    // entièrement ou reportée, jamais réglée à moitié.
+    const debts = await this.refunds.outstandingDebts(shopId);
+    const computed = computePayoutAmount({
+      eligibleTotal,
+      debts: debts.map((d) => ({ id: d.id, amount: d.sellerShare })),
+    });
+    const amount = new Prisma.Decimal(computed.amount);
 
     return this.prisma.$transaction(async (tx) => {
       const payout = await tx.payout.create({
@@ -234,6 +258,12 @@ export class PayoutService {
         where: { id: { in: orders.map((o) => o.id) } },
         data: { payoutId: payout.id },
       });
+      if (computed.settledDebtIds.length) {
+        await tx.refund.updateMany({
+          where: { id: { in: computed.settledDebtIds } },
+          data: { settledPayoutId: payout.id },
+        });
+      }
       return payout;
     });
   }

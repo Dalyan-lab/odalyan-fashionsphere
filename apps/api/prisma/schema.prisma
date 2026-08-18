@@ -85,6 +85,12 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+}
+
 enum PayoutMethod {
   MOBILE_MONEY
   BANK_TRANSFER
@@ -500,6 +506,8 @@ model Order {
   payout   Payout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
   payoutId String?
 
+  refund Refund?
+
   // Panier d'origine. Nul pour les commandes antérieures au panier
   // multi-boutiques, qui portaient leur paiement directement.
   group   OrderGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
@@ -538,6 +546,50 @@ model ShippingRate {
   createdAt DateTime @default(now())
 
   @@index([shopId])
+}
+
+/**
+ * Remboursement d'une commande.
+ *
+ * Le mouvement d'argent vers le client se fait à l'extérieur (Paystack,
+ * Mobile Money) ; ce modèle en est la trace et, surtout, il porte la
+ * **reprise de la part vendeur**.
+ *
+ * Deux situations opposées :
+ * - la commande n'a pas encore été versée au vendeur : elle sort simplement
+ *   de son solde disponible, rien d'autre à faire ;
+ * - elle a déjà été versée : le vendeur détient de l'argent qui ne lui revient
+ *   plus. `sellerShare` devient alors une dette, déduite de son prochain
+ *   versement — `settledPayoutId` enregistre lequel l'a absorbée.
+ */
+model Refund {
+  id        String       @id @default(cuid())
+  reference String       @unique
+  status    RefundStatus @default(REQUESTED)
+
+  /// Montant rendu au client (total de la commande).
+  amount Decimal @db.Decimal(10, 2)
+  /// Part reprise au vendeur.
+  sellerShare Decimal @db.Decimal(10, 2)
+  /// Commission que la plateforme abandonne.
+  platformShare Decimal @db.Decimal(10, 2)
+
+  reason       String
+  decisionNote String?
+  decidedAt    DateTime?
+
+  /// Versement ayant absorbé la dette, quand la commande avait déjà été payée.
+  settledPayoutId String?
+
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// Un seul remboursement par commande : les remboursements partiels
+  /// demanderaient un suivi ligne à ligne, hors de portée pour l'instant.
+  orderId String @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([settledPayoutId])
 }
 
 /**

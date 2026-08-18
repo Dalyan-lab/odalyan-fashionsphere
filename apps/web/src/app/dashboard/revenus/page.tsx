@@ -7,6 +7,9 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { PLATFORM_CURRENCY } from '@odalyan/shared';
 
 interface Balance {
+  /** Remboursements accordés sur des commandes déjà versées, à récupérer. */
+  debt: number;
+  debtCount: number;
   available: number;
   availableOrders: number;
   onHold: number;
@@ -116,6 +119,17 @@ export default function RevenusPage() {
           <p className="mt-6 text-muted">{t('common.loading')}</p>
         ) : (
           <>
+            {balance.debt > 0 && (
+              <p className="mt-6 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-500">
+                ⚠️ {balance.debtCount} remboursement{balance.debtCount > 1 ? 's' : ''} accordé
+                {balance.debtCount > 1 ? 's' : ''} sur des commandes déjà versées :{' '}
+                <strong>
+                  <Amount value={balance.debt} currency={currency} />
+                </strong>{' '}
+                seront retenus sur votre prochain versement.
+              </p>
+            )}
+
             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="card p-5">
                 <p className="text-xs uppercase tracking-wide text-faint">{t('earn.available')}</p>

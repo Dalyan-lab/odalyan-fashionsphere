@@ -354,6 +354,42 @@ export class MailService {
     return this.send(to, `Commande ${info.orderNumber} ${wording.subject} — Odalyan`, html);
   }
 
+  /** Prévient le vendeur qu'une demande de remboursement l'attend. */
+  async sendRefundRequested(
+    to: string,
+    info: { orderNumber: string; ordersUrl: string },
+  ): Promise<boolean> {
+    const html = this.wrap(
+      'Demande de remboursement 🔁',
+      `<p style="color:#555">Un client demande le remboursement de la commande <strong>${info.orderNumber}</strong>.</p>
+       <p style="color:#555">Une réponse rapide évite qu'il se tourne vers sa banque, ce qui coûterait bien plus cher à tout le monde.</p>
+       <p style="text-align:center;margin:28px 0">
+         <a href="${info.ordersUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Voir la demande</a>
+       </p>`,
+    );
+    return this.send(to, `Remboursement demandé — commande ${info.orderNumber}`, html);
+  }
+
+  /** Informe le client de la suite donnée à sa demande. */
+  async sendRefundDecision(
+    to: string,
+    info: { orderNumber: string; approved: boolean; note?: string; ordersUrl: string },
+  ): Promise<boolean> {
+    const title = info.approved ? 'Votre remboursement est accordé ✅' : 'Votre demande de remboursement a été refusée';
+    const lead = info.approved
+      ? `Le remboursement de la commande <strong>${info.orderNumber}</strong> a été accordé. Le montant vous sera reversé par le moyen utilisé lors du paiement.`
+      : `La demande de remboursement pour la commande <strong>${info.orderNumber}</strong> n'a pas été retenue.`;
+    const html = this.wrap(
+      title,
+      `<p style="color:#555">${lead}</p>
+       ${info.note ? `<p style="background:#f4f1f8;border-radius:10px;padding:12px 16px;color:#333">${info.note}</p>` : ''}
+       <p style="text-align:center;margin:28px 0">
+         <a href="${info.ordersUrl}" style="background:linear-gradient(135deg,#7c3aed,#c0306a);color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600">Voir ma commande</a>
+       </p>`,
+    );
+    return this.send(to, `Remboursement ${info.approved ? 'accordé' : 'refusé'} — ${info.orderNumber}`, html);
+  }
+
   /** Notification envoyée au vendeur quand une commande est payée. */
   async sendNewOrderNotification(
     to: string,
