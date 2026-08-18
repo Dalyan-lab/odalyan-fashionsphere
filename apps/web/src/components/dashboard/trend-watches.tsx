@@ -26,6 +26,9 @@ interface Watch {
 export function TrendWatches() {
   const { user } = useAuth();
   const [watches, setWatches] = useState<Watch[] | null>(null);
+  // Sans clé Keepa, un rayon se lance et rapporte zéro produit sans rien dire.
+  // Le silence est le pire des retours : on affiche la cause.
+  const [keepaReady, setKeepaReady] = useState<boolean | null>(null);
   const [form, setForm] = useState({
     label: '',
     marketplace: AMAZON_MARKETPLACES[0]?.domain ?? '',
@@ -41,7 +44,11 @@ export function TrendWatches() {
       .catch(() => setWatches([]));
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') load();
+    if (user?.role !== 'ADMIN') return;
+    load();
+    apiFetch<{ keepa: boolean }>('/viral-amazone/status')
+      .then((s) => setKeepaReady(s.keepa))
+      .catch(() => setKeepaReady(null));
   }, [user?.role]);
 
   // Réservé à l'administrateur : un vendeur n'a pas à voir ce bloc, et l'API
@@ -78,6 +85,13 @@ export function TrendWatches() {
         <code className="text-content">beauty</code>, <code className="text-content">electronics</code>{' '}
         ou <code className="text-content">fashion</code> — ces noms fonctionnent sur tous les pays.
       </p>
+
+      {keepaReady === false && (
+        <p className="mb-3 rounded-lg bg-amber-500/15 px-3 py-2 text-sm text-amber-500">
+          ⚠️ Clé Keepa absente : les rayons se lanceront mais ne rapporteront aucun produit.
+          Renseignez <code>KEEPA_API_KEY</code> dans les variables du service API.
+        </p>
+      )}
 
       {error && <p className="mb-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
 
