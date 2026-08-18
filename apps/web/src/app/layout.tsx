@@ -7,12 +7,38 @@ import { PWARegister } from '@/components/pwa-register';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-display' });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fashodalyansp.com';
+const DESCRIPTION =
+  'Créez, animez, exposez et vendez avec la puissance de l’IA. La première plateforme FashionTech alimentée par l’IA.';
+
 export const metadata: Metadata = {
-  title: 'Odalyan FashionSphere AI™ — Fashion Commerce IA',
-  description:
-    'Créez, animez, exposez et vendez avec la puissance de l’IA. La première plateforme FashionTech alimentée par l’IA.',
+  // Indispensable : sans adresse de base, Next produit des URL d'images
+  // relatives que Facebook, WhatsApp et TikTok ne savent pas résoudre — la
+  // carte de partage s'affiche alors sans visuel.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Odalyan FashionSphere AI™ — Fashion Commerce IA',
+    // Les pages produit et boutique complètent ce gabarit.
+    template: '%s — Odalyan FashionSphere',
+  },
+  description: DESCRIPTION,
   applicationName: 'Odalyan FashionSphere',
   manifest: '/manifest.webmanifest',
+  openGraph: {
+    type: 'website',
+    siteName: 'Odalyan FashionSphere',
+    locale: 'fr_FR',
+    url: SITE_URL,
+    title: 'Odalyan FashionSphere AI™',
+    description: DESCRIPTION,
+    images: ['/logo.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Odalyan FashionSphere AI™',
+    description: DESCRIPTION,
+    images: ['/logo.png'],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
