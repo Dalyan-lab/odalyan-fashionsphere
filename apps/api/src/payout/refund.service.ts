@@ -1,9 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, RefundStatus } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { appUrl } from '../common/app-url';
+
+// Littéraux plutôt que les énumérations générées : Prisma les accepte, et le
+// service utilisait déjà des chaînes pour les statuts de commande. Ça évite
+// surtout de dépendre d'objets que le client généré n'expose pas partout.
+const REFUND_REQUESTED = 'REQUESTED' as const;
+const REFUND_APPROVED = 'APPROVED' as const;
+const REFUND_REJECTED = 'REJECTED' as const;
 
 /** Statuts depuis lesquels un client peut demander un remboursement. */
 const REFUNDABLE = ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'] as const;
@@ -103,7 +109,7 @@ export class RefundService {
     });
     if (!refund) throw new NotFoundException('Remboursement introuvable');
     if (refund.order.shopId !== shopId) throw new ForbiddenException('Cette commande n’est pas la vôtre.');
-    if (refund.status !== RefundStatus.REQUESTED) {
+    if (refund.status !== REFUND_REQUESTED) {
       throw new BadRequestException('Cette demande a déjà été tranchée.');
     }
 
@@ -111,7 +117,7 @@ export class RefundService {
       const r = await tx.refund.update({
         where: { id: refundId },
         data: {
-          status: approve ? RefundStatus.APPROVED : RefundStatus.REJECTED,
+          status: approve ? REFUND_APPROVED : REFUND_REJECTED,
           decidedAt: new Date(),
           ...(note ? { decisionNote: note.trim() } : {}),
         },
@@ -144,7 +150,7 @@ export class RefundService {
   async outstandingDebts(shopId: string) {
     return this.prisma.refund.findMany({
       where: {
-        status: RefundStatus.APPROVED,
+        status: REFUND_APPROVED,
         settledPayoutId: null,
         order: { shopId, payoutId: { not: null } },
       },

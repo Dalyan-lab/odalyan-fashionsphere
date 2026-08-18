@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma, PayoutStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+
+/** Littéral plutôt que l'énumération générée — voir RefundService. */
+const PAYOUT_PAID = 'PAID' as const;
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeOrderSplit } from './order-split';
@@ -128,7 +131,7 @@ export class PayoutService {
         _count: true,
       }),
       this.prisma.payout.aggregate({
-        where: { shopId, status: PayoutStatus.PAID },
+        where: { shopId, status: PAYOUT_PAID },
         _sum: { amount: true },
       }),
     ]);
@@ -272,12 +275,12 @@ export class PayoutService {
   async markPaid(payoutId: string, transferRef?: string, note?: string) {
     const payout = await this.prisma.payout.findUnique({ where: { id: payoutId } });
     if (!payout) throw new NotFoundException('Versement introuvable');
-    if (payout.status === PayoutStatus.PAID) return payout;
+    if (payout.status === PAYOUT_PAID) return payout;
 
     return this.prisma.payout.update({
       where: { id: payoutId },
       data: {
-        status: PayoutStatus.PAID,
+        status: PAYOUT_PAID,
         paidAt: new Date(),
         ...(transferRef ? { transferRef } : {}),
         ...(note ? { note } : {}),
@@ -294,7 +297,7 @@ export class PayoutService {
   async cancel(payoutId: string) {
     const payout = await this.prisma.payout.findUnique({ where: { id: payoutId } });
     if (!payout) throw new NotFoundException('Versement introuvable');
-    if (payout.status === PayoutStatus.PAID) {
+    if (payout.status === PAYOUT_PAID) {
       throw new BadRequestException('Un versement déjà payé ne peut pas être annulé.');
     }
     return this.prisma.$transaction(async (tx) => {
