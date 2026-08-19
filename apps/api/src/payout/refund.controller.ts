@@ -21,14 +21,26 @@ export class RefundController {
     return this.refunds.listForCustomer(userId);
   }
 
-  /** Le client demande le remboursement d'une commande. */
+  /** Ce qui reste remboursable sur une commande, pour la demande partielle. */
+  @Get('refundable/:orderId')
+  refundable(@CurrentUser('id') userId: string, @Param('orderId') orderId: string) {
+    return this.refunds.refundable(userId, orderId);
+  }
+
+  /**
+   * Le client demande le remboursement d'une commande.
+   *
+   * `items` est facultatif : sans lui, la demande porte sur tout ce qui reste
+   * remboursable, ce qui préserve le geste « je veux être remboursé ».
+   */
   @Post()
   request(
     @CurrentUser('id') userId: string,
     @Body('orderId') orderId: string,
     @Body('reason') reason: string,
+    @Body('items') items?: { orderItemId: string; quantity: number }[],
   ) {
-    return this.refunds.request(userId, orderId, reason ?? '');
+    return this.refunds.request(userId, orderId, reason ?? '', items);
   }
 
   /** Demandes reçues par la boutique du vendeur. */

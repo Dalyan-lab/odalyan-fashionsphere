@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
+import { RefundRequest } from '@/components/refund-request';
 
 interface Refund {
   id: string;
   status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
   reason: string;
   decisionNote: string | null;
+  amount: string;
+  full: boolean;
+  items: { quantity: number; orderItem: { productName: string } }[];
   order: { orderNumber: string };
 }
 
@@ -126,7 +130,6 @@ export default function MyOrdersPage() {
   const [orders, setOrders] = useState<MyOrder[] | null>(null);
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [needsLogin, setNeedsLogin] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
 
   const load = () => {
     apiFetch<MyOrder[]>('/orders/mine')
@@ -141,25 +144,6 @@ export default function MyOrdersPage() {
   };
 
   useEffect(load, []);
-
-  const askRefund = async (order: MyOrder) => {
-    const reason = window.prompt(
-      `Pourquoi souhaitez-vous être remboursé pour la commande ${order.orderNumber} ?`,
-    );
-    if (!reason?.trim()) return;
-    setBusy(order.id);
-    try {
-      await apiFetch('/refunds', {
-        method: 'POST',
-        body: JSON.stringify({ orderId: order.id, reason }),
-      });
-      load();
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Erreur');
-    } finally {
-      setBusy(null);
-    }
-  };
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -233,26 +217,34 @@ export default function MyOrdersPage() {
               <EstimatedDelivery order={o} />
 
               {(() => {
-                const refund = refunds.find((r) => r.order.orderNumber === o.orderNumber);
-                if (refund) {
-                  return (
-                    <div className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-sm">
-                      <p>{REFUND_LABEL[refund.status]}</p>
-                      {refund.decisionNote && (
-                        <p className="mt-1 text-xs text-faint">{refund.decisionNote}</p>
-                      )}
-                    </div>
-                  );
-                }
-                if (!REFUNDABLE.includes(o.status)) return null;
+                const mine = refunds.filter((r) => r.order.orderNumber === o.orderNumber);
+                const soldee = mine.some((r) => r.status !== 'REJECTED' && r.full);
                 return (
-                  <button
-                    onClick={() => askRefund(o)}
-                    disabled={busy === o.id}
-                    className="mt-3 text-sm text-muted underline-offset-2 hover:text-content hover:underline disabled:opacity-40"
-                  >
-                    {busy === o.id ? '…' : 'Demander un remboursement'}
-                  </button>
+                  <>
+                    {mine.map((r) => (
+                      <div key={r.id} className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-sm">
+                        <p className="flex flex-wrap justify-between gap-2">
+                          <span>{REFUND_LABEL[r.status]}</span>
+                          <strong className="shrink-0">
+                            {convertAndFormat(Number(r.amount), o.currency, currency)}
+                          </strong>
+                        </p>
+                        {r.items.length > 0 && !r.full && (
+                          <p className="mt-1 text-xs text-faint">
+                            {r.items
+                              .map((i) => `${i.quantity} × ${i.orderItem.productName}`)
+                              .join(', ')}
+                          </p>
+                        )}
+                        {r.decisionNote && (
+                          <p className="mt-1 text-xs text-faint">{r.decisionNote}</p>
+                        )}
+                      </div>
+                    ))}
+                    {REFUNDABLE.includes(o.status) && !soldee && (
+                      <RefundRequest orderId={o.id} orderNumber={o.orderNumber} onDone={load} />
+                    )}
+                  </>
                 );
               })()}
 

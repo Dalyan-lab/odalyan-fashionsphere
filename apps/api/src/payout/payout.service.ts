@@ -86,12 +86,19 @@ export class PayoutService {
   /**
    * Commandes versables : livrées, sorties du délai de garantie, non encore
    * rattachées à un versement.
+   *
+   * Les commandes remboursées y figurent aussi, et ce n'est pas un oubli : la
+   * vente a eu lieu, et c'est la dette de remboursement qui l'annule. Les
+   * exclure ici **et** les compter en dette reprendrait deux fois la même
+   * somme au vendeur. Le relevé y gagne : la vente et sa reprise s'y lisent
+   * l'une en face de l'autre, comme dans un livre de comptes.
+   * Voir `RefundService.outstandingDebts`.
    */
   private eligibleWhere(shopId?: string): Prisma.OrderWhereInput {
     const cutoff = new Date(Date.now() - holdDays() * 24 * 60 * 60 * 1000);
     return {
       ...(shopId ? { shopId } : {}),
-      status: 'DELIVERED',
+      status: { in: ['DELIVERED', 'REFUNDED'] },
       deliveredAt: { lte: cutoff },
       payoutId: null,
       sellerAmount: { not: null },
@@ -114,11 +121,13 @@ export class PayoutService {
         _sum: { sellerAmount: true },
         _count: true,
       }),
-      // Livrées mais encore sous garantie
+      // Livrées mais encore sous garantie. Même traitement des commandes
+      // remboursées que dans `eligibleWhere`, sans quoi une somme disparaîtrait
+      // du solde affiché pendant le délai puis y réapparaîtrait après.
       this.prisma.order.aggregate({
         where: {
           ...paidUnpaidOrders,
-          status: 'DELIVERED',
+          status: { in: ['DELIVERED', 'REFUNDED'] },
           deliveredAt: { gt: new Date(Date.now() - holdDays() * 24 * 60 * 60 * 1000) },
         },
         _sum: { sellerAmount: true },

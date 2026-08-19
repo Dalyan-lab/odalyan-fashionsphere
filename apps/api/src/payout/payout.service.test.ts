@@ -33,6 +33,57 @@ describe('PayoutService — garde-fous du versement', () => {
   });
 });
 
+describe('PayoutService — remboursements et versement', () => {
+  const boutique = { id: 'b1', payoutNumber: '0700000000', payoutMethod: 'MOBILE_MONEY' };
+  const vendue = {
+    id: 'c1',
+    shopId: 'b1',
+    status: 'DELIVERED',
+    sellerAmount: '25800.00',
+    currency: 'XOF',
+    payoutId: null,
+    deliveredAt: new Date('2026-01-01'),
+    payment: { paid: true },
+  };
+
+  /** Montant envoyé à la création du versement. */
+  function montant(prisma: unknown): string {
+    const call = callsOf(prisma).find((c) => c.model === 'payout' && c.method === 'create');
+    assert.ok(call, 'un versement doit être créé');
+    return String((call!.args as { data: { amount: unknown } }).data.amount);
+  }
+
+  test('un remboursement partiel est retenu sur le versement', async () => {
+    const { service, prisma } = build({ shop: [boutique], order: [{ ...vendue }] }, [
+      { id: 'rb-1', sellerShare: '4500.00' },
+    ]);
+    await service.create('b1');
+    assert.equal(montant(prisma), '21300', '25 800 de vente moins 4 500 rendus');
+  });
+
+  test('une commande remboursée en totalité laisse un versement nul', async () => {
+    // Elle reste comptée comme vente : c'est la dette qui l'annule. L'exclure
+    // *et* réclamer la dette reprendrait deux fois la même somme au vendeur.
+    const { service, prisma } = build(
+      { shop: [boutique], order: [{ ...vendue, status: 'REFUNDED' }] },
+      [{ id: 'rb-1', sellerShare: '25800.00' }],
+    );
+    await service.create('b1');
+    assert.equal(montant(prisma), '0');
+  });
+
+  test('une dette plus lourde que le solde est reportée, jamais prélevée à moitié', async () => {
+    const { service, prisma } = build({ shop: [boutique], order: [{ ...vendue }] }, [
+      { id: 'rb-1', sellerShare: '40000.00' },
+    ]);
+    await service.create('b1');
+    assert.equal(montant(prisma), '25800', 'le versement ne devient pas négatif');
+
+    const solde = callsOf(prisma).find((c) => c.model === 'refund' && c.method === 'updateMany');
+    assert.equal(solde, undefined, 'la dette n’est pas marquée réglée puisqu’elle ne l’est pas');
+  });
+});
+
 describe('PayoutService — versement effectué', () => {
   const versement = { id: 'vs-1', shopId: 'b1', status: 'PENDING', amount: '10000.00' };
 

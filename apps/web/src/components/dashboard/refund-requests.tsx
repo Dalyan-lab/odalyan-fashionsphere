@@ -12,6 +12,8 @@ interface Refund {
   sellerShare: string;
   reason: string;
   decisionNote: string | null;
+  full: boolean;
+  items: { quantity: number; orderItem: { productName: string } }[];
   createdAt: string;
   order: {
     orderNumber: string;
@@ -95,8 +97,10 @@ export function RefundRequests() {
         )}
       </h2>
       <p className="mb-4 text-xs text-muted">
-        Accorder un remboursement retire la commande de votre solde. Si elle vous a déjà été
-        versée, le montant sera retenu sur votre prochain versement.
+        Accorder un remboursement retire la somme rendue de votre solde — la part que vous
+        auriez perçue, commission déduite. Si la commande vous a déjà été versée, elle sera
+        retenue sur votre prochain versement. Un remboursement partiel ne touche que les
+        articles rendus : le reste de la commande vous revient normalement.
       </p>
 
       {error && <p className="mb-3 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{error}</p>}
@@ -116,7 +120,22 @@ export function RefundRequests() {
                   {new Date(r.createdAt).toLocaleDateString('fr-FR')} · vous reprendriez{' '}
                   {convertAndFormat(Number(r.sellerShare), r.order.currency, target)}
                 </p>
-                <p className="mt-1 text-sm">« {r.reason} »</p>
+                <p className="mt-1 text-sm">
+                  {r.full ? (
+                    <span className="mr-1 rounded bg-surface px-1.5 py-0.5 text-xs text-faint">
+                      commande entière
+                    </span>
+                  ) : (
+                    r.items.length > 0 && (
+                      <span className="mr-1 rounded bg-surface px-1.5 py-0.5 text-xs text-faint">
+                        {r.items
+                          .map((i) => `${i.quantity} × ${i.orderItem.productName}`)
+                          .join(', ')}
+                      </span>
+                    )
+                  )}
+                  « {r.reason} »
+                </p>
                 {r.decisionNote && <p className="mt-1 text-xs text-faint">Votre réponse : {r.decisionNote}</p>}
               </div>
               <div className="flex items-center gap-2">
