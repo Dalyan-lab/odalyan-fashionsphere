@@ -33,6 +33,21 @@ export const BANNER_TONE_LABELS: Record<BannerTone, string> = {
 export const BANNER_HEIGHTS = ['compact', 'standard', 'grand'] as const;
 export type BannerHeight = (typeof BANNER_HEIGHTS)[number];
 
+/**
+ * Animations disponibles sur l'image de fond.
+ *
+ * « orbit » rejoue le ballet des univers produits en calculant tout à
+ * l'affichage : net à n'importe quelle taille, et sans les défauts d'un export
+ * vidéo — poids, recadrage, compression.
+ */
+export const BANNER_ANIMATIONS = ['none', 'orbit'] as const;
+export type BannerAnimation = (typeof BANNER_ANIMATIONS)[number];
+
+export const BANNER_ANIMATION_LABELS: Record<BannerAnimation, string> = {
+  none: 'Aucune — image fixe',
+  orbit: 'Orbite — les univers produits tournent puis se rangent',
+};
+
 /** Partie du média conservée au recadrage. */
 export const BANNER_POSITIONS = ['top', 'center', 'bottom'] as const;
 export type BannerPosition = (typeof BANNER_POSITIONS)[number];
@@ -94,6 +109,7 @@ const bannerFields = z.object({
   theme: z.enum(BANNER_THEMES).optional(),
   height: z.enum(BANNER_HEIGHTS).optional(),
   mediaPosition: z.enum(BANNER_POSITIONS).optional(),
+  animation: z.enum(BANNER_ANIMATIONS).optional(),
   active: z.boolean().optional(),
   startsAt: dateOuVide,
   endsAt: dateOuVide,
@@ -136,6 +152,7 @@ export interface MarketplaceBannerInfo {
   theme: BannerTheme;
   height: BannerHeight;
   mediaPosition: BannerPosition;
+  animation: BannerAnimation;
   active: boolean;
   startsAt: string | null;
   endsAt: string | null;

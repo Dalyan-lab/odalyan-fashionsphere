@@ -10,6 +10,8 @@ import {
   BANNER_HEIGHT_LABELS,
   BANNER_POSITIONS,
   BANNER_POSITION_LABELS,
+  BANNER_ANIMATIONS,
+  BANNER_ANIMATION_LABELS,
   isBannerLive,
   type MarketplaceBannerInfo,
 } from '@odalyan/shared';
@@ -39,6 +41,7 @@ const VIDE = {
   theme: 'violet',
   height: 'standard',
   mediaPosition: 'center',
+  animation: 'none',
   active: true,
   startsAt: '',
   endsAt: '',
@@ -92,6 +95,7 @@ export default function BannersPage() {
       theme: b.theme,
       height: b.height ?? 'standard',
       mediaPosition: b.mediaPosition ?? 'center',
+      animation: b.animation ?? 'none',
       active: b.active,
       startsAt: versChamp(b.startsAt),
       endsAt: versChamp(b.endsAt),
@@ -178,6 +182,7 @@ export default function BannersPage() {
               theme: form.theme as never,
               height: form.height as never,
               mediaPosition: form.mediaPosition as never,
+              animation: form.animation as never,
               active: form.active,
               startsAt: null,
               endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
@@ -268,6 +273,22 @@ export default function BannersPage() {
               <label className="label">Lien du bouton</label>
               <input className="input" placeholder="/marketplace?category=FEMME" {...champ('ctaUrl')} />
             </div>
+          </div>
+
+          <div>
+            <label className="label">Animation de l’image</label>
+            <select className="input" {...champ('animation')}>
+              {BANNER_ANIMATIONS.map((a) => (
+                <option key={a} value={a}>
+                  {BANNER_ANIMATION_LABELS[a]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-faint">
+              « Orbite » anime directement l’image, sans vidéo : rien à exporter, rien à
+              compresser, et le rendu reste net à toutes les tailles. Conçue pour une
+              bannière large portant une rangée d’univers produits.
+            </p>
           </div>
 
           <ImageUploadInput

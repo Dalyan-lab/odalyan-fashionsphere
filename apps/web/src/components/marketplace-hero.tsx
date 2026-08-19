@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { BANNER_HEIGHT_PX, type MarketplaceBannerInfo } from '@odalyan/shared';
+import { BannerOrbit } from '@/components/banner-orbit';
 
 /**
  * Bandeau de tête de la marketplace.
@@ -113,8 +114,11 @@ export function BannerCanvas({
       style={{ background: fond, minHeight: hauteur }}
       aria-live="polite"
     >
-      {/* Média de fond. La vidéo prime quand les deux sont fournies. */}
-      {banner?.videoUrl && !sobre ? (
+      {/* Média de fond. L'animation prime sur la vidéo, qui prime sur l'image
+          fixe : c'est l'ordre du plus vivant au plus sobre. */}
+      {banner?.animation === 'orbit' && banner.imageUrl ? (
+        <BannerOrbit imageUrl={banner.imageUrl} />
+      ) : banner?.videoUrl && !sobre ? (
         <video
           key={banner.videoUrl}
           src={banner.videoUrl}

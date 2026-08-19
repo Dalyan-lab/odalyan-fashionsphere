@@ -998,6 +998,9 @@ model MarketplaceBanner {
   /// Partie du média conservée au recadrage : c'est ce qui décide de ce qui
   /// survit à la coupe.
   mediaPosition String @default("center") // top | center | bottom
+  /// Animation appliquée à l'image de fond. « orbit » anime les univers
+  /// produits sans passer par une vidéo — donc sans recadrage ni compression.
+  animation String @default("none") // none | orbit
 
   active Boolean @default(true)
   /// Fenêtre de diffusion. Deux dates nulles = permanent, ce qui permet de
