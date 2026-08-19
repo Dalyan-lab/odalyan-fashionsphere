@@ -52,19 +52,19 @@ async function main() {
     {
       name: 'Boubou Royal Brodé',
       category: ProductCategory.HOMME,
-      price: 189.0,
+      price: 125000,
       images: ['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=800'],
     },
     {
       name: 'Robe Wax Élégance',
       category: ProductCategory.FEMME,
-      price: 129.0,
+      price: 85000,
       images: ['https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=800'],
     },
     {
       name: 'Ensemble Sport Tech',
       category: ProductCategory.SPORT,
-      price: 79.0,
+      price: 52000,
       images: ['https://images.unsplash.com/photo-1483721310020-03333e577078?w=800'],
     },
   ];
@@ -75,7 +75,7 @@ async function main() {
     await prisma.product.create({
       data: {
         ...p,
-        currency: 'EUR',
+        currency: 'XOF',
         status: ProductStatus.ACTIVE,
         shopId: shop.id,
         variants: {
