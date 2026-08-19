@@ -49,6 +49,14 @@ export class ShopController {
     return this.shopService.getStats(userId);
   }
 
+  /** Fil d'activité récente, pour le tableau de bord. */
+  @Get('me/activity')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  activity(@CurrentUser('id') userId: string) {
+    return this.shopService.recentActivity(userId);
+  }
+
   @Get('me/credits')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SELLER, UserRole.ADMIN)

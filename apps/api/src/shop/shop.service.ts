@@ -17,6 +17,149 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ShopService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Fil d'activité récente de la boutique.
+   *
+   * Dérivé des enregistrements existants — commandes, remboursements,
+   * versements, publications, avis — plutôt que d'une table d'événements
+   * alimentée par les services. Une telle table finirait par diverger du réel
+   * dès qu'un service oublierait d'y écrire, et resterait vide pour tout ce qui
+   * s'est passé avant sa création. Ici le fil ne peut pas mentir : il n'existe
+   * que si l'enregistrement existe.
+   *
+   * Les libellés ne sont **pas** composés ici. L'API renvoie le type et ses
+   * données ; c'est le client qui rédige, dans la langue de l'utilisateur.
+   */
+  async recentActivity(userId: string, limit = 12) {
+    const shop = await this.requireOwnedShop(userId);
+    const where = { shopId: shop.id };
+
+    // Trois requêtes distinctes sur les commandes, chacune triée sur SA date :
+    // prendre les dernières commandes créées manquerait une vieille commande
+    // livrée ce matin, qui est pourtant l'événement le plus frais.
+    const [payees, expediees, livrees, demandes, tranches, verses, publiees, avis] =
+      await Promise.all([
+        this.prisma.order.findMany({
+          where: { ...where, payment: { is: { paid: true } } },
+          select: { orderNumber: true, totalAmount: true, currency: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.order.findMany({
+          where: { ...where, shippedAt: { not: null } },
+          select: { orderNumber: true, currency: true, shippedAt: true },
+          orderBy: { shippedAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.order.findMany({
+          where: { ...where, deliveredAt: { not: null } },
+          select: { orderNumber: true, currency: true, deliveredAt: true },
+          orderBy: { deliveredAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.refund.findMany({
+          where: { order: where },
+          select: { amount: true, createdAt: true, order: { select: { orderNumber: true, currency: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.refund.findMany({
+          where: { order: where, decidedAt: { not: null } },
+          select: {
+            status: true,
+            amount: true,
+            decidedAt: true,
+            order: { select: { orderNumber: true, currency: true } },
+          },
+          orderBy: { decidedAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.payout.findMany({
+          where: { ...where, paidAt: { not: null } },
+          select: { reference: true, amount: true, currency: true, paidAt: true },
+          orderBy: { paidAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.scheduledPost.findMany({
+          where: { ...where, publishedAt: { not: null } },
+          select: { networks: true, publishedAt: true, status: true },
+          orderBy: { publishedAt: 'desc' },
+          take: limit,
+        }),
+        this.prisma.review.findMany({
+          where,
+          select: { rating: true, author: true, createdAt: true, product: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+        }),
+      ]);
+
+    const evenements: {
+      type: string;
+      at: Date;
+      ref?: string;
+      amount?: number;
+      currency?: string;
+      networks?: string[];
+      rating?: number;
+      label?: string;
+      approved?: boolean;
+    }[] = [
+      ...payees.map((o) => ({
+        type: 'ORDER_PAID',
+        at: o.createdAt,
+        ref: o.orderNumber,
+        amount: Number(o.totalAmount),
+        currency: o.currency,
+      })),
+      ...expediees.map((o) => ({
+        type: 'ORDER_SHIPPED',
+        at: o.shippedAt!,
+        ref: o.orderNumber,
+      })),
+      ...livrees.map((o) => ({
+        type: 'ORDER_DELIVERED',
+        at: o.deliveredAt!,
+        ref: o.orderNumber,
+      })),
+      ...demandes.map((r) => ({
+        type: 'REFUND_REQUESTED',
+        at: r.createdAt,
+        ref: r.order.orderNumber,
+        amount: Number(r.amount),
+        currency: r.order.currency,
+      })),
+      ...tranches.map((r) => ({
+        type: 'REFUND_DECIDED',
+        at: r.decidedAt!,
+        ref: r.order.orderNumber,
+        amount: Number(r.amount),
+        currency: r.order.currency,
+        approved: r.status === 'APPROVED',
+      })),
+      ...verses.map((p) => ({
+        type: 'PAYOUT_PAID',
+        at: p.paidAt!,
+        ref: p.reference,
+        amount: Number(p.amount),
+        currency: p.currency,
+      })),
+      ...publiees.map((p) => ({
+        type: 'POST_PUBLISHED',
+        at: p.publishedAt!,
+        networks: p.networks,
+      })),
+      ...avis.map((a) => ({
+        type: 'REVIEW_ADDED',
+        at: a.createdAt,
+        rating: a.rating,
+        label: a.product.name,
+      })),
+    ];
+
+    return evenements.sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, limit);
+  }
+
   /** Boutique du vendeur connecté (avec abonnement + chiffre d'affaires réel). */
   async getMyShop(userId: string) {
     const shop = await this.prisma.shop.findUnique({

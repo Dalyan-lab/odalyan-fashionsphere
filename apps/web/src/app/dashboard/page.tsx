@@ -15,6 +15,7 @@ import { ProductForm } from '@/components/dashboard/product-form';
 import { SocialNetworksCard } from '@/components/dashboard/social-networks-card';
 import { CountUp } from '@/components/dashboard/count-up';
 import { ActivityChart, type DayActivity } from '@/components/dashboard/activity-chart';
+import { ActivityFeed } from '@/components/dashboard/activity-feed';
 
 interface HomeStats {
   customersCount: number;
@@ -188,6 +189,10 @@ export default function DashboardPage() {
 
         {/* ===== Panneau droit ===== */}
         <aside className="space-y-6">
+          <Panel title={t('dh.feed.title')} subtitle={t('dh.feed.sub')}>
+            <ActivityFeed />
+          </Panel>
+
           {/* Mon Avatar */}
           <Panel title={t('dh.avatar.title')} subtitle={t('dh.avatar.sub')}>
             <div className="flex items-center gap-3">
