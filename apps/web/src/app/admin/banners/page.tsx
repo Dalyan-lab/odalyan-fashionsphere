@@ -50,6 +50,30 @@ const VIDE = {
 
 type Form = typeof VIDE;
 
+/**
+ * Brouillon local.
+ *
+ * Composer un bandeau prend du temps — titre, sous-titre, image, dates. Perdre
+ * cette saisie parce qu'on a quitté la page une minute est inacceptable, et
+ * c'est exactement ce qui arrivait : rien n'était conservé tant que
+ * l'enregistrement n'avait pas abouti.
+ *
+ * Le brouillon retient aussi **quel** bandeau était en cours de modification :
+ * restaurer la saisie d'un bandeau dans le formulaire d'un autre écraserait
+ * silencieusement le mauvais.
+ */
+const CLE_BROUILLON = 'odalyan-brouillon-bandeau';
+
+function lireBrouillon(): { edite: string | null; form: Form } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const brut = window.localStorage.getItem(CLE_BROUILLON);
+    return brut ? (JSON.parse(brut) as { edite: string | null; form: Form }) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** `datetime-local` attend « AAAA-MM-JJTHH:MM », sans fuseau ni secondes. */
 function versChamp(iso: string | null): string {
   if (!iso) return '';
@@ -65,6 +89,31 @@ export default function BannersPage() {
   const [msg, setMsg] = useState('');
   const [erreur, setErreur] = useState('');
   const [envoi, setEnvoi] = useState(false);
+  const [brouillonRepris, setBrouillonRepris] = useState(false);
+
+  // Reprise de la saisie interrompue, au chargement de la page.
+  useEffect(() => {
+    const b = lireBrouillon();
+    if (!b) return;
+    setForm(b.form);
+    setEdite(b.edite);
+    setBrouillonRepris(true);
+  }, []);
+
+  // Sauvegarde à chaque frappe. Le formulaire est petit : l'écrire en entier
+  // coûte moins qu'un mécanisme de temporisation, et ne perd pas la dernière
+  // touche saisie avant un départ brutal.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vierge = JSON.stringify(form) === JSON.stringify(VIDE) && !edite;
+    if (vierge) window.localStorage.removeItem(CLE_BROUILLON);
+    else window.localStorage.setItem(CLE_BROUILLON, JSON.stringify({ edite, form }));
+  }, [form, edite]);
+
+  const oublierBrouillon = () => {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(CLE_BROUILLON);
+    setBrouillonRepris(false);
+  };
 
   const charger = () =>
     apiFetch<MarketplaceBannerInfo[]>('/banners').then(setBanners).catch(() => setBanners([]));
@@ -77,6 +126,7 @@ export default function BannersPage() {
     setForm({ ...VIDE });
     setEdite(null);
     setErreur('');
+    oublierBrouillon();
   };
 
   const editer = (b: MarketplaceBannerInfo) => {
@@ -106,9 +156,17 @@ export default function BannersPage() {
 
   const enregistrer = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnvoi(true);
     setMsg('');
     setErreur('');
+    // Contrôle fait ici plutôt que par le navigateur : sa bulle s'affiche là où
+    // il veut — sur la capture d'un utilisateur, au-dessus du sous-titre alors
+    // que le champ manquant était le titre — et laisse croire que tout est
+    // obligatoire. Un seul message, en tête du formulaire, dit lequel manque.
+    if (form.title.trim().length < 2) {
+      setErreur('Le titre est obligatoire — c’est la phrase que liront vos clients. Le reste est facultatif.');
+      return;
+    }
+    setEnvoi(true);
     try {
       // Les dates partent en ISO complet ; vides, elles valent « pas de borne ».
       const payload = {
@@ -121,6 +179,7 @@ export default function BannersPage() {
       else await apiFetch('/banners', { method: 'POST', body: JSON.stringify(payload) });
       setMsg(edite ? 'Bandeau mis à jour.' : 'Bandeau créé.');
       reinitialiser();
+      setBrouillonRepris(false);
       await charger();
     } catch (err) {
       setErreur(err instanceof Error ? err.message : 'Erreur');
@@ -191,8 +250,21 @@ export default function BannersPage() {
           />
         </div>
 
-        <form onSubmit={enregistrer} className="card mt-6 space-y-4 p-6">
+        <form onSubmit={enregistrer} noValidate className="card mt-6 space-y-4 p-6">
           <h2 className="font-bold">{edite ? 'Modifier le bandeau' : 'Nouveau bandeau'}</h2>
+
+          {brouillonRepris && (
+            <p className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">
+              <span>Votre saisie précédente a été retrouvée et remise en place.</span>
+              <button
+                type="button"
+                onClick={reinitialiser}
+                className="text-xs text-brand-violet hover:underline"
+              >
+                Repartir de zéro
+              </button>
+            </p>
+          )}
 
           {erreur && (
             <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{erreur}</p>
@@ -203,7 +275,7 @@ export default function BannersPage() {
 
           <div>
             <label className="label">Titre</label>
-            <input className="input" {...champ('title')} required maxLength={90} />
+            <input className="input" {...champ('title')} maxLength={90} />
           </div>
           <div>
             <label className="label">Sous-titre</label>
