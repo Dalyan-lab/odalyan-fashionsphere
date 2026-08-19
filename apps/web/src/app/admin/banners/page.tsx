@@ -12,6 +12,7 @@ import {
 import { apiFetch } from '@/lib/api';
 import { Topbar } from '@/components/dashboard/topbar';
 import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
+import { VideoUploadInput } from '@/components/dashboard/video-upload-input';
 
 /**
  * Gestion des bandeaux de la marketplace.
@@ -212,15 +213,12 @@ export default function BannersPage() {
             value={form.imageUrl}
             onChange={(url) => setForm({ ...form, imageUrl: url })}
           />
-          <div>
-            <label className="label">Vidéo de fond (URL)</label>
-            <input className="input" placeholder="https://…/promo.mp4" {...champ('videoUrl')} />
-            <p className="mt-1 text-xs text-faint">
-              La vidéo passe devant l’image, muette et en boucle. L’image sert alors de
-              vignette pendant le chargement — et de secours pour les visiteurs qui ont
-              désactivé les animations.
-            </p>
-          </div>
+          <VideoUploadInput
+            label="Vidéo de fond"
+            value={form.videoUrl}
+            onChange={(url) => setForm({ ...form, videoUrl: url })}
+            hint="La vidéo passe devant l’image, muette et en boucle. L’image sert alors de vignette pendant le chargement — et de secours pour les visiteurs qui ont désactivé les animations."
+          />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
