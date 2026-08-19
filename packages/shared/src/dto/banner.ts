@@ -23,6 +23,44 @@ export const BANNER_TONE_LABELS: Record<BannerTone, string> = {
   INFO: 'Information',
 };
 
+/**
+ * Hauteurs disponibles.
+ *
+ * Une vidéo 16:9 posée dans un bandeau très large est recadrée : mesuré dans le
+ * navigateur sur 1217 px de large, « compact » n'en montre que 46 %, « grand »
+ * 70 %. Le choix appartient à celui qui connaît sa vidéo.
+ */
+export const BANNER_HEIGHTS = ['compact', 'standard', 'grand'] as const;
+export type BannerHeight = (typeof BANNER_HEIGHTS)[number];
+
+/** Partie du média conservée au recadrage. */
+export const BANNER_POSITIONS = ['top', 'center', 'bottom'] as const;
+export type BannerPosition = (typeof BANNER_POSITIONS)[number];
+
+/**
+ * Parts mesurées dans le navigateur sur un bandeau de 1217 px de large, avec
+ * une vidéo 16:9. Approximatives à dessein : la hauteur est un minimum que le
+ * texte peut dépasser, donc annoncer un chiffre exact serait faux.
+ */
+export const BANNER_HEIGHT_LABELS: Record<BannerHeight, string> = {
+  compact: 'Compact — environ 45 % d’une vidéo 16:9 visible',
+  standard: 'Standard — environ 55 %',
+  grand: 'Grand — environ 70 %, recommandé pour une vidéo',
+};
+
+export const BANNER_POSITION_LABELS: Record<BannerPosition, string> = {
+  top: 'Garder le haut',
+  center: 'Garder le centre',
+  bottom: 'Garder le bas',
+};
+
+/** Hauteurs réelles, partagées par le bandeau et son aperçu. */
+export const BANNER_HEIGHT_PX: Record<BannerHeight, number> = {
+  compact: 280,
+  standard: 360,
+  grand: 480,
+};
+
 export const BANNER_THEME_LABELS: Record<BannerTheme, string> = {
   violet: 'Violet (identité)',
   or: 'Or (luxe)',
@@ -54,6 +92,8 @@ const bannerFields = z.object({
   imageUrl: urlOuVide,
   videoUrl: urlOuVide,
   theme: z.enum(BANNER_THEMES).optional(),
+  height: z.enum(BANNER_HEIGHTS).optional(),
+  mediaPosition: z.enum(BANNER_POSITIONS).optional(),
   active: z.boolean().optional(),
   startsAt: dateOuVide,
   endsAt: dateOuVide,
@@ -94,6 +134,8 @@ export interface MarketplaceBannerInfo {
   imageUrl: string | null;
   videoUrl: string | null;
   theme: BannerTheme;
+  height: BannerHeight;
+  mediaPosition: BannerPosition;
   active: boolean;
   startsAt: string | null;
   endsAt: string | null;

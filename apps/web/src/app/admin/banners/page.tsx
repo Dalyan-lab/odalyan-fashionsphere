@@ -6,6 +6,10 @@ import {
   BANNER_THEME_LABELS,
   BANNER_TONES,
   BANNER_TONE_LABELS,
+  BANNER_HEIGHTS,
+  BANNER_HEIGHT_LABELS,
+  BANNER_POSITIONS,
+  BANNER_POSITION_LABELS,
   isBannerLive,
   type MarketplaceBannerInfo,
 } from '@odalyan/shared';
@@ -13,6 +17,7 @@ import { apiFetch } from '@/lib/api';
 import { Topbar } from '@/components/dashboard/topbar';
 import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
 import { VideoUploadInput } from '@/components/dashboard/video-upload-input';
+import { BannerCanvas } from '@/components/marketplace-hero';
 
 /**
  * Gestion des bandeaux de la marketplace.
@@ -32,6 +37,8 @@ const VIDE = {
   imageUrl: '',
   videoUrl: '',
   theme: 'violet',
+  height: 'standard',
+  mediaPosition: 'center',
   active: true,
   startsAt: '',
   endsAt: '',
@@ -83,6 +90,8 @@ export default function BannersPage() {
       imageUrl: b.imageUrl ?? '',
       videoUrl: b.videoUrl ?? '',
       theme: b.theme,
+      height: b.height ?? 'standard',
+      mediaPosition: b.mediaPosition ?? 'center',
       active: b.active,
       startsAt: versChamp(b.startsAt),
       endsAt: versChamp(b.endsAt),
@@ -151,6 +160,32 @@ export default function BannersPage() {
           Lancez, programmez ou coupez une campagne sans redéployer le site.
         </p>
 
+        {/* Aperçu rendu par le composant même qui sert la marketplace : ce que
+            l'on voit ici est exactement ce que verront les clients. */}
+        <div className="mt-6">
+          <p className="mb-2 text-xs uppercase tracking-wide text-faint">Aperçu client</p>
+          <BannerCanvas
+            banner={{
+              id: 'apercu',
+              title: form.title || 'Votre titre',
+              subtitle: form.subtitle || null,
+              badge: form.badge || null,
+              tone: form.tone as never,
+              ctaLabel: form.ctaLabel || null,
+              ctaUrl: form.ctaUrl || null,
+              imageUrl: form.imageUrl || null,
+              videoUrl: form.videoUrl || null,
+              theme: form.theme as never,
+              height: form.height as never,
+              mediaPosition: form.mediaPosition as never,
+              active: form.active,
+              startsAt: null,
+              endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
+              priority: Number(form.priority) || 0,
+            }}
+          />
+        </div>
+
         <form onSubmit={enregistrer} className="card mt-6 space-y-4 p-6">
           <h2 className="font-bold">{edite ? 'Modifier le bandeau' : 'Nouveau bandeau'}</h2>
 
@@ -194,6 +229,33 @@ export default function BannersPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Hauteur du bandeau</label>
+              <select className="input" {...champ('height')}>
+                {BANNER_HEIGHTS.map((h) => (
+                  <option key={h} value={h}>
+                    {BANNER_HEIGHT_LABELS[h]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Cadrage du média</label>
+              <select className="input" {...champ('mediaPosition')}>
+                {BANNER_POSITIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {BANNER_POSITION_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-faint">
+                Un bandeau est bien plus large que haut : une vidéo 16:9 y est recadrée.
+                Ce réglage décide de la bande conservée.
+              </p>
             </div>
           </div>
 

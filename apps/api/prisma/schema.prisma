@@ -991,6 +991,14 @@ model MarketplaceBanner {
   /// Ambiance colorée, pour habiller le bandeau même sans média.
   theme String @default("violet") // violet | or | nuit | ete | fete
 
+  /// Hauteur du bandeau. Une vidéo 16:9 posée dans un bandeau très large perd
+  /// une grande part de sa hauteur ; « grand » en montre 70 % contre 41 % pour
+  /// « compact ».
+  height String @default("standard") // compact | standard | grand
+  /// Partie du média conservée au recadrage : c'est ce qui décide de ce qui
+  /// survit à la coupe.
+  mediaPosition String @default("center") // top | center | bottom
+
   active Boolean @default(true)
   /// Fenêtre de diffusion. Deux dates nulles = permanent, ce qui permet de
   /// préparer une saison à l'avance sans la rendre visible.

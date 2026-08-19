@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import type { MarketplaceBannerInfo } from '@odalyan/shared';
+import { BANNER_HEIGHT_PX, type MarketplaceBannerInfo } from '@odalyan/shared';
 
 /**
  * Bandeau de tête de la marketplace.
@@ -68,22 +68,24 @@ function animationsReduites(): boolean {
   );
 }
 
-export function MarketplaceHero({
+/**
+ * Rendu seul, sans appel réseau.
+ *
+ * Séparé de la récupération pour que l'administration puisse afficher un
+ * aperçu **exactement** identique à ce que verront les clients. Un aperçu
+ * approximatif serait pire qu'aucun : il ferait valider un cadrage faux.
+ */
+export function BannerCanvas({
+  banner,
   fallbackTitle,
   fallbackSubtitle,
 }: {
-  fallbackTitle: string;
-  fallbackSubtitle: string;
+  banner: MarketplaceBannerInfo | null;
+  fallbackTitle?: string;
+  fallbackSubtitle?: string;
 }) {
-  const [banner, setBanner] = useState<MarketplaceBannerInfo | null | undefined>(undefined);
   const [restant, setRestant] = useState<string | null>(null);
   const sobre = animationsReduites();
-
-  useEffect(() => {
-    apiFetch<MarketplaceBannerInfo | null>('/banners/current', { auth: false })
-      .then(setBanner)
-      .catch(() => setBanner(null));
-  }, []);
 
   useEffect(() => {
     if (!banner?.endsAt) return;
@@ -95,6 +97,11 @@ export function MarketplaceHero({
     return () => clearInterval(id);
   }, [banner]);
 
+  const hauteur = BANNER_HEIGHT_PX[banner?.height ?? 'standard'] ?? BANNER_HEIGHT_PX.standard;
+  // `object-position` décide de la bande conservée au recadrage : c'est le
+  // réglage qui sauve un logo placé en haut ou un texte placé en bas.
+  const cadrage =
+    banner?.mediaPosition === 'top' ? 'top' : banner?.mediaPosition === 'bottom' ? 'bottom' : 'center';
   const fond = THEMES[banner?.theme ?? 'violet'] ?? THEMES.violet;
   const ton = TONS[banner?.tone ?? 'INFO'] ?? TONS.INFO;
   const titre = banner?.title ?? fallbackTitle;
@@ -102,8 +109,8 @@ export function MarketplaceHero({
 
   return (
     <section
-      className="relative isolate overflow-hidden rounded-3xl"
-      style={{ background: fond }}
+      className="relative isolate flex items-center overflow-hidden rounded-3xl"
+      style={{ background: fond, minHeight: hauteur }}
       aria-live="polite"
     >
       {/* Média de fond. La vidéo prime quand les deux sont fournies. */}
@@ -118,6 +125,7 @@ export function MarketplaceHero({
           playsInline
           preload="metadata"
           aria-hidden
+          style={{ objectPosition: cadrage }}
           className="absolute inset-0 h-full w-full object-cover opacity-60"
         />
       ) : banner?.imageUrl ? (
@@ -125,6 +133,7 @@ export function MarketplaceHero({
           src={banner.imageUrl}
           alt=""
           aria-hidden
+          style={{ objectPosition: cadrage }}
           className={`absolute inset-0 h-full w-full object-cover opacity-60 ${
             sobre ? '' : 'animate-kenburns'
           }`}
@@ -196,5 +205,27 @@ export function MarketplaceHero({
         </div>
       </div>
     </section>
+  );
+}
+
+
+/** Bandeau de la marketplace : va chercher la campagne en cours, puis l'affiche. */
+export function MarketplaceHero({
+  fallbackTitle,
+  fallbackSubtitle,
+}: {
+  fallbackTitle: string;
+  fallbackSubtitle: string;
+}) {
+  const [banner, setBanner] = useState<MarketplaceBannerInfo | null>(null);
+
+  useEffect(() => {
+    apiFetch<MarketplaceBannerInfo | null>('/banners/current', { auth: false })
+      .then(setBanner)
+      .catch(() => setBanner(null));
+  }, []);
+
+  return (
+    <BannerCanvas banner={banner} fallbackTitle={fallbackTitle} fallbackSubtitle={fallbackSubtitle} />
   );
 }
