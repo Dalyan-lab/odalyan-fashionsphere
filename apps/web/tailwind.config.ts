@@ -57,12 +57,20 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // Dévoilement du tracé, de gauche à droite. Aucun `fill-mode` : l'état
+        // de repos est la largeur pleine, donc un graphique dont l'animation
+        // ne démarre jamais reste visible au lieu de disparaître.
+        drawIn: {
+          '0%': { transform: 'scaleX(0)' },
+          '100%': { transform: 'scaleX(1)' },
+        },
       },
       animation: {
         float: 'float 6s ease-in-out infinite',
         kenburns: 'kenburns 5s ease-in-out infinite alternate',
         runwayIn: 'runwayIn 0.7s ease-out',
         reveal: 'reveal 0.45s ease-out forwards',
+        drawIn: 'drawIn 0.9s cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },

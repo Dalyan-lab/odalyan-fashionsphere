@@ -14,10 +14,12 @@ import { AiStudioModal, type StudioMode } from '@/components/dashboard/ai-studio
 import { ProductForm } from '@/components/dashboard/product-form';
 import { SocialNetworksCard } from '@/components/dashboard/social-networks-card';
 import { CountUp } from '@/components/dashboard/count-up';
+import { ActivityChart, type DayActivity } from '@/components/dashboard/activity-chart';
 
 interface HomeStats {
   customersCount: number;
   conversionRate: number;
+  dailyActivity?: DayActivity[];
 }
 
 /* Images de démonstration (rendu visuel des modules IA à venir) */
@@ -135,6 +137,13 @@ export default function DashboardPage() {
               format={(n) => `${n.toFixed(1)}%`}
             />
           </section>
+
+          {/* ACTIVITÉ */}
+          {stats?.dailyActivity && stats.dailyActivity.length > 0 && (
+            <section>
+              <ActivityChart days={stats.dailyActivity} />
+            </section>
+          )}
 
           {/* OUTILS IA */}
           <section>

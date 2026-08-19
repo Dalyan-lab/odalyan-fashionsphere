@@ -99,10 +99,13 @@ export function CountUp({
   className?: string;
 }) {
   const courante = useCountUp(value);
+  // Largeur fixe **pendant la montée seulement**. Sans elle, un 1 plus étroit
+  // qu'un 8 fait trembler le nombre à chaque image ; en la gardant au repos,
+  // un grand nombre isolé paraîtrait délié, chaque chiffre occupant la largeur
+  // d'un zéro. On prend les deux avantages en la retirant à l'arrivée.
+  const enMouvement = courante !== value;
   return (
-    // `tabular-nums` fixe la largeur des chiffres. Sans lui, un 1 plus étroit
-    // qu'un 8 fait trembler le nombre pendant toute la montée.
-    <span className={`tabular-nums ${className}`}>
+    <span className={`${enMouvement ? 'tabular-nums' : ''} ${className}`}>
       {format ? format(courante) : Math.round(courante).toLocaleString('fr-FR')}
     </span>
   );

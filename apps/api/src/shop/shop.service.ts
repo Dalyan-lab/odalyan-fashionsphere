@@ -128,6 +128,31 @@ export class ShopService {
       months.push({ label, revenue: rev });
     }
 
+    // Activité des 7 derniers jours, aujourd'hui compris.
+    //
+    // Calculée sur les commandes déjà chargées : la série mensuelle ci-dessus
+    // fait de même, et une requête d'agrégation par jour coûterait un aller
+    // supplémentaire pour un volume que l'on tient déjà en mémoire.
+    //
+    // Les jours sans vente sont **présents avec zéro**, jamais omis : une
+    // courbe qui saute les jours creux resserre l'axe et fait passer une
+    // semaine calme pour une semaine régulière.
+    const JOUR = 24 * 60 * 60 * 1000;
+    const aujourdhui = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dailyActivity: { date: string; revenue: number; orders: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const debut = new Date(aujourdhui.getTime() - i * JOUR);
+      const fin = new Date(debut.getTime() + JOUR);
+      const duJour = paidOrders.filter((o) => o.createdAt >= debut && o.createdAt < fin);
+      dailyActivity.push({
+        // Date seule, sans heure : c'est le client qui compose le libellé,
+        // dans la langue de l'utilisateur.
+        date: `${debut.getFullYear()}-${String(debut.getMonth() + 1).padStart(2, '0')}-${String(debut.getDate()).padStart(2, '0')}`,
+        revenue: duJour.reduce((s, o) => s + Number(o.totalAmount), 0),
+        orders: duJour.length,
+      });
+    }
+
     return {
       revenue,
       ordersCount: orders.length,
@@ -138,6 +163,7 @@ export class ShopService {
       conversionRate,
       topProducts,
       monthlyRevenue: months,
+      dailyActivity,
     };
   }
 
