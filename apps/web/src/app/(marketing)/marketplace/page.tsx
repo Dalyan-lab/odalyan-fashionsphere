@@ -11,6 +11,7 @@ import {
 import { apiFetch } from '@/lib/api';
 import type { MarketplaceResponse } from '@/lib/types';
 import { ProductCard } from '@/components/product-card';
+import { MarketplaceHero } from '@/components/marketplace-hero';
 import { useT } from '@/lib/i18n';
 
 const DEPARTMENTS = Object.values(ProductDepartment);
@@ -51,8 +52,9 @@ export default function MarketplacePage() {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
-      <h1 className="font-display text-4xl font-bold">{t('mp.title')}</h1>
-      <p className="mt-2 text-muted">{t('mp.subtitle')}</p>
+      {/* Le bandeau porte le titre de la page : sans campagne en cours, il
+          affiche le titre et le sous-titre habituels, donc rien ne manque. */}
+      <MarketplaceHero fallbackTitle={t('mp.title')} fallbackSubtitle={t('mp.subtitle')} />
 
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <input

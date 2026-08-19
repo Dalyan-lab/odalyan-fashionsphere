@@ -10,3 +10,4 @@ export * from './dto/viral-amazone';
 export * from './dto/gamification';
 export * from './dto/coupon';
 export * from './dto/subscription';
+export * from './dto/banner';

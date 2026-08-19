@@ -1,0 +1,311 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  BANNER_THEMES,
+  BANNER_THEME_LABELS,
+  BANNER_TONES,
+  BANNER_TONE_LABELS,
+  isBannerLive,
+  type MarketplaceBannerInfo,
+} from '@odalyan/shared';
+import { apiFetch } from '@/lib/api';
+import { Topbar } from '@/components/dashboard/topbar';
+import { ImageUploadInput } from '@/components/dashboard/image-upload-input';
+
+/**
+ * Gestion des bandeaux de la marketplace.
+ *
+ * Toute la valeur de l'écran tient dans une chose : lancer, programmer ou
+ * arrêter une campagne **sans toucher au code**. On peut donc préparer les
+ * soldes trois semaines à l'avance, et les couper en une seconde si besoin.
+ */
+
+const VIDE = {
+  title: '',
+  subtitle: '',
+  badge: '',
+  tone: 'PROMO',
+  ctaLabel: '',
+  ctaUrl: '',
+  imageUrl: '',
+  videoUrl: '',
+  theme: 'violet',
+  active: true,
+  startsAt: '',
+  endsAt: '',
+  priority: 0,
+};
+
+type Form = typeof VIDE;
+
+/** `datetime-local` attend « AAAA-MM-JJTHH:MM », sans fuseau ni secondes. */
+function versChamp(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+export default function BannersPage() {
+  const [banners, setBanners] = useState<MarketplaceBannerInfo[]>([]);
+  const [form, setForm] = useState<Form>({ ...VIDE });
+  const [edite, setEdite] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
+  const [erreur, setErreur] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+
+  const charger = () =>
+    apiFetch<MarketplaceBannerInfo[]>('/banners').then(setBanners).catch(() => setBanners([]));
+
+  useEffect(() => {
+    charger();
+  }, []);
+
+  const reinitialiser = () => {
+    setForm({ ...VIDE });
+    setEdite(null);
+    setErreur('');
+  };
+
+  const editer = (b: MarketplaceBannerInfo) => {
+    setEdite(b.id);
+    setMsg('');
+    setErreur('');
+    setForm({
+      title: b.title,
+      subtitle: b.subtitle ?? '',
+      badge: b.badge ?? '',
+      tone: b.tone,
+      ctaLabel: b.ctaLabel ?? '',
+      ctaUrl: b.ctaUrl ?? '',
+      imageUrl: b.imageUrl ?? '',
+      videoUrl: b.videoUrl ?? '',
+      theme: b.theme,
+      active: b.active,
+      startsAt: versChamp(b.startsAt),
+      endsAt: versChamp(b.endsAt),
+      priority: b.priority,
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const enregistrer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnvoi(true);
+    setMsg('');
+    setErreur('');
+    try {
+      // Les dates partent en ISO complet ; vides, elles valent « pas de borne ».
+      const payload = {
+        ...form,
+        priority: Number(form.priority) || 0,
+        startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : '',
+        endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : '',
+      };
+      if (edite) await apiFetch(`/banners/${edite}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      else await apiFetch('/banners', { method: 'POST', body: JSON.stringify(payload) });
+      setMsg(edite ? 'Bandeau mis à jour.' : 'Bandeau créé.');
+      reinitialiser();
+      await charger();
+    } catch (err) {
+      setErreur(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  const supprimer = async (b: MarketplaceBannerInfo) => {
+    if (!window.confirm(`Supprimer définitivement « ${b.title} » ?`)) return;
+    await apiFetch(`/banners/${b.id}`, { method: 'DELETE' }).catch(() => undefined);
+    if (edite === b.id) reinitialiser();
+    await charger();
+  };
+
+  const basculer = async (b: MarketplaceBannerInfo) => {
+    await apiFetch(`/banners/${b.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active: !b.active }),
+    }).catch(() => undefined);
+    await charger();
+  };
+
+  // Même règle que le serveur, importée et non recopiée : une administration
+  // qui annoncerait « à l'antenne » un bandeau que les clients ne voient pas
+  // serait pire que pas d'indication du tout.
+  const enAntenne = banners.filter((b) => isBannerLive(b))[0]?.id ?? null;
+
+  const champ = (k: keyof Form) => ({
+    value: String(form[k] ?? ''),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setForm({ ...form, [k]: e.target.value }),
+  });
+
+  return (
+    <>
+      <Topbar />
+      <div className="mx-auto max-w-4xl p-6">
+        <h1 className="font-display text-3xl font-bold">Bandeaux de la marketplace</h1>
+        <p className="mt-1 text-muted">
+          Lancez, programmez ou coupez une campagne sans redéployer le site.
+        </p>
+
+        <form onSubmit={enregistrer} className="card mt-6 space-y-4 p-6">
+          <h2 className="font-bold">{edite ? 'Modifier le bandeau' : 'Nouveau bandeau'}</h2>
+
+          {erreur && (
+            <p className="rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-400">{erreur}</p>
+          )}
+          {msg && (
+            <p className="rounded-lg bg-emerald-500/15 px-3 py-2 text-sm text-emerald-500">{msg}</p>
+          )}
+
+          <div>
+            <label className="label">Titre</label>
+            <input className="input" {...champ('title')} required maxLength={90} />
+          </div>
+          <div>
+            <label className="label">Sous-titre</label>
+            <textarea className="input min-h-[70px]" {...champ('subtitle')} maxLength={180} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="label">Pastille</label>
+              <input className="input" placeholder="−30 %" {...champ('badge')} maxLength={24} />
+            </div>
+            <div>
+              <label className="label">Ton</label>
+              <select className="input" {...champ('tone')}>
+                {BANNER_TONES.map((t) => (
+                  <option key={t} value={t}>
+                    {BANNER_TONE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Ambiance</label>
+              <select className="input" {...champ('theme')}>
+                {BANNER_THEMES.map((t) => (
+                  <option key={t} value={t}>
+                    {BANNER_THEME_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Texte du bouton</label>
+              <input className="input" placeholder="J’en profite" {...champ('ctaLabel')} />
+            </div>
+            <div>
+              <label className="label">Lien du bouton</label>
+              <input className="input" placeholder="/marketplace?category=FEMME" {...champ('ctaUrl')} />
+            </div>
+          </div>
+
+          <ImageUploadInput
+            label="Image de fond"
+            value={form.imageUrl}
+            onChange={(url) => setForm({ ...form, imageUrl: url })}
+          />
+          <div>
+            <label className="label">Vidéo de fond (URL)</label>
+            <input className="input" placeholder="https://…/promo.mp4" {...champ('videoUrl')} />
+            <p className="mt-1 text-xs text-faint">
+              La vidéo passe devant l’image, muette et en boucle. L’image sert alors de
+              vignette pendant le chargement — et de secours pour les visiteurs qui ont
+              désactivé les animations.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="label">Début (optionnel)</label>
+              <input type="datetime-local" className="input" {...champ('startsAt')} />
+            </div>
+            <div>
+              <label className="label">Fin (optionnel)</label>
+              <input type="datetime-local" className="input" {...champ('endsAt')} />
+              <p className="mt-1 text-xs text-faint">
+                Un décompte s’affiche dans la dernière semaine.
+              </p>
+            </div>
+            <div>
+              <label className="label">Priorité</label>
+              <input type="number" min={0} max={1000} className="input" {...champ('priority')} />
+              <p className="mt-1 text-xs text-faint">La plus haute l’emporte.</p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(e) => setForm({ ...form, active: e.target.checked })}
+            />
+            Actif
+          </label>
+
+          <div className="flex gap-3">
+            <button className="btn-primary" disabled={envoi}>
+              {envoi ? '…' : edite ? 'Enregistrer' : 'Créer le bandeau'}
+            </button>
+            {edite && (
+              <button type="button" onClick={reinitialiser} className="text-sm text-muted hover:text-content">
+                Annuler
+              </button>
+            )}
+          </div>
+        </form>
+
+        <div className="mt-8 space-y-3">
+          {banners.length === 0 && (
+            <p className="card p-6 text-center text-sm text-muted">
+              Aucun bandeau. Sans campagne, la marketplace affiche son titre habituel.
+            </p>
+          )}
+          {banners.map((b) => (
+            <div key={b.id} className="card flex flex-wrap items-start justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-center gap-2 font-semibold">
+                  {b.title}
+                  {b.id === enAntenne && (
+                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-500">
+                      à l’antenne
+                    </span>
+                  )}
+                  {!b.active && (
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-faint">
+                      inactif
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-faint">
+                  {b.badge ? `${b.badge} · ` : ''}
+                  {BANNER_TONE_LABELS[b.tone]} · priorité {b.priority}
+                  {b.startsAt && ` · du ${new Date(b.startsAt).toLocaleString('fr-FR')}`}
+                  {b.endsAt && ` · au ${new Date(b.endsAt).toLocaleString('fr-FR')}`}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 text-sm">
+                <button onClick={() => basculer(b)} className="text-muted hover:text-content">
+                  {b.active ? 'Désactiver' : 'Activer'}
+                </button>
+                <button onClick={() => editer(b)} className="text-brand-violet hover:underline">
+                  Modifier
+                </button>
+                <button onClick={() => supprimer(b)} className="text-muted hover:text-red-400">
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
