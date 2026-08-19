@@ -50,11 +50,19 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'scale(1.06)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        // Apparition en cascade des blocs du tableau de bord. Le déplacement
+        // reste faible : au-delà, l'attente devient perceptible et l'effet
+        // agace au lieu de rassurer.
+        reveal: {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         float: 'float 6s ease-in-out infinite',
         kenburns: 'kenburns 5s ease-in-out infinite alternate',
         runwayIn: 'runwayIn 0.7s ease-out',
+        reveal: 'reveal 0.45s ease-out forwards',
       },
     },
   },

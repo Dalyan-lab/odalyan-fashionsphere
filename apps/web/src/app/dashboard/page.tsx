@@ -12,7 +12,7 @@ import { Topbar } from '@/components/dashboard/topbar';
 import { Icon } from '@/components/dashboard/icons';
 import { AiStudioModal, type StudioMode } from '@/components/dashboard/ai-studio-modal';
 import { ProductForm } from '@/components/dashboard/product-form';
-import { BrandIcon, type BrandName } from '@/components/brand-icons';
+import { SocialNetworksCard } from '@/components/dashboard/social-networks-card';
 
 interface HomeStats {
   customersCount: number;
@@ -232,28 +232,7 @@ export default function DashboardPage() {
 
           {/* Réseaux sociaux */}
           <Panel title={t('dh.social.title')} subtitle={t('dh.social.sub')}>
-            <Link href="/dashboard/campaigns" className="btn-primary mb-3 block w-full py-2 text-center text-sm">
-              {t('dh.social.cta')}
-            </Link>
-            <div className="grid grid-cols-5 gap-2">
-              {SOCIALS.map((s) => {
-                const I = BrandIcon[s.name];
-                return (
-                  <Link key={s.name} href="/dashboard/publications" className="flex flex-col items-center gap-1" title={s.name}>
-                    <span
-                      className="grid h-10 w-10 place-items-center rounded-xl text-white transition hover:scale-105"
-                      style={{ background: s.color }}
-                    >
-                      <I width={20} height={20} />
-                    </span>
-                    <span className="text-[9px] text-faint">{s.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
-            <Link href="/dashboard/publications" className="mt-3 block text-center text-[10px] text-brand-violet hover:underline">
-              {t('dh.social.manage')} →
-            </Link>
+            <SocialNetworksCard />
           </Panel>
         </aside>
       </div>
@@ -264,14 +243,6 @@ export default function DashboardPage() {
     </>
   );
 }
-
-const SOCIALS: { name: BrandName; color: string }[] = [
-  { name: 'Instagram', color: 'linear-gradient(45deg,#F58529,#DD2A7B,#8134AF)' },
-  { name: 'TikTok', color: '#010101' },
-  { name: 'YouTube', color: '#FF0000' },
-  { name: 'Pinterest', color: '#E60023' },
-  { name: 'LinkedIn', color: '#0A66C2' },
-];
 
 function StatCard({ icon, label, value }: { icon: keyof typeof Icon; label: string; value: string }) {
   return (
