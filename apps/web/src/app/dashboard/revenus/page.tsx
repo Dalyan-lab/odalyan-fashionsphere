@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useT, convertAndFormat, useLocale } from '@/lib/i18n';
+import { CountUp } from '@/components/dashboard/count-up';
 import { Topbar } from '@/components/dashboard/topbar';
 import { PLATFORM_CURRENCY } from '@odalyan/shared';
 
@@ -47,8 +48,24 @@ const STATUS_COLOR: Record<string, string> = {
   FAILED: 'bg-red-500/15 text-red-400',
 };
 
-function Amount({ value, currency }: { value: number; currency: string }) {
+/**
+ * `animate` fait monter la somme. Réservé aux quatre totaux du haut : dans
+ * l'historique des versements, une liste entière de chiffres qui défilent
+ * ferait du bruit au lieu d'attirer l'œil.
+ */
+function Amount({
+  value,
+  currency,
+  animate = false,
+}: {
+  value: number;
+  currency: string;
+  animate?: boolean;
+}) {
   const target = useLocale((s) => s.currency);
+  if (animate) {
+    return <CountUp value={value} format={(n) => convertAndFormat(n, currency, target)} />;
+  }
   return <>{convertAndFormat(value, currency, target)}</>;
 }
 
@@ -124,7 +141,7 @@ export default function RevenusPage() {
                 ⚠️ {balance.debtCount} remboursement{balance.debtCount > 1 ? 's' : ''} accordé
                 {balance.debtCount > 1 ? 's' : ''} sur des commandes déjà versées :{' '}
                 <strong>
-                  <Amount value={balance.debt} currency={currency} />
+                  <Amount value={balance.debt} currency={currency} animate />
                 </strong>{' '}
                 seront retenus sur votre prochain versement.
               </p>
@@ -134,7 +151,7 @@ export default function RevenusPage() {
               <div className="card p-5">
                 <p className="text-xs uppercase tracking-wide text-faint">{t('earn.available')}</p>
                 <p className="mt-1 font-display text-2xl font-bold text-emerald-500">
-                  <Amount value={balance.available} currency={currency} />
+                  <Amount value={balance.available} currency={currency} animate />
                 </p>
                 <p className="mt-1 text-xs text-muted">
                   {balance.availableOrders} {t('earn.orders')}
@@ -143,7 +160,7 @@ export default function RevenusPage() {
               <div className="card p-5">
                 <p className="text-xs uppercase tracking-wide text-faint">{t('earn.onHold')}</p>
                 <p className="mt-1 font-display text-2xl font-bold">
-                  <Amount value={balance.onHold} currency={currency} />
+                  <Amount value={balance.onHold} currency={currency} animate />
                 </p>
                 <p className="mt-1 text-xs text-muted">
                   {t('earn.onHoldHelp').replace('{d}', String(balance.holdDays))}
@@ -152,14 +169,14 @@ export default function RevenusPage() {
               <div className="card p-5">
                 <p className="text-xs uppercase tracking-wide text-faint">{t('earn.pending')}</p>
                 <p className="mt-1 font-display text-2xl font-bold">
-                  <Amount value={balance.pending} currency={currency} />
+                  <Amount value={balance.pending} currency={currency} animate />
                 </p>
                 <p className="mt-1 text-xs text-muted">{t('earn.pendingHelp')}</p>
               </div>
               <div className="card p-5">
                 <p className="text-xs uppercase tracking-wide text-faint">{t('earn.paidOut')}</p>
                 <p className="mt-1 font-display text-2xl font-bold text-brand-violet">
-                  <Amount value={balance.totalPaidOut} currency={currency} />
+                  <Amount value={balance.totalPaidOut} currency={currency} animate />
                 </p>
                 <p className="mt-1 text-xs text-muted">
                   {t('earn.commission').replace('{p}', String(Math.round(balance.commissionRate * 100)))}

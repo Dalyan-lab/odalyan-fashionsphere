@@ -13,6 +13,7 @@ import { Icon } from '@/components/dashboard/icons';
 import { AiStudioModal, type StudioMode } from '@/components/dashboard/ai-studio-modal';
 import { ProductForm } from '@/components/dashboard/product-form';
 import { SocialNetworksCard } from '@/components/dashboard/social-networks-card';
+import { CountUp } from '@/components/dashboard/count-up';
 
 interface HomeStats {
   customersCount: number;
@@ -119,10 +120,20 @@ export default function DashboardPage() {
 
           {/* STATS */}
           <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard icon="stats" label={t('dh.totalSales')} value={convertAndFormat(revenue, PLATFORM_CURRENCY, currency)} />
-            <StatCard icon="orders" label={t('dh.orders')} value={String(shop._count?.orders ?? 0)} />
-            <StatCard icon="clients" label={t('dash.nav.clients')} value={String(stats?.customersCount ?? 0)} />
-            <StatCard icon="marketing" label={t('dh.conversion')} value={`${(stats?.conversionRate ?? 0).toFixed(1)}%`} />
+            <StatCard
+              icon="stats"
+              label={t('dh.totalSales')}
+              value={revenue}
+              format={(n) => convertAndFormat(n, PLATFORM_CURRENCY, currency)}
+            />
+            <StatCard icon="orders" label={t('dh.orders')} value={shop._count?.orders ?? 0} />
+            <StatCard icon="clients" label={t('dash.nav.clients')} value={stats?.customersCount ?? 0} />
+            <StatCard
+              icon="marketing"
+              label={t('dh.conversion')}
+              value={stats?.conversionRate ?? 0}
+              format={(n) => `${n.toFixed(1)}%`}
+            />
           </section>
 
           {/* OUTILS IA */}
@@ -244,13 +255,26 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: keyof typeof Icon; label: string; value: string }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  format,
+}: {
+  icon: keyof typeof Icon;
+  label: string;
+  /** Valeur brute : c'est le compteur qui la met en forme, pas l'appelant. */
+  value: number;
+  format?: (n: number) => string;
+}) {
   return (
-    <div className="card p-4">
+    <div className="card p-4 transition-transform duration-300 hover:-translate-y-0.5">
       <span className="grid h-9 w-9 place-items-center rounded-lg bg-surface-2 text-brand-violet">
         {Icon[icon]({ width: 18, height: 18 })}
       </span>
-      <p className="mt-3 font-display text-2xl font-bold">{value}</p>
+      <p className="mt-3 font-display text-2xl font-bold">
+        <CountUp value={value} format={format} />
+      </p>
       <p className="text-xs text-muted">{label}</p>
     </div>
   );
