@@ -418,9 +418,14 @@ export class AiService {
     // produit deux vues identiques).
     const ANGLE_PROMPT: Record<string, string> = {
       Face: 'de face, regardant l’objectif',
-      'Côté gauche': 'de profil gauche : la femme est tournée vers la GAUCHE de l’image (on voit le côté gauche de son corps)',
+      '45° gauche': 'en trois-quarts gauche : le corps pivoté d’environ 45 degrés vers la GAUCHE de l’image, le visage encore visible',
+      Profil: 'de profil complet : le corps pivoté de 90 degrés vers la GAUCHE, on ne voit qu’un seul côté du visage',
       Dos: 'de dos, tournant complètement le dos à l’objectif',
-      'Côté droit': 'de profil droit : la femme est tournée vers la DROITE de l’image (on voit le côté droit de son corps)',
+      '45° droite': 'en trois-quarts droit : le corps pivoté d’environ 45 degrés vers la DROITE de l’image, le visage encore visible',
+      // Libellés d'avant le passage à cinq vues, conservés pour que les
+      // essayages déjà réalisés gardent une consigne s'ils sont relancés.
+      'Côté gauche': 'de profil gauche : le corps tourné vers la GAUCHE de l’image',
+      'Côté droit': 'de profil droit : le corps tourné vers la DROITE de l’image',
     };
 
     const views: { angle: string; url: string; provider: string }[] = [];
@@ -455,7 +460,7 @@ export class AiService {
       const url = failedButAiOn ? productImage! : res.url;
       const provider = failedButAiOn ? 'product' : res.provider;
       if (res.provider !== 'mock') realCount++;
-      // La Face réussie devient la référence identité/tenue pour les 3 autres angles.
+      // La Face réussie devient la référence identité/tenue pour les autres angles.
       if (isFace && res.provider !== 'mock' && res.url) refImage = res.url;
 
       await this.prisma.generatedAsset.create({
@@ -497,7 +502,9 @@ export class AiService {
         url: { not: null },
       },
       orderBy: { createdAt: 'desc' },
-      take: TRYON_ANGLES.length,
+      // Large : un produit essayé avant le passage à cinq vues porte aussi des
+      // angles aux anciens libellés, qu'on veut pouvoir afficher.
+      take: TRYON_ANGLES.length * 3,
     });
     if (assets.length === 0) return null;
     // Réordonne selon TRYON_ANGLES et garde la vue la plus récente par angle.
@@ -510,6 +517,13 @@ export class AiService {
     for (const angle of TRYON_ANGLES) {
       const a = byAngle.get(angle);
       if (a?.url) views.push({ angle, url: a.url, provider: a.provider });
+    }
+    // Angles hors liste — ceux des essayages d'avant le passage à cinq vues.
+    // Les ignorer ferait disparaître de l'écran un essayage déjà payé.
+    for (const [angle, a] of byAngle) {
+      if (!TRYON_ANGLES.includes(angle as (typeof TRYON_ANGLES)[number]) && a.url) {
+        views.push({ angle, url: a.url, provider: a.provider });
+      }
     }
     if (views.length === 0) return null;
     return { productName: product.name, views };

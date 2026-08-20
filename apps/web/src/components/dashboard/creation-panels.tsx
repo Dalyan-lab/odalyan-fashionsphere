@@ -192,7 +192,9 @@ export function TryonPanel() {
           className="aspect-[4/3] w-full object-cover object-top"
         />
       </div>
-      <div className="grid grid-cols-4 gap-1.5">
+      {/* Une colonne par vue : la grille suit le nombre d'angles au lieu de
+          le supposer, sinon une vue supplémentaire passe à la ligne seule. */}
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${vues.length}, minmax(0, 1fr))` }}>
         {vues.map((v, i) => (
           <Vignette
             key={v.id}

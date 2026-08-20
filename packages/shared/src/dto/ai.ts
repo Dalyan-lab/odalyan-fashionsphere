@@ -130,7 +130,19 @@ export const generateMannequinSchema = z.object({
   garmentCategory: z.enum(['upper_body', 'lower_body', 'dresses']).optional(),
 });
 
-export const TRYON_ANGLES = ['Face', 'Côté gauche', 'Dos', 'Côté droit'] as const;
+/**
+ * Vues produites par un essayage, dans l'ordre d'une rotation du mannequin.
+ *
+ * Cinq plutôt que quatre : les deux trois-quarts sont les vues qui vendent un
+ * vêtement — elles montrent la coupe et le tombé, là où la face et le dos
+ * l'aplatissent.
+ *
+ * Les anciens essayages portent « Côté gauche » et « Côté droit ». Ces
+ * libellés ne figurent plus ici mais restent affichés : `getLastTryOn` ajoute
+ * à la suite tout angle inconnu de cette liste, sans quoi les essayages déjà
+ * réalisés disparaîtraient de l'écran.
+ */
+export const TRYON_ANGLES = ['Face', '45° gauche', 'Profil', 'Dos', '45° droite'] as const;
 
 export const TRYON_SIZES = ['S', 'M', 'L', 'XL', 'XXL'] as const;
 

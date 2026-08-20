@@ -262,7 +262,7 @@ export const PERIOD_DAYS: Record<BillingPeriod, number> = { monthly: 30, annual:
 /** Coût en crédits d'une génération, par type de contenu. */
 export const AI_CREDIT_COSTS = {
   image: 1, // mannequin IA, avatar
-  tryon: 3, // essayage / défilé (plusieurs vues)
+  tryon: 4, // essayage / défilé — 5 vues générées, une par angle
   campaign: 3, // visuel + textes multi-réseaux
   video: 10, // vidéo IA (le plus coûteux)
   text: 0, // textes publicitaires seuls : gratuits
