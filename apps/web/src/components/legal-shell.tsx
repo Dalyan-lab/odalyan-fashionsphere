@@ -32,6 +32,7 @@ export function LegalShell({
           .
         </p>
         <p className="mt-3 flex gap-4">
+          <Link href="/aide" className="hover:underline">Centre d’aide</Link>
           <Link href="/conditions" className="hover:underline">Conditions d’utilisation</Link>
           <Link href="/confidentialite" className="hover:underline">Politique de confidentialité</Link>
           <Link href="/" className="hover:underline">Accueil</Link>

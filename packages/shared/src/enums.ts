@@ -303,3 +303,18 @@ export function getCreditPack(id: string): CreditPack | undefined {
  * vendeur qui pense en francs a déjà produit une erreur de facteur 656.
  */
 export const PLATFORM_CURRENCY = 'XOF';
+
+/**
+ * Règles d'argent de la marketplace, valeurs par défaut.
+ *
+ * Partagées parce qu'elles sont **à la fois appliquées et publiées** : le
+ * serveur s'en sert pour calculer les versements, les conditions d'utilisation
+ * les annoncent aux vendeurs. Deux copies auraient fini par diverger, et la
+ * plateforme aurait alors promis autre chose que ce qu'elle fait.
+ *
+ * `PLATFORM_COMMISSION_RATE` et `PAYOUT_HOLD_DAYS` peuvent les remplacer côté
+ * serveur, et une boutique peut avoir un taux négocié : le vendeur voit
+ * toujours son taux réel dans « Mes revenus ».
+ */
+export const DEFAULT_COMMISSION_RATE = 0.1;
+export const DEFAULT_PAYOUT_HOLD_DAYS = 7;

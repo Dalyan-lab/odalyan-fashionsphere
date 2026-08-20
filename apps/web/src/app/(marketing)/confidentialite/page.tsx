@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { LegalShell, LegalSection } from '@/components/legal-shell';
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialité — Odalyan FashionSphere AI',
+  title: 'Politique de confidentialité',
   description:
     'Comment Odalyan FashionSphere AI collecte, utilise et protège vos données, y compris les connexions aux réseaux sociaux et la suppression des données.',
 };

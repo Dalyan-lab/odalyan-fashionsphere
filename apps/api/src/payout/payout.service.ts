@@ -9,8 +9,17 @@ import { computeOrderSplit } from './order-split';
 import { computePayoutAmount } from './payout-amount';
 import { RefundService } from './refund.service';
 
-/** Commission de la plateforme quand la boutique n'a pas de taux négocié. */
-const DEFAULT_COMMISSION_RATE = 0.1;
+/**
+ * Commission et délai de garantie : importés du paquet partagé, où les
+ * conditions d'utilisation puisent les mêmes valeurs. Les redéclarer ici
+ * laisserait le texte publié dériver du calcul appliqué.
+ */
+import { DEFAULT_COMMISSION_RATE, DEFAULT_PAYOUT_HOLD_DAYS } from '@odalyan/shared';
+
+function platformCommissionRate(): number {
+  const raw = Number(process.env.PLATFORM_COMMISSION_RATE);
+  return Number.isFinite(raw) && raw >= 0 && raw < 1 ? raw : DEFAULT_COMMISSION_RATE;
+}
 
 /**
  * Délai de garantie après livraison, avant qu'une vente ne devienne versable.
@@ -18,16 +27,9 @@ const DEFAULT_COMMISSION_RATE = 0.1;
  * Reverser dès la livraison exposerait la plateforme : un remboursement
  * réclamé après coup porterait sur de l'argent déjà sorti.
  */
-const DEFAULT_HOLD_DAYS = 7;
-
-function platformCommissionRate(): number {
-  const raw = Number(process.env.PLATFORM_COMMISSION_RATE);
-  return Number.isFinite(raw) && raw >= 0 && raw < 1 ? raw : DEFAULT_COMMISSION_RATE;
-}
-
 function holdDays(): number {
   const raw = Number(process.env.PAYOUT_HOLD_DAYS);
-  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_HOLD_DAYS;
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_PAYOUT_HOLD_DAYS;
 }
 
 @Injectable()

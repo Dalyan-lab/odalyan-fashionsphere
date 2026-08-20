@@ -61,6 +61,7 @@ const SELLER_SECTIONS: NavSection[] = [
       { key: 'dash.nav.credits', href: '/dashboard/credits', icon: 'credits' },
       { key: 'dash.nav.subscriptions', href: '/dashboard/subscriptions', icon: 'subscriptions' },
       { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
+      { key: 'dash.nav.help', href: '/aide', icon: 'search' },
     ],
   },
 ];
@@ -70,6 +71,7 @@ const CLIENT_ITEMS: NavItem[] = [
   { key: 'dash.nav.dashboard', href: '/dashboard', icon: 'dashboard' },
   { key: 'nav.browse', href: '/marketplace', icon: 'shop' },
   { key: 'dash.nav.settings', href: '/dashboard/settings', icon: 'settings' },
+  { key: 'dash.nav.help', href: '/aide', icon: 'search' },
 ];
 
 function NavRow({ item, active, onClick }: { item: NavItem; active: boolean; onClick: () => void }) {

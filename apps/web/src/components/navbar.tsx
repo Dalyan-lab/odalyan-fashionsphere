@@ -34,6 +34,9 @@ export function Navbar() {
           <Link href="/#features" className="transition hover:text-content">
             {t('nav.features')}
           </Link>
+          <Link href="/aide" className="transition hover:text-content">
+            Aide
+          </Link>
           <Link href="/#pricing" className="transition hover:text-content">
             {t('nav.pricing')}
           </Link>
