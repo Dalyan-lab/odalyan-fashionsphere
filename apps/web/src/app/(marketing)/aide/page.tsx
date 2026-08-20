@@ -209,7 +209,11 @@ export default function AidePage() {
       <div className="mt-14 rounded-2xl border border-border bg-surface-2 p-6">
         <h2 className="font-semibold">Vous ne trouvez pas votre réponse ?</h2>
         <p className="mt-2 text-sm text-muted">
-          Écrivez-nous à{' '}
+          Le programme d’affiliation a ses propres règles, détaillées sur la page{' '}
+          <Link href="/viral-amazone" className="text-brand-violet hover:underline">
+            ViralAmazone
+          </Link>
+          . Écrivez-nous à{' '}
           <a href="mailto:technodalyan@gmail.com" className="text-brand-violet hover:underline">
             technodalyan@gmail.com
           </a>

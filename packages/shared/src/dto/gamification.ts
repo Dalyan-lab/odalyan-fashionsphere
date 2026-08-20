@@ -93,3 +93,58 @@ export interface LeaderboardEntryDto {
   clicks: number;
   isMe: boolean;
 }
+
+/* ------------------------------------------------- Gains retirables en FCFA */
+
+/**
+ * Règles du retrait des gains ViralAmazone.
+ *
+ * **Les crédits IA ne se convertissent jamais en argent.** Ils s'achètent —
+ * 1 500 crédits pour 60 000 FCFA. Les rendre convertibles reviendrait à
+ * permettre d'acheter puis d'encaisser, et la plateforme paierait deux fois la
+ * même somme. Les gains vivent donc dans un registre séparé, alimenté par les
+ * seules performances d'affiliation.
+ */
+export const AFFILIATE_MIN_WITHDRAWAL = 25_000;
+
+/**
+ * Part reversée au créateur sur la commission d'affiliation encaissée par la
+ * plateforme, selon son niveau.
+ *
+ * Elle progresse avec le niveau : c'est ce qui récompense la régularité plutôt
+ * que le coup d'éclat isolé.
+ */
+export const TIER_AFFILIATE_SHARE: Record<CreatorTier, number> = {
+  [CreatorTier.BRONZE]: 0.4,
+  [CreatorTier.SILVER]: 0.5,
+  [CreatorTier.GOLD]: 0.6,
+  [CreatorTier.PLATINUM]: 0.7,
+};
+
+export type CreatorEarningStatus = 'AVAILABLE' | 'REQUESTED' | 'PAID' | 'REJECTED';
+
+export interface CreatorEarningDto {
+  id: string;
+  amount: number;
+  currency: string;
+  status: CreatorEarningStatus;
+  kind: string;
+  note: string | null;
+  createdAt: string;
+  paidAt: string | null;
+}
+
+export interface CreatorBalanceDto {
+  /** Gains acquis, retirables dès le seuil atteint. */
+  available: number;
+  /** Retraits demandés, en attente de virement. */
+  requested: number;
+  /** Total déjà versé, à vie. */
+  paidOut: number;
+  currency: string;
+  minWithdrawal: number;
+  /** Part reversée au niveau actuel, en pourcentage. */
+  sharePercent: number;
+  canWithdraw: boolean;
+  entries: CreatorEarningDto[];
+}

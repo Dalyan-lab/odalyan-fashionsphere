@@ -18,6 +18,7 @@ import { ShopService } from '../shop/shop.service';
 import { TrendsService } from './trends.service';
 import { ScriptGeneratorService } from './script-generator.service';
 import { GamificationService } from './gamification.service';
+import { EarningsService } from './earnings.service';
 import { PaapiProvider } from './providers/paapi.provider';
 import { KeepaProvider } from './providers/keepa.provider';
 
@@ -29,6 +30,7 @@ export class ViralAmazoneController {
     private readonly trends: TrendsService,
     private readonly scripts: ScriptGeneratorService,
     private readonly gamification: GamificationService,
+    private readonly earnings: EarningsService,
     private readonly shopService: ShopService,
     private readonly paapi: PaapiProvider,
     private readonly keepa: KeepaProvider,
@@ -138,4 +140,23 @@ export class ViralAmazoneController {
     const shop = await this.shopService.requireOwnedShop(userId).catch(() => null);
     return this.gamification.getLeaderboard(shop?.id ?? null);
   }
+
+  /** Solde des gains ViralAmazone du vendeur connecté. */
+  @Get('earnings')
+  earningsBalance(@CurrentUser('id') userId: string) {
+    return this.earnings.balance(userId);
+  }
+
+  /**
+   * Demande de retrait des gains disponibles.
+   *
+   * Aucun paramètre : on retire tout le disponible. Laisser choisir un montant
+   * partiel multiplierait les virements pour des sommes modestes, sans rien
+   * apporter au créateur.
+   */
+  @Post('earnings/withdraw')
+  withdrawEarnings(@CurrentUser('id') userId: string) {
+    return this.earnings.requestWithdrawal(userId);
+  }
+
 }

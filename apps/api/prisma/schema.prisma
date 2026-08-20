@@ -262,6 +262,7 @@ model Shop {
   viralScripts      ViralScript[]
   affiliateClicks   AffiliateClick[]
   rewardEvents      RewardEvent[]
+  creatorEarnings   CreatorEarning[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1014,4 +1015,48 @@ model MarketplaceBanner {
   updatedAt DateTime @updatedAt
 
   @@index([active, priority])
+}
+
+/// Statut d'une écriture au registre des gains d'affiliation.
+enum CreatorEarningStatus {
+  AVAILABLE // gain acquis, disponible au retrait
+  REQUESTED // retrait demandé par le vendeur, en attente
+  PAID // retrait versé
+  REJECTED // écriture annulée (erreur, litige) — exclue du solde
+}
+
+/// Registre des gains ViralAmazone d'une boutique, en francs CFA.
+///
+/// Volontairement SÉPARÉ des crédits IA. Les crédits s'achètent : les
+/// convertir en argent permettrait d'acheter un pack puis de l'encaisser, et
+/// la plateforme paierait deux fois la même somme. Ici seules les
+/// performances d'affiliation créditent le registre.
+///
+/// Un registre plutôt qu'un solde stocké : le solde se recalcule en
+/// additionnant les écritures, donc il ne peut pas dériver de son historique,
+/// et chaque mouvement reste justifiable devant un vendeur qui conteste.
+model CreatorEarning {
+  id     String @id @default(cuid())
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shopId String
+
+  /// Positif = gain crédité, négatif = retrait. Le solde est leur somme.
+  amount   Decimal              @db.Decimal(10, 2)
+  currency String               @default("XOF")
+  status   CreatorEarningStatus @default(AVAILABLE)
+
+  /// Origine lisible : 'affiliate' | 'bonus' | 'withdrawal' | 'adjustment'
+  kind String
+  note String?
+
+  /// Coordonnées visées par le retrait, figées au moment de la demande :
+  /// le vendeur peut les changer ensuite sans réécrire l'historique.
+  destination String?
+  transferRef String?
+  paidAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId, status])
 }

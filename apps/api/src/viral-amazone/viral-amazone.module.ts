@@ -6,12 +6,14 @@ import { GoController } from './go.controller';
 import { TrendsService } from './trends.service';
 import { ScriptGeneratorService } from './script-generator.service';
 import { GamificationService } from './gamification.service';
+import { EarningsService } from './earnings.service';
 import { PaapiProvider } from './providers/paapi.provider';
 import { KeepaProvider } from './providers/keepa.provider';
 
 @Module({
   imports: [ShopModule, AiModule],
   controllers: [ViralAmazoneController, GoController],
-  providers: [TrendsService, ScriptGeneratorService, GamificationService, PaapiProvider, KeepaProvider],
+  providers: [TrendsService, ScriptGeneratorService, GamificationService, EarningsService, PaapiProvider, KeepaProvider],
+  exports: [EarningsService],
 })
 export class ViralAmazoneModule {}

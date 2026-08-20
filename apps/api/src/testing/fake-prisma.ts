@@ -95,6 +95,40 @@ export function makeFakePrisma(db: FakeDb) {
         hit.forEach((r) => Object.assign(r, args.data));
         return Promise.resolve({ count: hit.length });
       },
+      /**
+       * Somme et compte sur les lignes filtrées. Seul `_sum` est interprété :
+       * c'est le seul agrégat dont dépendent les services testés, et en
+       * simuler d'autres donnerait l'illusion d'une couverture inexistante.
+       */
+      aggregate: (args: { where?: Row; _sum?: Record<string, boolean> }) => {
+        calls.push({ model: name, method: 'aggregate', args });
+        const hit = rows().filter((r) => matches(r, args?.where));
+        const _sum: Record<string, number> = {};
+        for (const champ of Object.keys(args?._sum ?? {})) {
+          _sum[champ] = hit.reduce((t, r) => t + Number(r[champ] ?? 0), 0);
+        }
+        return Promise.resolve({ _sum, _count: hit.length });
+      },
+      groupBy: (args: { by: string[]; where?: Row; _sum?: Record<string, boolean> }) => {
+        calls.push({ model: name, method: 'groupBy', args });
+        const hit = rows().filter((r) => matches(r, args?.where));
+        const groupes = new Map<string, Row[]>();
+        for (const r of hit) {
+          const cle = args.by.map((b) => String(r[b])).join('|');
+          groupes.set(cle, [...(groupes.get(cle) ?? []), r]);
+        }
+        return Promise.resolve(
+          [...groupes.entries()].map(([cle, lignes]) => {
+            const sortie: Row = {};
+            args.by.forEach((b, i) => (sortie[b] = cle.split('|')[i]));
+            const _sum: Record<string, number> = {};
+            for (const champ of Object.keys(args?._sum ?? {})) {
+              _sum[champ] = lignes.reduce((t, r) => t + Number(r[champ] ?? 0), 0);
+            }
+            return { ...sortie, _sum, _count: lignes.length };
+          }),
+        );
+      },
       delete: (args: { where: Row }) => {
         calls.push({ model: name, method: 'delete', args });
         const i = rows().findIndex((r) => matches(r, args.where));

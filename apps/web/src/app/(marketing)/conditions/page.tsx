@@ -161,7 +161,14 @@ export default function ConditionsPage() {
           peuvent contenir des liens rémunérés. Vous vous engagez à respecter les règles des programmes
           d’affiliation utilisés, notamment l’obligation de transparence envers votre audience.
         </p>
-      </LegalSection>
+              <p>
+          Les niveaux, bonus et parts reversées du programme ViralAmazone sont publiés sur la page
+          du programme et s’appliquent tels qu’ils y figurent. Les gains d’affiliation sont tenus
+          sur un solde distinct, en francs CFA, retirable à partir du seuil annoncé. Les crédits IA
+          ne sont convertibles ni en argent ni entre comptes&nbsp;: ils sont acquis à l’usage du
+          service.
+        </p>
+</LegalSection>
 
       <LegalSection title="13. Propriété intellectuelle">
         <p>
