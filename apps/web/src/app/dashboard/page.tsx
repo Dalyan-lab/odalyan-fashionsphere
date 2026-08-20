@@ -16,6 +16,7 @@ import { SocialNetworksCard } from '@/components/dashboard/social-networks-card'
 import { CountUp } from '@/components/dashboard/count-up';
 import { ActivityChart, type DayActivity } from '@/components/dashboard/activity-chart';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
+import { AvatarPanel, TryonPanel, RunwayPanel } from '@/components/dashboard/creation-panels';
 
 interface HomeStats {
   customersCount: number;
@@ -29,8 +30,6 @@ const IMG = {
   mannequin: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400',
   video: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400',
   pub: 'https://images.unsplash.com/photo-1467043237213-65f2da53396f?w=400',
-  avatar: 'https://images.unsplash.com/photo-1488161628813-04466f872be2?w=400',
-  dress: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300',
   runway: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300',
 };
 
@@ -207,64 +206,17 @@ export default function DashboardPage() {
 
           {/* Mon Avatar */}
           <Panel title={t('dh.avatar.title')} subtitle={t('dh.avatar.sub')}>
-            <div className="flex items-center gap-3">
-              <div className="flex -space-x-2">
-                {[0, 1, 2].map((i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={`${IMG.avatar}&sig=${i}`} alt="" className="h-10 w-10 rounded-full border-2 border-surface object-cover" />
-                ))}
-              </div>
-              <button className="grid h-10 w-10 place-items-center rounded-full border border-dashed border-border text-faint transition hover:text-content">
-                {Icon.plus({})}
-              </button>
-            </div>
-            <Link href="/dashboard/avatars" className="btn-primary mt-4 block w-full py-2 text-center text-sm">
-              {t('dh.avatar.cta')}
-            </Link>
+            <AvatarPanel />
           </Panel>
 
           {/* Essayage virtuel */}
           <Panel title={t('dh.tryon.title')} subtitle={t('dh.tryon.sub')}>
-            <div className="grid grid-cols-5 gap-1.5">
-              {['Face', '45°', 'Profil', 'Dos', '45°'].map((a, i) => (
-                <div key={i} className="overflow-hidden rounded-lg border border-border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`${IMG.dress}&sig=${i}`} alt={a} className="aspect-[3/5] w-full object-cover" />
-                  <p className="bg-surface-2 py-0.5 text-center text-[9px] text-faint">{a}</p>
-                </div>
-              ))}
-            </div>
-            <Link href="/dashboard/tryon" className="mt-3 block text-center text-[10px] text-brand-violet hover:underline">
-              {t('dh.tryon.cta')}
-            </Link>
+            <TryonPanel />
           </Panel>
 
           {/* Défilé animé */}
           <Panel title={t('dh.runway.title')} subtitle={t('dh.runway.sub')}>
-            <div className="mb-2 flex justify-end">
-              <Link href="/dashboard/defile" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs text-muted transition hover:text-content">
-                {Icon.play({ width: 14, height: 14 })} {t('dh.runway.launch')}
-              </Link>
-            </div>
-            <div className="grid grid-cols-5 gap-1.5">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="overflow-hidden rounded-lg border border-border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`${IMG.runway}&sig=${i}`} alt="" className="aspect-[3/5] w-full object-cover" />
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <button className="grid h-8 w-8 place-items-center rounded-full bg-brand-violet-magenta text-white">
-                {Icon.play({ width: 14, height: 14 })}
-              </button>
-              <div className="h-1.5 flex-1 rounded-full bg-surface-2">
-                <div className="h-full w-1/3 rounded-full bg-brand-violet-magenta" />
-              </div>
-            </div>
-            <Link href="/dashboard/defile" className="mt-3 block text-center text-[10px] text-brand-violet hover:underline">
-              {t('dh.runway.open')}
-            </Link>
+            <RunwayPanel />
           </Panel>
 
           {/* Réseaux sociaux */}
