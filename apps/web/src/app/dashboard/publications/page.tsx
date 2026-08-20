@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { SOCIAL_TOKEN_WARN_DAYS } from '@odalyan/shared';
 import type { ScheduledPostDto, SocialConnectionInfo, SocialNetworkStatus } from '@odalyan/shared';
 import { apiFetch, uploadFile } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -157,6 +158,25 @@ export default function PublicationsPage() {
                         <p className="truncate text-xs text-faint">
                           {c.connected ? c.accountName : t('pub.notConnected')}
                         </p>
+                        {/* Prévenir AVANT la panne : sans ce rappel, le vendeur
+                            découvre l'expiration sur une publication ratée. */}
+                        {c.connected && typeof c.expiresInDays === 'number' && (
+                          <p
+                            className={`mt-0.5 text-[11px] ${
+                              c.expiresInDays < 0
+                                ? 'text-red-400'
+                                : c.expiresInDays <= SOCIAL_TOKEN_WARN_DAYS
+                                  ? 'text-amber-500'
+                                  : 'text-faint'
+                            }`}
+                          >
+                            {c.expiresInDays < 0
+                              ? 'Connexion expirée — reconnectez le compte'
+                              : c.expiresInDays === 0
+                                ? 'Expire aujourd’hui — reconnectez le compte'
+                                : `Connexion valable ${c.expiresInDays} jour${c.expiresInDays > 1 ? 's' : ''}`}
+                          </p>
+                        )}
                       </div>
                       <button
                         onClick={() => toggle(c.network, c.connected)}

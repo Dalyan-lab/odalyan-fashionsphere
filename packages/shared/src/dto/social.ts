@@ -60,7 +60,25 @@ export interface SocialConnectionInfo {
   network: string;
   connected: boolean;
   accountName?: string | null;
+  /**
+   * Échéance du jeton, quand le réseau en impose une.
+   *
+   * Remontée jusqu'à l'interface parce qu'une connexion qui expire sans
+   * prévenir fait échouer une publication programmée en pleine nuit : le
+   * vendeur ne l'apprend qu'après coup, sur un message d'erreur.
+   */
+  expiresAt?: string | null;
+  /** Jours restants, arrondis. Négatif si le jeton est déjà expiré. */
+  expiresInDays?: number | null;
 }
+
+/**
+ * Seuil d'alerte : en deçà, l'interface invite à reconnecter le compte.
+ *
+ * Une semaine laisse le temps d'agir sans transformer l'avertissement en
+ * bruit permanent — un bandeau affiché soixante jours d'affilée cesse d'être lu.
+ */
+export const SOCIAL_TOKEN_WARN_DAYS = 7;
 
 /** État d'un réseau : provider écrit ? app développeur configurée ? */
 export interface SocialNetworkStatus {

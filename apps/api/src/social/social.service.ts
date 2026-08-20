@@ -48,9 +48,19 @@ export class SocialService {
   async listConnections(userId: string): Promise<SocialConnectionInfo[]> {
     const shop = await this.shopService.requireOwnedShop(userId);
     const rows = await this.prisma.socialConnection.findMany({ where: { shopId: shop.id } });
+    const JOUR = 24 * 60 * 60 * 1000;
     return NETWORKS.map((network) => {
       const row = rows.find((r) => r.network === network);
-      return { network, connected: row?.connected ?? false, accountName: row?.accountName ?? null };
+      const echeance = row?.tokenExpiresAt ?? null;
+      return {
+        network,
+        connected: row?.connected ?? false,
+        accountName: row?.accountName ?? null,
+        expiresAt: echeance?.toISOString() ?? null,
+        // Arrondi vers le bas : mieux vaut annoncer un jour de moins qu'un de
+        // trop sur une échéance qui coupe la publication.
+        expiresInDays: echeance ? Math.floor((echeance.getTime() - Date.now()) / JOUR) : null,
+      };
     });
   }
 
