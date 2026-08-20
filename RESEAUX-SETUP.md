@@ -154,13 +154,38 @@ boards:read, pins:read, pins:write, user_accounts:read
 Remplace X, dont le niveau d'API permettant de publier est payant (~100 $/mois).
 LinkedIn publie **du texte et des images sur votre profil**.
 
-### 1. Créer l'application
+### 0. Préparer le compte
 
-[developer.linkedin.com](https://developer.linkedin.com) → **My apps** → créer une
-application. Elle doit être rattachée à une **Page LinkedIn** — si vous n'en avez
-pas, créez-en une, c'est gratuit et immédiat.
+Sur un profil neuf, deux points valent la minute qu'ils coûtent : une **photo**
+et un **titre** sous votre nom. LinkedIn restreint volontiers les comptes vides
+qui créent aussitôt une application, et une restriction se lève bien plus
+lentement qu'elle ne s'obtient.
 
-### 2. Ajouter le produit
+### 1. Créer la Page — à faire AVANT l'application
+
+Une application LinkedIn ne peut pas exister sans **Page** : le formulaire de
+création la réclame, et vous ne pourrez pas aller plus loin sans elle.
+
+Menu **Pour les entreprises** → **Créer une page LinkedIn** → *Entreprise*.
+Nom, secteur, taille, adresse du site. C'est gratuit et immédiat, et vous en
+êtes automatiquement administrateur — ce qui compte pour l'étape 3.
+
+### 2. Créer l'application
+
+[developer.linkedin.com](https://developer.linkedin.com) → **My apps** →
+**Create app**. Renseignez le nom, puis la Page créée à l'étape précédente.
+
+### 3. Vérifier l'application — l'étape qu'on oublie
+
+L'application reste **inutilisable tant qu'elle n'est pas vérifiée**, et aucun
+produit ne peut être demandé avant. Onglet **Settings** → **Verify** : LinkedIn
+génère un lien à ouvrir en tant qu'administrateur de la Page. Ouvrez-le,
+confirmez, et l'application passe en vérifiée.
+
+C'est immédiat puisque vous administrez la Page. Sans cette étape, l'onglet
+Products refuse toute demande — et rien ne l'explique clairement à l'écran.
+
+### 4. Ajouter le produit
 
 Onglet **Products** → demander **« Share on LinkedIn »**. L'accès est
 automatique, sans validation manuelle.
@@ -169,7 +194,7 @@ automatique, sans validation manuelle.
 > d'une Page d'entreprise et exige une validation longue. Le produit
 > « Share on LinkedIn » suffit pour publier sur votre profil.
 
-### 3. Adresse de redirection
+### 5. Adresse de redirection
 
 Onglet **Auth** → **Authorized redirect URLs** → ajouter :
 
@@ -177,7 +202,7 @@ Onglet **Auth** → **Authorized redirect URLs** → ajouter :
 https://api.fashodalyansp.com/api/social/oauth/callback/LinkedIn
 ```
 
-### 4. Vérifier les autorisations
+### 6. Vérifier les autorisations
 
 Toujours dans **Auth**, la section des scopes OAuth doit contenir :
 
@@ -188,7 +213,7 @@ openid, profile, w_member_social
 Les deux premiers servent uniquement à récupérer votre identifiant de membre,
 indispensable pour signer la publication. Le troisième publie.
 
-### 5. Variables Railway
+### 7. Variables Railway
 
 | Variable | Valeur |
 |---|---|
