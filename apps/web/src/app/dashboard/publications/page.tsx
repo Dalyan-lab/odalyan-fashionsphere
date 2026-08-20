@@ -438,6 +438,17 @@ function PublishVideoPanel({
           </div>
         )}
 
+        {/* Chaque réseau a son format de prédilection. Le rappeler AVANT
+            l'envoi évite une publication qui passe mal et qu'il faut refaire :
+            une fois l'épingle en ligne, le mal est fait. */}
+        {nets.includes('Pinterest') && (
+          <p className="rounded-lg bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+            <strong className="text-content">Pinterest</strong> met en avant les visuels
+            verticaux. Visez un format 2:3 — par exemple 1 000 × 1 500 pixels — ou 9:16 pour une
+            vidéo. Une image carrée ou panoramique y sera rognée et beaucoup moins vue.
+          </p>
+        )}
+
         <div className="flex items-center gap-3">
           <button
             onClick={publish}
