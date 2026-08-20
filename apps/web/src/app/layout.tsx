@@ -4,6 +4,8 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PWARegister } from '@/components/pwa-register';
 
+import { BRAND, BRAND_LEGAL } from '@/lib/brand';
+
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-display' });
 
@@ -17,16 +19,16 @@ export const metadata: Metadata = {
   // carte de partage s'affiche alors sans visuel.
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Odalyan FashionSphere AI™ — Fashion Commerce IA',
+    default: `${BRAND_LEGAL} — Fashion Commerce IA`,
     // Les pages produit et boutique complètent ce gabarit.
-    template: '%s — Odalyan FashionSphere',
+    template: `%s — ${BRAND}`,
   },
   description: DESCRIPTION,
-  applicationName: 'Odalyan FashionSphere',
+  applicationName: BRAND,
   manifest: '/manifest.webmanifest',
   openGraph: {
     type: 'website',
-    siteName: 'Odalyan FashionSphere',
+    siteName: BRAND,
     locale: 'fr_FR',
     url: SITE_URL,
     title: 'Odalyan FashionSphere AI™',

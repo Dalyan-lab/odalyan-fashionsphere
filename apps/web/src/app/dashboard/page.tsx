@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { type AuthUser } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
-import { BRAND } from '@/lib/brand';
 import { convertAndFormat, useLocale, useT } from '@/lib/i18n';
 import { PLATFORM_CURRENCY } from '@odalyan/shared';
 import type { Product, Shop } from '@/lib/types';
@@ -98,14 +97,21 @@ export default function DashboardPage() {
           {/* HERO */}
           <section className="relative overflow-hidden rounded-3xl border border-border bg-brand-violet-magenta">
             <div className="relative z-10 max-w-md p-7">
-              <p className="text-sm font-medium text-white/80">{t('dh.welcome')}</p>
-              {/* Le nom complet est deux fois plus long que l'ancien libellé
-                  amputé : la taille cède avant la marque, et l'équilibrage
-                  évite qu'un seul mot reste seul sur la deuxième ligne. */}
+              {/* On est dans un espace de travail, connecté, avec le logo à
+                  deux centimètres : répéter le nom de la plateforme
+                  n'apprendrait rien. Le titre nomme donc la boutique du
+                  vendeur — la seule chose ici qui lui appartienne. */}
+              <p className="text-sm font-medium text-white/80">
+                {user?.firstName
+                  ? t('dh.welcomeName').replace('{n}', user.firstName)
+                  : t('dh.welcome')}
+              </p>
+              {/* Un nom de boutique peut être long : la taille cède avant lui,
+                  et l'équilibrage évite qu'un mot reste seul sur la ligne. */}
               <h1 className="mt-1 text-balance font-display text-3xl font-bold text-white sm:text-4xl">
-                {BRAND}
+                {shop.name}
               </h1>
-              <p className="mt-3 text-sm text-white/85">{t('dh.heroDesc')}</p>
+              <p className="mt-3 text-sm text-white/85">{t('dh.heroShopHint')}</p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link href="/dashboard/products" className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-brand-magenta transition hover:opacity-90">
                   {Icon.plus({ width: 18, height: 18 })} {t('dh.addProduct')}

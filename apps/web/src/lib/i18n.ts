@@ -222,7 +222,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'common.demo': 'démo',
     // Dashboard — accueil
     'dh.authRequired': 'Vous devez être connecté pour accéder au tableau de bord.',
-    'dh.welcome': 'Bienvenue sur',
+    'dh.welcome': 'Bienvenue',
+    'dh.welcomeName': 'Bienvenue, {n}',
+    'dh.heroShopHint': 'Votre boutique, vos créations, vos ventes — tout se pilote ici.',
     'dh.heroDesc': 'La plateforme tout-en-un pour créer, exposer, animer et vendre vos collections de mode avec l’IA.',
     'dh.addProduct': 'Ajouter un produit',
     'dh.viewShop': 'Voir ma boutique',
@@ -1016,7 +1018,9 @@ const DICT: Record<Lang, Record<string, string>> = {
     'common.demo': 'demo',
     // Dashboard — home
     'dh.authRequired': 'You must be signed in to access the dashboard.',
-    'dh.welcome': 'Welcome to',
+    'dh.welcome': 'Welcome',
+    'dh.welcomeName': 'Welcome, {n}',
+    'dh.heroShopHint': 'Your shop, your creations, your sales — all managed from here.',
     'dh.heroDesc': 'The all-in-one platform to create, showcase, animate and sell your fashion collections with AI.',
     'dh.addProduct': 'Add a product',
     'dh.viewShop': 'View my store',

@@ -127,8 +127,12 @@ export function Sidebar({ shopName, shopLogo }: { shopName?: string; shopLogo?: 
       >
         <Link href="/" onClick={close} className="mb-6 flex items-center gap-2.5 px-2">
           <Image src="/logo.png" alt="Odalyan" width={36} height={36} priority className="h-9 w-9 object-contain" />
-          <span className="font-display text-lg font-bold leading-none">
-            Fashion<span className="brand-gradient-text">Sphere</span> <span className="text-brand-blue">AI</span>
+          {/* Même écriture que la barre publique : « Odalyan » manquait ici,
+              et le nom se retrouvait amputé à l'endroit le plus visible de
+              l'espace de travail. Le nom est découpé pour le dégradé, pas
+              pour être raccourci. */}
+          <span className="font-display text-base font-bold leading-tight">
+            Odalyan <span className="brand-gradient-text">FashionSphere</span>
           </span>
         </Link>
 
