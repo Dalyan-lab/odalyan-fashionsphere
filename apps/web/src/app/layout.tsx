@@ -10,6 +10,13 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-display' });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fashodalyansp.com';
+/**
+ * Visuel des aperçus de lien, en 1200 × 630 — le format que LinkedIn, Facebook
+ * et WhatsApp affichent en grande image. Le logo, presque carré, n'y donnait
+ * qu'une vignette. Défini une fois : OpenGraph et Twitter partagent le même.
+ */
+const PARTAGE = { url: '/apercu-partage.jpg', width: 1200, height: 630, alt: BRAND };
+
 const DESCRIPTION =
   'Créez, animez, exposez et vendez avec la puissance de l’IA. Odalyan FashionSphere transforme une photo de vêtement en mannequins, défilés 3D, vidéos et publicités.';
 
@@ -33,13 +40,13 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: 'Odalyan FashionSphere AI™',
     description: DESCRIPTION,
-    images: ['/logo.png'],
+    images: [PARTAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Odalyan FashionSphere AI™',
     description: DESCRIPTION,
-    images: ['/logo.png'],
+    images: [PARTAGE],
   },
   appleWebApp: {
     capable: true,
