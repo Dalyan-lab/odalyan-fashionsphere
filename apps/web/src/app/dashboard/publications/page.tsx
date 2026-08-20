@@ -136,13 +136,13 @@ export default function PublicationsPage() {
                   const st = netStatus(c.network);
                   const mode = st?.enabled ? 'real' : st?.supported ? 'needsApp' : 'soon';
                   return (
-                    <div key={c.network} className="card flex items-center gap-3 p-4">
+                    <div key={c.network} className="card p-4">
+                      <div className="flex items-center gap-3">
                       <NetBadge network={c.network} />
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-1.5 font-medium">
                           {c.network}
                           <span
-                            title={st?.requirement}
                             className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
                               mode === 'real'
                                 ? 'bg-emerald-500/15 text-emerald-500'
@@ -167,6 +167,16 @@ export default function PublicationsPage() {
                       >
                         {busy === c.network ? '…' : c.connected ? t('pub.disconnect') : t('pub.connect')}
                       </button>
+                      </div>
+
+                      {/* Ce qui manque, écrit noir sur blanc plutôt qu'en
+                          infobulle : un vendeur ne survole pas une pastille
+                          pour découvrir pourquoi un réseau ne marche pas. */}
+                      {mode !== 'real' && st?.requirement && (
+                        <p className="mt-3 border-t border-border pt-3 text-[11px] leading-relaxed text-faint">
+                          {st.requirement}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
