@@ -48,9 +48,15 @@ const STUDIO_STEPS = [
   '🎬 Vidéo TikTok', '📝 Description & hashtags',
 ];
 
+/**
+ * Les noms commerciaux ne suivent pas ceux du code : « Studio Pro » vaut
+ * BUSINESS, pas PRO. La correspondance est donc écrite ici plutôt que devinée
+ * — s'en remettre au nom ferait souscrire la mauvaise offre.
+ */
 const PLANS = [
   {
     name: 'Découverte',
+    plan: 'STARTER',
     price: 'Gratuit',
     eur: '',
     items: ['Boutique en ligne + 50 produits', 'Liens d’affiliation ViralAmazone', '15 crédits IA / mois'],
@@ -58,6 +64,7 @@ const PLANS = [
   },
   {
     name: 'Créateur',
+    plan: 'PRO',
     price: '10 000 FCFA',
     eur: '≈ 15 € / mois',
     items: ['Produits illimités', 'Mannequins & avatars IA', 'Campagnes IA multi-réseaux', '150 crédits IA / mois'],
@@ -65,6 +72,7 @@ const PLANS = [
   },
   {
     name: 'Studio Pro',
+    plan: 'BUSINESS',
     price: '32 000 FCFA',
     eur: '≈ 49 € / mois',
     items: ['Tout Créateur, plus', 'Vidéos IA (défilé, animation)', 'Essayage virtuel & défilé 360°', '600 crédits IA / mois'],
@@ -72,6 +80,7 @@ const PLANS = [
   },
   {
     name: 'Marque',
+    plan: 'ENTERPRISE',
     price: '130 000 FCFA',
     eur: '≈ 199 € / mois',
     items: ['Tout Studio Pro, plus', 'Domaine perso & marque blanche', 'API complète', '5 000 crédits IA / mois'],
@@ -100,8 +109,9 @@ export default function HomePage() {
             <span className="brand-gradient-text">l’IA</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg text-muted">
-            La première plateforme FashionTech qui transforme une simple photo de vêtement en
-            mannequins, défilés 3D, vidéos et publicités — prêtes à vendre.
+            <strong className="font-semibold text-content">Odalyan FashionSphere</strong> transforme
+            une simple photo de vêtement en mannequins, défilés 3D, vidéos et publicités —
+            prêtes à vendre.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link href="/register" className="btn-primary text-base">
@@ -249,7 +259,9 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/register" className="btn-primary mt-6 w-full">
+              {/* L'offre choisie suit le visiteur : sans elle, il arrive sur
+                  une inscription générique et son choix est perdu. */}
+              <Link href={`/register?plan=${p.plan}`} className="btn-primary mt-6 w-full">
                 {p.price === 'Gratuit' ? 'Commencer' : 'Choisir'}
               </Link>
             </div>

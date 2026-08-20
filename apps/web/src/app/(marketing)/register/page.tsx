@@ -1,16 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { UserRole, type AuthResponse } from '@odalyan/shared';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { SocialAuthButtons } from '@/components/social-auth-buttons';
 import { PasswordInput } from '@/components/password-input';
 
+/** Nom commercial des offres, tel qu'affiché sur la page d'accueil. */
+const OFFRES: Record<string, string> = {
+  STARTER: 'Découverte',
+  PRO: 'Créateur',
+  BUSINESS: 'Studio Pro',
+  ENTERPRISE: 'Marque',
+};
+
+/**
+ * La lecture des paramètres d'URL suspend le rendu : sans cette frontière, la
+ * page ne peut pas être prérendue à la construction et le build échoue.
+ */
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  // L'offre cliquée sur la page d'accueil. On la rappelle ici : sans ce
+  // rappel, le visiteur doute d'avoir bien choisi et repart vérifier.
+  const offre = OFFRES[useSearchParams().get('plan') ?? ''] ?? null;
   const setAuth = useAuth((s) => s.setAuth);
   const [form, setForm] = useState({
     firstName: '',
@@ -47,6 +70,13 @@ export default function RegisterPage() {
     <main className="mx-auto flex max-w-md flex-col px-6 py-16">
       <h1 className="font-display text-4xl font-bold">Créer mon compte</h1>
       <p className="mt-2 text-muted">Lancez votre boutique de mode propulsée par l’IA.</p>
+
+      {offre && (
+        <p className="mt-4 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm">
+          Offre choisie : <strong className="text-brand-violet">{offre}</strong>. Créez votre
+          compte, vous l’activerez juste après.
+        </p>
+      )}
 
       <form onSubmit={submit} className="card mt-8 space-y-4 p-6">
         {error && <p className="rounded-lg bg-red-500/20 px-4 py-2 text-sm text-red-200">{error}</p>}

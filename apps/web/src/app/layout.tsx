@@ -9,7 +9,7 @@ const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-displa
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fashodalyansp.com';
 const DESCRIPTION =
-  'Créez, animez, exposez et vendez avec la puissance de l’IA. La première plateforme FashionTech alimentée par l’IA.';
+  'Créez, animez, exposez et vendez avec la puissance de l’IA. Odalyan FashionSphere transforme une photo de vêtement en mannequins, défilés 3D, vidéos et publicités.';
 
 export const metadata: Metadata = {
   // Indispensable : sans adresse de base, Next produit des URL d'images

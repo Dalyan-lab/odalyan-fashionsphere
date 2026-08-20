@@ -21,7 +21,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b border-border bg-bg/70 backdrop-blur-lg">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
         <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/logo.png" alt="Odalyan" width={40} height={40} className="h-10 w-10 object-contain" />
+          <Image src="/logo.png" alt="Odalyan" width={40} height={40} priority className="h-10 w-10 object-contain" />
           <span className="font-display text-xl font-bold tracking-wide">
             Odalyan <span className="brand-gradient-text">FashionSphere</span>
           </span>

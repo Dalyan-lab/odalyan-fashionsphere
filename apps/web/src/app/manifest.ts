@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Odalyan FashionSphere AI',
     short_name: 'FashionSphere',
     description:
-      'Créez, animez, exposez et vendez avec la puissance de l’IA. Plateforme FashionTech.',
+      'Créez, animez, exposez et vendez avec la puissance de l’IA. Odalyan FashionSphere.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
